@@ -79,3 +79,15 @@ Use this account for initial login:
 
 ## 📌 Repository
 🔗 **GitHub:** [nfsshop](https://github.com/afiqy/nfsshop.git)
+
+---
+
+📌 License
+MIT License - Feel free to use and modify.
+
+4️⃣ **Save the file** and push it to your repository:
+```sh
+git add README.md
+git commit -m "Added README.md"
+git push origin main
+```
