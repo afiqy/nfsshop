@@ -1,8 +1,10 @@
 <!-- Sidebar -->
+@php($user = auth()->user())
+@php($isSuperAdmin = $user && method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin())
 <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
 
     <!-- Sidebar - Brand -->
-    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{{ route('dashboard') }}">
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{{ route($isSuperAdmin ? 'super-admin.dashboard' : 'dashboard') }}">
         <div class="sidebar-brand-icon rotate-n-15">
             <i class="fas fa-tools"></i>
         </div>
@@ -12,106 +14,129 @@
     <!-- Divider -->
     <hr class="sidebar-divider my-0">
 
-    <!-- Dashboard -->
     <li class="nav-item">
-        <a class="nav-link" href="{{ route('dashboard') }}">
+        <a class="nav-link" href="{{ route($isSuperAdmin ? 'super-admin.dashboard' : 'dashboard') }}">
             <i class="fas fa-fw fa-tachometer-alt"></i>
             <span>Dashboard</span>
         </a>
     </li>
 
-    <!-- Divider -->
-    <hr class="sidebar-divider">
+    @if ($isSuperAdmin)
+        <!-- Divider -->
+        <hr class="sidebar-divider">
 
-    <!-- Heading -->
-    <div class="sidebar-heading">
-        Modules
+        <div class="sidebar-heading">
+            Platform Management
     </div>
 
-    <!-- Invoices -->
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('invoices.index') }}">
-            <i class="fas fa-file-invoice"></i>
-            <span>Invoices</span>
-        </a>
-    </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('super-admin.owners.index') }}">
+                <i class="fas fa-users-cog"></i>
+                <span>Workshop Owners</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('super-admin.impersonation.index') }}">
+                <i class="fas fa-user-secret"></i>
+                <span>Switch to Workshop</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('super-admin.workshops.index') }}">
+                <i class="fas fa-warehouse"></i>
+                <span>Workshops</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('super-admin.billing.dashboard') }}">
+                <i class="fas fa-credit-card"></i>
+                <span>Billing & Plans</span>
+            </a>
+        </li>
+    @else
+        <!-- Divider -->
+        <hr class="sidebar-divider">
 
-    <!-- Customers -->
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('customers.index') }}">
-            <i class="fas fa-users"></i>
-            <span>Customers</span>
-        </a>
-    </li>
+        <div class="sidebar-heading">
+            Modules
+        </div>
 
-    <!-- Vehicles -->
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('vehicles.index') }}">
-            <i class="fas fa-car"></i>
-            <span>Vehicles</span>
-        </a>
-    </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('invoices.index') }}">
+                <i class="fas fa-file-invoice"></i>
+                <span>Invoices</span>
+            </a>
+        </li>
 
-    <!-- Inventory -->
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('inventory.index') }}">
-            <i class="fas fa-warehouse"></i>
-            <span>Inventory</span>
-        </a>
-    </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('customers.index') }}">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+        </li>
 
-    <!-- Users Management -->
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('users.index') }}">
-            <i class="fas fa-user-cog"></i>
-            <span>Users</span>
-        </a>
-    </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('vehicles.index') }}">
+                <i class="fas fa-car"></i>
+                <span>Vehicles</span>
+            </a>
+        </li>
 
-    <!-- Calendar -->
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('calendar.index') }}">
-            <i class="fas fa-calendar-alt"></i>
-            <span>Calendar</span>
-        </a>
-    </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('inventory.index') }}">
+                <i class="fas fa-warehouse"></i>
+                <span>Inventory</span>
+            </a>
+        </li>
 
-    <!-- Tasks -->
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('tasks.index') }}">
-            <i class="fas fa-tasks"></i>
-            <span>Tasks</span>
-        </a>
-    </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('users.index') }}">
+                <i class="fas fa-user-cog"></i>
+                <span>Users</span>
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('calendar.index') }}">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Calendar</span>
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('tasks.index') }}">
+                <i class="fas fa-tasks"></i>
+                <span>Tasks</span>
+            </a>
+        </li>
+
+        <!-- Divider -->
+        <hr class="sidebar-divider">
+
+        <div class="sidebar-heading">
+            Admin Settings
+        </div>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('admin.settings') }}">
+                <i class="fas fa-cogs"></i>
+                <span>Admin Settings</span>
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('admin.roles.index') }}">
+                <i class="fas fa-user-shield"></i>
+                <span>Role Management</span>
+            </a>
+        </li>
+    @endif
 
     <!-- Divider -->
     <hr class="sidebar-divider">
 
-    <!-- Admin Settings & Role Management -->
-    <div class="sidebar-heading">
-        Admin Settings
-    </div>
-
     <li class="nav-item">
-        <a class="nav-link" href="{{ route('admin.settings') }}">
-            <i class="fas fa-cogs"></i>
-            <span>Admin Settings</span>
-        </a>
-    </li>
-
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('admin.roles.index') }}">
-            <i class="fas fa-user-shield"></i>
-            <span>Role Management</span>
-        </a>
-    </li>
-
-    <!-- Divider -->
-    <hr class="sidebar-divider">
-
-    <!-- Logout -->
-    <li class="nav-item">
-        <a class="nav-link" href="{{ route('logout') }}" 
+        <a class="nav-link" href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
             <i class="fas fa-sign-out-alt"></i>
             <span>Logout</span>
@@ -124,7 +149,6 @@
     <!-- Divider -->
     <hr class="sidebar-divider d-none d-md-block">
 
-    <!-- Sidebar Toggler -->
     <div class="text-center d-none d-md-inline">
         <button class="rounded-circle border-0" id="sidebarToggle"></button>
     </div>

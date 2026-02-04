@@ -1,0 +1,52 @@
+** 🏭 Workshop Admin (Owner of a workshop) **
+Modules specific to running their own workshop:
+
+1. User Management (Staff & Clients)
+   - Create/edit staff accounts.
+   - Manage client profiles (optional if client registered themselves).
+   - Assign permissions/roles.
+
+2. Workshop Setup
+   - Define services (repairs, maintenance, inspections).
+   - Add inventory items (parts, tools, consumables).
+   - Manage pricing, discounts, tax settings.
+
+3. Invoices & Billing
+   - Create/send invoices for clients.
+   - Generate receipts, credit notes, refunds.
+   - Track unpaid invoices, due reminders.
+
+4. Jobs / Service Orders
+   - Create work orders from client requests.
+   - Assign to staff.
+   - Track job progress and completion.
+
+5. Scheduling & Appointments
+   - Calendar for booking services.
+   - Client self-booking (if enabled).
+   - Reminders via email/SMS/WhatsApp.
+
+6. Inventory Management
+   - Stock in/out, supplier management.
+   - Low stock alerts.
+   - Purchase orders for parts.
+
+7. Reports & Analytics (for their workshop)
+   - Revenue by service, staff performance.
+   - Top clients, most used parts.
+   - Monthly/annual financial summaries.
+
+8. Client Engagement
+   - Send promotions or reminders.
+   - Track loyalty (visits, spend).
+   - Record service history per client vehicle.
+
+9. Workshop Dashboard
+   - Today’s appointments, invoices due, staff availability.
+   - Quick add (invoice, job, appointment).
+
+10. Vehicle Management
+    - Create/update vehicles tied to clients.
+    - Fill in details if client didn’t register.
+    - See full vehicle history (invoices, jobs, notes).
+    - Generate reports: most serviced cars, repeat visits, service reminders.

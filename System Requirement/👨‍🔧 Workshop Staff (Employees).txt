@@ -1,0 +1,25 @@
+**👨‍🔧 Workshop Staff (Employees)**
+Staff role should have limited access:
+
+1. Job Management
+   - View & update assigned jobs/orders.
+   - Record service notes & progress.
+   - Log parts used from inventory.
+
+2. Invoices (optional based on permission)
+   - Generate invoices for completed jobs.
+   - Mark payments received (cash, POS, transfer).
+
+3. Client Interaction
+   - Check client details & history.
+   - Confirm appointments.
+   - Update vehicle/service records.
+
+4. Dashboard (personal)
+   - Today’s assigned jobs.
+   - Pending tasks & deadlines.
+
+5. Vehicle Management
+  - View and update vehicle details while performing jobs.
+  - Record mileage, condition, parts used.
+  - Add service notes tied to vehicle history.

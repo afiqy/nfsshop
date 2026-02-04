@@ -14,10 +14,11 @@ class AdminSeeder extends Seeder
             ['email' => 'admin@nfsworkshop.com'], // Check if admin already exists
             [
                 'name' => 'Admin User',
+                'phone' => '000-000-0000',
                 'password' => Hash::make('password123'), // Securely hash password
-                'role' => 'admin',
+                'role' => User::ROLE_ADMIN,
+                'status' => User::STATUS_ACTIVE,
             ]
         );
     }
 }
-

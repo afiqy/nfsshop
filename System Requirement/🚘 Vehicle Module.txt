@@ -1,0 +1,26 @@
+🔧 Features of Vehicle Module
+
+1. Vehicle Master Data
+   - Make, model, year, VIN/chassis number, engine number.
+   - Plate/license number.
+   - Color, mileage, fuel type.
+
+2. Ownership & Linking
+   - Each vehicle is tied to a Client account.
+   - If client not registered, the Workshop Admin/Staff can still create a vehicle record and assign it later.
+   - Allow multiple vehicles per client.
+
+3. Service History
+   - Every invoice, work order, or service done is logged against the vehicle.
+   - Easy lookup: "Show me all services done on this car".
+
+4. Reminders & Notifications
+   - Service reminders (oil change, inspections, tire rotation).
+   - Registration/insurance renewal reminders (if owner enables).
+
+5. Attachments
+   - Upload documents: registration papers, insurance, photos of damage before/after.
+
+6. Search & Reports
+   - Search by plate number, VIN, or client name.
+   - Reports of vehicle types serviced (for workshop analytics).

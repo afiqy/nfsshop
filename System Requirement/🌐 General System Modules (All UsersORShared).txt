@@ -1,0 +1,56 @@
+🌐 General System Modules (All Users / Shared)
+
+1. Authentication & Access Control
+   - Secure login with password policies, CAPTCHA after repeated failures, and account lockouts.
+   - Optional SSO (Google/Microsoft) and multi-factor authentication for high-privilege actions.
+   - Role-based permissions (Superadmin, Owner, Staff, Client) with session timeouts and device management.
+
+2. User Account & Profile Management
+   - Update personal details, contact information, avatars/logos, and preferred communication channels.
+   - Manage passwords, recovery options, and linked authentication methods (SSO, MFA devices).
+   - Configure personal preferences such as language, timezone, and notification settings.
+
+3. Dashboard & Quick Actions
+   - Personalized landing page per role highlighting KPIs, pending tasks, and upcoming appointments.
+   - Configurable widgets and shortcuts for frequent actions (create invoice, schedule job, add vehicle).
+   - Consolidated activity feed showing recent changes, notifications, and reminders.
+
+4. Notifications & Alerts
+   - Multi-channel delivery (email, SMS, WhatsApp, in-app) with reusable templates and localization.
+   - Triggers include bookings, invoice/payment status, stock thresholds, and system announcements.
+   - Delivery tracking, opt-in/out controls, quiet hours, and escalation rules for critical alerts.
+
+5. Global Search & Smart Filters
+   - Unified search across clients, vehicles, jobs, invoices, inventory, payments, and documents.
+   - Advanced filters, saved views, partial/fuzzy matching, and search by identifiers (plate, phone, invoice no.).
+   - Export filtered results to CSV/PDF when allowed by role permissions.
+
+6. Document & Media Library
+   - Upload, tag, and categorize files with virus scanning and file-type/size validation.
+   - Attach documents to jobs, invoices, vehicles, and client profiles with version history.
+   - Preview common file types and enforce storage quotas or retention rules by subscription tier.
+
+7. Audit Trail & Activity Monitoring
+   - Capture create/update/delete events with timestamp, user, origin (web/mobile/API), and old/new values.
+   - Filterable audit log with export, retention policies, and tamper-evident storage.
+   - Real-time alerts for suspicious activity such as repeated failed logins or access from new devices.
+
+8. Localization & Regional Settings
+   - Multi-language UI, currency formatting, tax rules, and measurement units configurable per workshop.
+   - Timezone-aware scheduling for bookings, reminders, and invoice due dates.
+   - Support for government-compliant numbering (invoice prefixes, tax IDs) per locale.
+
+9. Support & Helpdesk
+   - In-app support widget to submit tickets, attach screenshots/documents, and track resolution status.
+   - Knowledge base, FAQs, and interactive guides accessible to all roles.
+   - Feedback forms and satisfaction surveys routed to Superadmin support teams.
+
+10. Mobile & Multi-Device Experience
+    - Responsive layouts optimized for phones/tablets with streamlined workflows for workshop floors.
+    - Native/PWA capabilities: push notifications, camera uploads, signature capture, barcode scanning.
+    - Offline-ready capture for key tasks (job check-ins, photos) with background sync when online.
+
+11. Data Import & Export
+    - Bulk import templates for clients, vehicles, inventory, price lists, and historical invoices.
+    - Export reports and records (invoices, payments, job cards) to CSV/PDF or connected accounting apps.
+    - Scheduled exports/backups aligned with subscription tiers and compliance requirements.

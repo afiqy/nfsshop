@@ -22,6 +22,10 @@
 
     <!-- PWA Service Worker -->
     <script src="{{ asset('/sw.js') }}"></script>
+
+    <!-- Individual Scripts -->
+    @yield('scripts')
+    
     <script>
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register("/sw.js").then(

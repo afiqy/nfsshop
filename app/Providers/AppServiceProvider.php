@@ -12,8 +12,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->loadMigrationsFrom([
+            database_path('migrations'),
+            database_path('migrations/tenant'),
+        ]);
     }
+
 
     /**
      * Bootstrap any application services.

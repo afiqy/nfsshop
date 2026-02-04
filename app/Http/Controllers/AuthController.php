@@ -1,64 +1,106 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
+use Stancl\Tenancy\Database\Models\Tenant;
 
 class AuthController extends Controller
 {
-    // 🔹 Show Login Form
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
-    // 🔹 Handle Login
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|min:6',
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
         ]);
 
-        if (Auth::attempt($request->only('email', 'password'), $request->filled('remember'))) {
-            return redirect()->route('dashboard')->with('success', 'Logged in successfully');
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            $request->session()->regenerate();
+
+            $user = Auth::user();
+
+            if ($user->isSuspended()) {
+                if (tenancy()->initialized) {
+                    tenancy()->end();
+                }
+
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Your account has been suspended. Please contact support.',
+                ]);
+            }
+
+            if ($user->isSuperAdmin()) {
+                if (tenancy()->initialized) {
+                    tenancy()->end();
+                }
+
+                $request->session()->forget('tenant_id');
+
+                return redirect()->intended(route('super-admin.dashboard'))->with('success', 'Logged in successfully');
+            }
+
+            $tenantId = $user->tenant_id;
+
+            if (! $tenantId || ! Tenant::find($tenantId)) {
+                if (tenancy()->initialized) {
+                    tenancy()->end();
+                }
+
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Your account is not linked to an active workshop. Please contact support.',
+                ]);
+            }
+
+            session(['tenant_id' => $tenantId]);
+
+            if (! tenancy()->initialized || tenant('id') !== $tenantId) {
+                tenancy()->initialize($tenantId);
+            }
+
+            return redirect()->intended(route('dashboard'))->with('success', 'Logged in successfully');
         }
 
-        return back()->withErrors(['email' => 'Invalid credentials']);
+        return back()->withErrors([
+            'email' => 'Invalid credentials',
+        ])->onlyInput('email');
     }
 
-    // 🔹 Show Registration Form
     public function showRegisterForm()
     {
-        return view('auth.register');
+        return redirect()->route('register');
     }
 
-    // 🔹 Handle Registration
     public function register(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6|confirmed',
-        ]);
-
-        User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-
-        return redirect()->route('login')->with('success', 'Account created successfully, please login.');
+        return redirect()->route('register');
     }
 
-    // 🔹 Handle Logout
     public function logout(Request $request)
     {
+        if (tenancy()->initialized) {
+            tenancy()->end();
+        }
+
         Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect()->route('login')->with('success', 'Logged out successfully');
     }
-}
 
+}

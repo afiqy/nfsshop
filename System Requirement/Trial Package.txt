@@ -1,0 +1,70 @@
+📑 Refined Free Trial & Trial Run Requirements
+1. 🎟️ Free Trial (1 Month)
+ - Eligibility & Uniqueness Checks (same as before):
+     - Unique workshop name (primary).
+     - Unique owner email.
+     - Unique address (secondary check).
+     - Re-registering with same workshop name under new email = staff role (no new trial).
+ - Trial Duration: 30 days.
+ - After Expiry Behavior:
+     - Owner/Admin login →
+         - Redirected to Dashboard, but all modules (jobs, invoices, etc.) are grayed out/disabled.
+         - Only Subscription Page remains active to upgrade/pay.
+     - Staff login →
+         - Redirected to “Subscription Required” notice page.
+         - Message: “Your workshop’s subscription has expired. Please contact your workshop admin.”
+         - Staff cannot make payments or manage subscription.
+ - Notifications:
+     - Welcome email at registration.
+     - Reminder at 7 days before expiry.
+     - Final reminder on expiry day.
+
+
+2. ⏳ Trial Run (3 Months, 50% Off)
+
+ - Eligibility: One-time per workshop.
+ - Pricing: 50% discount on quarterly plan.
+ - Subscription Handling:
+     - Full access during 3 months.
+     - Auto-renew at full quarterly price when trial ends.
+ - Cancellation Rules:
+     - User may cancel early → no refund, but access continues until end date.
+ - After Expiry Behavior:
+     - Same as Free Trial: system still opens to dashboard, but only subscription page is usable.
+     - Staff users see “Subscription Required” notice.
+ - Notifications:
+     - Confirmation email when activated.
+     - Reminder 7 days before expiry.
+     - Reminder 1 day before auto-renew.
+
+
+3. 🔒 Fraud Prevention
+ - Enforce uniqueness on:
+     - Workshop name (primary).
+     - Owner email.
+     - Workshop address (secondary).
+ - If duplicate workshop name/address is detected:
+     - Register user as staff under existing workshop.
+
+
+4. ⚙️ System Logic
+ - Free Trial (no payment, no auto-renew).
+     - Expiry → lock features, show subscription page only.
+ - Trial Run (3 months, paid).
+     - Expiry → auto-convert to quarterly subscription unless canceled.
+     - Cancellation → no refund, access until end date, then lock to subscription page.
+ - Staff behavior after expiry:
+     - Blocked from system features.
+     - Only see “Contact Admin” message.
+
+
+
+5. 📂 Data Fields
+Extend subscription table with:
+ - trial_type (free_trial, trial_run, none)
+ - trial_start_date
+ - trial_end_date
+ - subscription_status (active, expired, canceled)
+ - auto_renew (true/false, applies to trial_run & paid subs)
+ - workshop_name (unique)
+ - workshop_address (unique check secondary)

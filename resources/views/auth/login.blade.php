@@ -1,4 +1,3 @@
-<!-- resources/views/auth/login.blade.php -->
 @extends('layouts.guest')
 
 @section('title', 'Login')
@@ -15,11 +14,26 @@
                             <div class="text-center">
                                 <h1 class="h4 text-gray-900 mb-4">Welcome Back!</h1>
                             </div>
+
+                            @if (session('success'))
+                                <div class="alert alert-success">{{ session('success') }}</div>
+                            @endif
+
+                            @if ($errors->any())
+                                <div class="alert alert-danger">
+                                    <ul class="mb-0">
+                                        @foreach ($errors->all() as $error)
+                                            <li>{{ $error }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+
                             <form method="POST" action="{{ route('login') }}">
                                 @csrf
                                 <div class="form-group">
                                     <input type="email" name="email" class="form-control form-control-user"
-                                           placeholder="Enter Email Address..." required autofocus>
+                                           placeholder="Enter Email Address..." value="{{ old('email') }}" required autofocus>
                                 </div>
                                 <div class="form-group">
                                     <input type="password" name="password" class="form-control form-control-user"
@@ -27,7 +41,7 @@
                                 </div>
                                 <div class="form-group">
                                     <div class="custom-control custom-checkbox small">
-                                        <input type="checkbox" name="remember" class="custom-control-input" id="customCheck">
+                                        <input type="checkbox" name="remember" class="custom-control-input" id="customCheck" {{ old('remember') ? 'checked' : '' }}>
                                         <label class="custom-control-label" for="customCheck">Remember Me</label>
                                     </div>
                                 </div>

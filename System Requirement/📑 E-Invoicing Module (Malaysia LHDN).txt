@@ -1,0 +1,71 @@
+** 📑 E-Invoicing Module (Malaysia LHDN) **
+🔧 Core Features:
+
+1. Integration with LHDN MyInvois Portal (API)
+   - Generate e-invoices in XML/JSON format according to LHDN’s Peppol standard.
+   - Submit invoices electronically to LHDN for validation.
+   - Handle both B2B (Business-to-Business) and B2C (Business-to-Client) invoices.
+
+2. Invoice Lifecycle Management
+   - Create invoice → send to LHDN → get validation.
+   - Receive IRBM Invoice Reference Number (IRN) after validation.
+   - Handle rejections (show errors, allow resubmission).
+   - Cancellation/credit note workflows if invoices are voided.
+
+3. Mandatory Invoice Data Fields (LHDN-compliant)
+   - Each invoice must include:
+         i. Seller info (workshop details, TIN number).
+        ii. Buyer info (client’s TIN if B2B, optional for B2C).
+       iii. Item details (description, quantity, unit price, discount, tax, total).
+        iv. Invoice date, currency, payment terms.
+
+4. Digital Signatures & QR Codes
+   - Attach LHDN-generated QR Code to invoices for client verification.
+   - Signed invoices can be stored as PDF + XML.
+
+5. Client Access
+   - Clients can view/download their validated invoices from workshop system.
+   - Option to email them directly.
+
+6. Audit & Archiving
+   - Store all validated e-invoices for at least 7 years (LHDN requirement).
+   - Ensure immutability (cannot tamper with validated invoices).
+
+
+** 🔑 How Roles Use E-Invoicing **
+
+=> Superadmin <=
+ - System-wide compliance control.
+ - Monitor submissions across all workshops.
+ - Manage API keys / certificates for integration.
+
+=> Workshop Admin <=
+ - Generate e-invoices for clients.
+ - Submit, view status, cancel, resend.
+ - Ensure compliance for their workshop.
+
+=> Workshop Staff <=
+ - Draft invoices (but submission to LHDN restricted to Admin).
+
+=> Client <=
+ - Receive validated invoice (with QR & IRN).
+ - Option to download from portal or email.
+
+
+
+** 🌐 System-Wide Adjustments Needed **
+
+1. Invoice Module Upgrade
+    - Must capture all mandatory fields.
+    - Client registration should request TIN (if business client).
+
+2. Database Changes
+    - Add fields for IRN, validation status, rejection reasons, QR code path.
+
+3. Background Jobs
+    - Handle asynchronous submission to LHDN.
+    - Retry logic for network/API failures.
+
+4. Compliance Settings
+   - Workshops must enter their TIN & business registration in system settings.
+   - Superadmin may provide “sandbox/live” toggle for testing.:

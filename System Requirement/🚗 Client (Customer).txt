@@ -1,0 +1,29 @@
+** 🚗 Client (Customer) **
+(Client can be optional to register — so self-service features are optional.)
+
+1. Profile & Account (if registered)
+   - Manage personal details.
+   - Store vehicle info.
+   - Track service history.
+
+2. Appointments
+   - Book/cancel/reschedule services.
+   - Receive reminders/notifications.
+
+3. Invoices & Payments
+   - View past invoices.
+   - Pay online (if enabled).
+
+4. Download receipts.
+   - Loyalty / Rewards (optional feature)
+   - See accumulated points/discounts.
+
+5. Client Dashboard
+   - Upcoming appointments.
+   - Outstanding invoices.
+   - Vehicle service timeline.
+
+6. Vehicle Management
+   - Optionally add/manage their own vehicles. (either already sold or something)
+   - View service history of each vehicle.
+   - Receive reminders tied to their vehicle (e.g., “oil change due”).

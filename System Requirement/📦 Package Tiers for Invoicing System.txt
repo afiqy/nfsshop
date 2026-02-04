@@ -1,0 +1,52 @@
+📦 Package Tiers for Invoicing System
+
+🟢 Basic Tier (Starter – small workshops)
+** Core Features
+ - Clients: profiles, vehicle info, basic service booking, view/download invoices
+ - Workshop Admin: create/send invoices, receipts, simple jobs, service orders, track unpaid invoices
+ - Staff: job management, mark payments received
+ - E-Invoicing (LHDN): generate/submit invoices, download with QR + IRN
+ - Vehicle Management: add vehicles, record service history
+ - System Core: authentication, notifications, search, file uploads
+* Add-Ons
+ - 📱 Mobile App: RM X/month (shared, standard branding).
+ - Loyalty/Rewards module.
+ - WhatsApp/SMS notification pack.
+👉 Target: 1–3 staff workshops, cost-sensitive, only need compliance & basics.
+
+
+🟡 Pro Tier (Growth – medium workshops)
+* Includes everything in Basic, plus:
+ - Workshop Admin:
+     - Inventory management (stock, suppliers, purchase orders)
+     - Reports & analytics (revenue, staff performance, client spend)
+     - Client engagement (promotions, reminders, loyalty tracking)
+ - E-Invoicing: audit/archive automation, credit notes & cancellations
+ - Vehicle Management: service reminders, insurance/tax renewal reminders
+ - System Core: multi-language, audit trail, mobile responsiveness
+ - Mobile App: included (shared app, standard branding).
+👉 Target: 5–15 staff workshops, needing automation, customer retention, and mobility.
+
+
+🔴 Enterprise Tier (Custom – large / multi-branch)
+* Includes everything in Pro, plus:
+ - Superadmin Features
+     - Multi-workshop management.
+     - Billing/subscription control.
+     - Cross-workshop analytics (churn, growth, top services).
+     - API integrations (accounting, WhatsApp, ERP).
+ - Workshop Admin: advanced dashboards, financial summaries, supplier integration
+ - E-Invoicing: compliance sandbox/live toggle, bulk submissions
+ - Vehicle Management: fleet analytics (most serviced brands, mileage patterns)
+ - System Core: advanced notifications, multi-factor authentication
+* Mobile Options
+ - Shared app (included).
+ - White-label app (custom branding, optional add-on at negotiated price).
+👉 Target: multi-branch workshops, franchises, high-volume clients with compliance & integration needs.
+
+
+💰 Subscription Cycles **
+Monthly → flexible, easy entry.
+Quarterly → mid-term commitment.
+Annual → discounted (10–15% off).
+Enterprise → annual contract only (custom pricing).

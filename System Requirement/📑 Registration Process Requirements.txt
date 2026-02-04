@@ -1,0 +1,178 @@
+/** COMPLETED **/
+1. 🖥️ Landing Page (Public Entry Point) -- Other website. Not for this system. Can create simple page for testing
+* Features::
+ - Hero section: system name, tagline, CTA (“Try Free for 1 Month”).
+ - Feature highlights: invoicing compliance, vehicle mgmt, workshop ops, mobile app.
+ - “How It Works” steps (Register → Try → Upgrade).
+ - “View Pricing” button → Pricing Page.
+
+2. 💰 Pricing Page (On Landing Page) -- Other Website. Not for this system. Can create simple page for testing
+* Tier Cards
+ - Basic (Free Trial / Trial Run / Subscription options).
+ - Pro (Free Trial / Trial Run / Subscription options).
+ - Enterprise (Contact Us → Application Form).
+* Actions
+ - Click Start Free Trial (Basic/Pro) → Registration Form.
+ - Click Trial Run (3 months) → Registration Form (plan pre-selected).
+ - Click Contact Us (Enterprise) → Enterprise Application Form.
+
+3. 👑 Workshop Owner Registration (Basic / Pro) -- For This System. Tier selected is passed from the landing page
+* Step 1: Account Info
+ - Full name.
+ - Email (unique).
+ - Phone number.
+ - Password.
+
+* Step 2: Workshop Info
+ - Workshop name (unique system-wide).
+ - Workshop address (secondary uniqueness check).
+ - Business registration no. (optional for trial, required before invoicing).
+ - Tax Identification Number (TIN, for LHDN e-invoicing Module (Malaysia))
+ - Services offered (repairs, maintenance, inspections)
+
+* Step 3: Plan Confirmation
+ - Pre-filled with chosen tier (Basic / Pro).
+ - Options:
+     - Free Trial (1 month, no payment).
+     - Trial Run (3 months, 50% off quarterly, auto-renews).
+     - Paid subscription (monthly, quarterly, annual).
+
+* Step 4: Completion
+ - Success screen:
+     - Trial starts immediately.
+     - Dashboard accessible.
+ - Email confirmation with trial/subscription details.
+
+
+4. 👨‍🔧 Staff Registration
+* Entry Points
+ - Invitation by Owner (email link).
+ - Duplicate registration detection: if a new user tries to register a workshop with existing name/address → flagged as staff, not owner.
+* Fields
+ - Full name.
+ - Email (unique).
+ - Password.
+ - Role (pre-assigned by owner).
+* Post-Registration
+ - Redirected to staff dashboard (limited features)
+ - Cannot access subscription/billing.
+ - If subscription expired → redirected to “Subscription Required – contact Admin” page.
+
+5. 🚗 Client Registration (Optional)
+* Fields
+ - Full name.
+ - Email.
+ - Phone.
+ - Password.
+ - Vehicle Details (Optional during registration)
+* Notes
+ - Client registration optional. Means client can have their information filled but not registered for an account. 
+ - if not registered, then vehicle information is required.
+ - Workshop staff can manually create client records if client does not self-register
+ - Clients access invoices, receipts, appointments, and service history.
+
+6. 🔒 Fraud & Abuse Prevention
+ - Workshop Name must be unique system-wide.
+ - Workshop Address checked as secondary uniqueness.
+ - If duplicate → no new workshop created, registrant flagged as staff.
+ - Free Trial limited to one per workshop (tracked by name + address).
+ - Staff cannot bypass subscription restrictions → only Owners can manage subscriptions.
+
+7. 📂 Database Requirements
+* Workshops Table
+ - workshop_id
+ - workshop_name (unique)
+ - workshop_address (secondary unique)
+ - business_reg_no
+ - tax_id_number
+ - subscription_status (trial, active, expired)
+ - trial_type (free_trial, trial_run, none)
+ - trial_start_date, trial_end_date
+ - is_enterprise (bool)
+ - enterprise_status (pending, approved, rejected)
+ - custom_price
+ - branches_count
+ - addons
+* Users Table
+ - user_id
+ - full_name
+ - email (unique)
+ - phone
+ - password_hash
+ - role (owner, staff, client, superadmin)
+ - workshop_id (nullable for superadmin/standalone client)
+
+8. 📑 Enterprise Registration Requirements
+i. 🎯 Enterprise Onboarding
+ - Enterprise plans are not self-service.
+ - Only Superadmin can create Enterprise subscriptions.
+ - Pricing is subscription-based (quarterly or annual, no monthly option).
+ - Custom pricing range set by Superadmin at registration.
+
+ii. 🛠️ Registration Flow
+ - Superadmin Setup
+     - Superadmin creates a new Enterprise account in the system.
+     - Inputs:
+        -> Subscription type: Quarterly or Annual.
+        -> Custom pricing (if different from default Enterprise).
+        -> Add-ons (white-label app, API access, dedicated support).
+     - Generates Enterprise Owner (primary user) record with login credentials.
+ - Enterprise Owner Email
+     - System sends an onboarding email to Enterprise Owner.
+     - Owner completes personal account setup (name, email verification, password, contact info).
+ - Workshop HQ Setup (by Owner)
+     - After first login, Enterprise Owner is required to enter HQ Workshop Information:
+         -> HQ Workshop name.
+         -> HQ Workshop address.
+         -> Business registration number.
+         -> Tax Identification Number (TIN).
+         -> Services offered (repair, maintenance, inspections).
+ - Superadmin Control
+     - Superadmin has ability to switch into the HQ Workshop Admin view (impersonation) for support.
+     - Used for troubleshooting, billing queries, and compliance checks
+
+iii. 🔑 Subscription Handling
+ - Subscription options: Quarterly or Annual only.
+ - Auto-renewal enabled by default.
+ - Cancellation rules:
+     - Enterprise Owner may request cancellation, but subscription remains active until end of billing cycle.
+ - Payment flow:
+     - Standard payment gateway (Stripe/PayPal/etc.) integration.
+     - Invoices generated under Enterprise subscription.
+
+iv. 📂 Data Fields (Enterprise Extension)
+ - In Subscriptions table:
+     - plan_type = enterprise.
+     - billing_cycle (quarterly/annual).
+     - custom_price.
+     - auto_renew (true/false).
+     - enterprise_owner_id (the user who received onboarding email).
+     - hq_workshop_id (linked after owner completes setup).
+
+v. ⚙️ System Logic
+ - Superadmin registers Enterprise subscription → defines plan & pricing.
+ - Enterprise Owner receives onboarding email → sets up account.
+ - Enterprise Owner logs in → must complete HQ Workshop setup.
+ - Subscription activates immediately (no approval flow needed).
+ - Superadmin can impersonate HQ Workshop Admin for support.
+
+vi. 🔒 Key Differences from Basic/Pro
+ - Basic/Pro = self-service registration.
+ - Enterprise = Superadmin-controlled registration (top-down).
+ - No free trial for Enterprise.
+ - Pricing tied to subscription cycle (quarterly/annual).
+ - Superadmin has ongoing visibility & support access.
+
+
+** ⚖️ End-to-End Journey **
+ - Landing Page → Feature highlights, CTA.
+ - Pricing Page → Choose Basic, Pro, or Enterprise.
+ - Registration Flow (role-based):
+     - Owner (Basic/Pro) → Free Trial / Trial Run / Paid.
+     - Enterprise → Application → Superadmin approval.
+     - Staff → Invited or auto-flagged.
+     - Client → Optional self-registration.
+ - Dashboard Access:
+     - Active → full access.
+     - Expired → dashboard visible but modules locked; only subscription page active.
+     - Staff in expired state → “Contact Admin” notice only.
