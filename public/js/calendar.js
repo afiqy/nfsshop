@@ -13279,29 +13279,36 @@ document.addEventListener('DOMContentLoaded', function () {
   var calendar = new _fullcalendar_core__WEBPACK_IMPORTED_MODULE_0__.Calendar(calendarEl, {
     plugins: [_fullcalendar_daygrid__WEBPACK_IMPORTED_MODULE_1__["default"], _fullcalendar_interaction__WEBPACK_IMPORTED_MODULE_2__["default"]],
     initialView: 'dayGridMonth',
-    events: '/calendar/events',
+    events: '/calendar/appointments',
     selectable: true,
     select: function select(info) {
-      var title = prompt('Enter Event Title:');
-      if (title) {
-        fetch('/calendar/store', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-          },
-          body: JSON.stringify({
-            title: title,
-            start: info.startStr,
-            end: info.endStr
-          })
-        }).then(function (response) {
-          return response.json();
-        }).then(function (data) {
-          alert(data.success);
-          calendar.refetchEvents();
-        });
+      var customer_id = document.getElementById('customer_id').value;
+      var vehicle_id = document.getElementById('vehicle_id').value;
+      var service_type = document.getElementById('service_type').value;
+      if (!customer_id || !vehicle_id || !service_type) {
+        alert("Please fill all fields before scheduling.");
+        return;
       }
+      fetch('/calendar/store', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+          customer_id: customer_id,
+          vehicle_id: vehicle_id,
+          title: "Service Appointment",
+          service_type: service_type,
+          start: info.startStr,
+          end: info.endStr
+        })
+      }).then(function (response) {
+        return response.json();
+      }).then(function (data) {
+        alert(data.success);
+        calendar.refetchEvents();
+      });
     }
   });
   calendar.render();

@@ -14,8 +14,8 @@ class EnsureUserHasRole
         if (! Auth::check()) {
             return redirect()->route('login');
         }
-
-        $userRole = Auth::user()->role;
+        $user = $request->user();
+        $userRole = $user->role;
 
         if (! in_array($userRole, $roles, true)) {
             abort(403, 'You are not authorized to access this area.');

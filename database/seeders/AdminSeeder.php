@@ -11,7 +11,7 @@ class AdminSeeder extends Seeder
     public function run()
     {
         User::updateOrCreate(
-            ['email' => 'admin@nfsworkshop.com'], // Check if admin already exists
+            ['email' => 'admin@invsys.com'], // Check if admin already exists
             [
                 'name' => 'Admin User',
                 'phone' => '000-000-0000',

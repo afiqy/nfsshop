@@ -11,7 +11,7 @@ class SuperAdminSeeder extends Seeder
     public function run(): void
     {
         User::updateOrCreate(
-            ['email' => 'superadmin@nfsworkshop.com'],
+            ['email' => 'superadmin@invsys.com'],
             [
                 'name' => 'Super Admin',
                 'phone' => '999-999-9999',

@@ -1,0 +1,62 @@
+[] Authentication & Access Control
+    [/]  password policy enforcement
+    []  CAPTCHA after failed logins
+    [/]  account lockouts
+    []  SSO (Google/Microsoft)
+    []  multi-factor authentication
+    [/]  session timeout / device management
+
+[] User Account & Profile Management
+    []  avatar/logo uploads -update(2026-05-29::logic failed to save profile)
+    []  communication preference settings - unsure what setting this is and what to implement
+    []  password recovery and linked auth methods
+    [/]  change password
+    [/]  personal settings for language, timezone, notifications
+
+[]  Dashboard & Quick Actions
+    []  personalized KPI landing pages per role
+    []  configurable widgets/shortcuts
+    []  consolidated activity feed
+
+[] Notifications & Alerts
+    []  multi-channel delivery (SMS, WhatsApp, in-app)
+    []  reusable/localized templates
+    []  delivery tracking, opt-in/out, quiet hours, escalation
+
+[] Global Search & Smart Filters
+    []  unified search across all modules
+    []  saved views / fuzzy matching
+    []  export filtered results to CSV/PDF
+
+[] Document & Media Library
+    []  upload/tag/categorize files
+    []  file validation / virus scanning
+    []  attachments with version history
+    []  previews and storage quotas
+
+[/] Audit Trail & Activity Monitoring
+    [/]  detailed audit log with old/new values and origin
+    [/]  filter/export log and retention policies
+    []  blade view for superadmin
+    [/]  suspicious activity alerts
+
+[] Localization & Regional Settings
+    []  multi-language UI
+    []  workshop-specific currency/tax/unit settings
+    []  timezone-aware scheduling
+    []  locale-compliant invoice numbering/tax IDs
+
+[] Support & Helpdesk
+    []  in-app ticketing/support widget
+    []  knowledge base / FAQs
+    []  feedback surveys
+
+[] Mobile & Multi-Device Experience
+    []  advanced responsive/mobile workflows
+    []  PWA / push notifications / camera / signature / barcode
+    []  offline capture and sync
+
+[] Data Import & Export
+    []  bulk import templates
+    []  CSV/PDF export and accounting app integration
+    []  scheduled exports/backups

@@ -66,5 +66,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'tenant.context' => \App\Http\Middleware\InitializeTenantContext::class,
         'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+        'check.lockout' => \App\Http\Middleware\CheckAccountLockout::class,
+        'session.timeout' => \App\Http\Middleware\SessionTimeout::class,
     ];
 }
