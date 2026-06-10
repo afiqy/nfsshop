@@ -8,7 +8,10 @@
         <h1 class="h3 mb-0 text-gray-800">Workshop Management</h1>
         <p class="mb-0 text-muted">View, audit, and configure every workshop across the platform.</p>
     </div>
-    <a href="{{ route('super-admin.owners.index') }}" class="btn btn-outline-primary">Manage Owners</a>
+    <div>
+        <a href="{{ route('super-admin.owners.index') }}" class="btn btn-outline-primary">Manage Owners</a>
+        <a href="{{ route('super-admin.workshops.create') }}" class="btn btn-primary">Add Workshop</a>
+    </div>
 </div>
 
 @if (session('success'))

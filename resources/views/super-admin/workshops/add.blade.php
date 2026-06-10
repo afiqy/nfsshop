@@ -1,0 +1,69 @@
+@extends('layouts.app')
+
+@section('title', 'Add Workshop')
+
+@section('content')
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-0 text-gray-800">Add Workshop</h1>
+        <p class="mb-0 text-muted">Create a new workshop and configure its details.</p>
+    </div>
+    <a href="{{ route('super-admin.workshops.index') }}" class="btn btn-outline-secondary">Back to workshops</a>
+</div>
+
+@if (session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+@endif
+
+@if ($errors->any())
+    <div class="alert alert-danger">
+        <ul class="mb-0">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <form method="POST" action="{{ route('super-admin.workshops.store') }}">
+                    @csrf
+                    @include('super-admin.workshops._form', ['workshop' => $workshop, 'plans' => $plans])
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Activity Snapshot</h6>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    @if(isset($workshop['owners']))
+                    <dt class="col-6">Owners</dt>
+                    <dd class="col-6 text-right">{{ $workshop['owners']->count() }}</dd>
+                    @endif
+
+                    @if(isset($workshop['metrics']));
+                    <dt class="col-6">Team Members</dt>
+                    <dd class="col-6 text-right">{{ $workshop['metrics']['staff_count'] }}</dd>
+
+                    <dt class="col-6">Clients</dt>
+                    <dd class="col-6 text-right">{{ $workshop['metrics']['client_count'] }}</dd>
+
+                    <dt class="col-6">Created</dt>
+                    <dd class="col-6 text-right">{{ optional($workshop['metrics']['created_at'])->format('M d, Y') ?? '—' }}</dd>
+
+                    <dt class="col-6">Updated</dt>
+                    <dd class="col-6 text-right">{{ optional($workshop['metrics']['updated_at'])->format('M d, Y') ?? '—' }}</dd>
+                    @endif
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection

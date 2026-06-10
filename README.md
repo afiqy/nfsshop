@@ -63,7 +63,7 @@ php artisan serve
 
 Use this account for initial login:
 
-- **Email**: `admin@nfsworkshop.com`  
+- **Email**: `admin@invsys.com`  
 - **Password**: `password123`  
 
 ---

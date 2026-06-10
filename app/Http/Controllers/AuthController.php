@@ -17,6 +17,7 @@ class AuthController extends Controller
 
     public function showLoginForm()
     {
+        error_log("Displaying login form to IP: " . request()->ip());
         return view('auth.login');
     }
 
@@ -26,19 +27,23 @@ class AuthController extends Controller
             'email' => ['required','email'],
             'password' => ['required'],
         ]);
+        error_log("Login attempt for email: " . $request->input('email') . " from IP: " . $request->ip());
 
         $email = strtolower($request->input('email'));
         $throttleKey = trans('auth.throttle_key') . '|' . $email . '|' . $request->ip();
 
         $user = User::where('email', $email)->first();
+        error_log("User found: " . ($user ? 'Yes' : 'No'));
 
         if ($user && $user->isLocked()) {
+            error_log("User account is locked: " . $user->email);
             return back()->withErrors([
                 'email' => 'Your account is locked until '.$user->locked_until->toDayDateTimeString(),
             ])->withInput($request->only('email'));
         }
 
         if (RateLimiter::tooManyAttempts($throttleKey, $this->maxAttempts)) {
+            error_log("Too many login attempts for email: " . $email);
             if ($user) {
                 $user->lockAccount($this->lockoutMinutes);
             }
@@ -76,8 +81,8 @@ class AuthController extends Controller
             'device_name' => $request->header('User-Agent'),
             'last_activity' => now(),
         ]);
-
-        return redirect()->intended('/');
+        error_log("User logged in: " . $user->email);
+        return redirect()->intended(route('dashboard'));
     }
 
     public function logout(Request $request)

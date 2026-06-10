@@ -29,7 +29,11 @@ use App\Http\Controllers\SuperAdmin\ImpersonationController;
 
 // 🔹 Authentication Routes (Public)
 Route::get('/', function () {
-    return redirect('login');
+    return auth()->check()
+        ? auth()->user()->hasRole('super_admin')
+            ? redirect()->route('super-admin.dashboard')
+            : redirect()->route('dashboard')
+        : redirect()->route('login');
 })->name('home');
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -68,7 +72,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:super_admin
         Route::get('impersonation', [ImpersonationController::class, 'index'])->name('impersonation.index');
         Route::post('impersonation', [ImpersonationController::class, 'start'])->name('impersonation.start');
 
-        Route::resource('workshops', WorkshopController::class)->only(['index', 'edit', 'update']);
+        Route::resource('workshops', WorkshopController::class)->only(['index', 'create', 'store', 'edit', 'update']);
 
         Route::prefix('billing')->name('billing.')->group(function () {
             Route::get('/', [BillingController::class, 'dashboard'])->name('dashboard');

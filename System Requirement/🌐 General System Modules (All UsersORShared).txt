@@ -3,17 +3,28 @@
 1. Authentication & Access Control
    - Secure login with password policies, CAPTCHA after repeated failures, and account lockouts.
    - Optional SSO (Google/Microsoft) and multi-factor authentication for high-privilege actions.
-   - Role-based permissions (Superadmin, Owner, Staff, Client) with session timeouts and device management.
+   - Role-based permissions (Superadmin, Workshop Admin, Staff, Client) with session timeouts and device management.
+   - Registration must support two account types:
+     - Workshop Admin: for users with one workshop.
+     - Superadmin: for users with multiple workshops.
+   - A Workshop Admin registration creates one workshop tenant and one admin account linked to that workshop.
+   - A Superadmin registration creates a parent account that can create or link multiple workshops and assign one or more workshop admins per workshop.
+   - Superadmin access must be scoped to only the workshops and workshop admins created by or explicitly linked to that superadmin.
+   - Superadmins must not have global access to other superadmins' workshops, admins, customers, invoices, subscriptions, or reports.
 
 2. User Account & Profile Management
    - Update personal details, contact information, avatars/logos, and preferred communication channels.
    - Manage passwords, recovery options, and linked authentication methods (SSO, MFA devices).
    - Configure personal preferences such as language, timezone, and notification settings.
+   - Superadmins can manage their linked workshop admin accounts, including create, invite, activate, suspend, reset password, and assign to workshop.
+   - Workshop Admins can manage only users under their own workshop, based on role permissions.
 
 3. Dashboard & Quick Actions
    - Personalized landing page per role highlighting KPIs, pending tasks, and upcoming appointments.
    - Configurable widgets and shortcuts for frequent actions (create invoice, schedule job, add vehicle).
    - Consolidated activity feed showing recent changes, notifications, and reminders.
+   - Workshop Admin dashboard shows only one workshop and its subscribed package tier.
+   - Superadmin dashboard shows all linked workshops, linked workshop admins, and the package tier subscribed by the parent superadmin account.
 
 4. Notifications & Alerts
    - Multi-channel delivery (email, SMS, WhatsApp, in-app) with reusable templates and localization.
@@ -34,6 +45,8 @@
    - Capture create/update/delete events with timestamp, user, origin (web/mobile/API), and old/new values.
    - Filterable audit log with export, retention policies, and tamper-evident storage.
    - Real-time alerts for suspicious activity such as repeated failed logins or access from new devices.
+   - Audit records must include account type, actor role, tenant/workshop id, parent superadmin id when applicable, and origin channel.
+   - Superadmin audit views must be limited to linked workshops and linked workshop admins only.
 
 8. Localization & Regional Settings
    - Multi-language UI, currency formatting, tax rules, and measurement units configurable per workshop.
@@ -54,3 +67,17 @@
     - Bulk import templates for clients, vehicles, inventory, price lists, and historical invoices.
     - Export reports and records (invoices, payments, job cards) to CSV/PDF or connected accounting apps.
     - Scheduled exports/backups aligned with subscription tiers and compliance requirements.
+
+12. Package Tier & Billing Visibility
+    - If the user registered as Workshop Admin, the package tier belongs to that single workshop and is visible to that admin.
+    - If the user registered as Superadmin, the package tier belongs to the parent superadmin account and is visible to that superadmin only.
+    - Workshop admins created under a superadmin account must not see or manage the parent package subscription unless billing access is explicitly delegated.
+    - Package upgrades, downgrades, trial status, billing cycle, renewal dates, and limits must follow the account scope selected during registration.
+
+13. External Registration API
+    - Provide an API endpoint for registration from another system.
+    - The API must support creating either a Workshop Admin account or a Superadmin account.
+    - Workshop Admin API registration must create one workshop tenant, one admin user, and the selected package subscription for that workshop.
+    - Superadmin API registration must create the parent superadmin account, selected package subscription, and optionally initial linked workshops and workshop admins.
+    - The API must support linking new workshop admins to an existing superadmin when an external system creates additional workshops.
+    - API registration must enforce the same validation, duplicate checks, ownership rules, package visibility rules, and tenant isolation rules as web registration.

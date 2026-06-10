@@ -56,6 +56,35 @@ class WorkshopController extends Controller
         ]);
     }
 
+    public function create(): View
+    {
+        return view('super-admin.workshops.add', [
+            'plans' => SubscriptionPlan::orderBy('price')->get(),
+            'workshop' => [
+                'services' => [],
+                'subscription' => [],
+                'pricing' => ['currency' => 'USD'],
+            ],
+        ]);
+    }
+
+    public function store(WorkshopUpdateRequest $request): RedirectResponse
+    {
+        $payload = $request->validated();
+
+        $tenant = Tenant::create([
+            'id' => Str::slug($payload['workshop_name'].'-'.Str::random(5)),
+            'data' => [
+                'workshop_name' => $payload['workshop_name'],
+                'owner_email' => $payload['owner_email'],
+            ],
+        ]);
+
+        return redirect()
+            ->route('super-admin.workshops.edit', $tenant)
+            ->with('success', 'Workshop created successfully. You can now configure its details.');
+    }
+
     public function edit(Tenant $workshop): View
     {
         $workshopData = $this->mapTenantWithMetrics($workshop);
