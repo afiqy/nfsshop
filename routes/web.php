@@ -9,6 +9,7 @@ use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentPreferenceController;
+use App\Http\Controllers\BillplzSandboxController;
 use App\Http\Controllers\StripeSandboxController;
 use App\Http\Controllers\ToyyibPaySandboxController;
 use App\Http\Controllers\InventoryController;
@@ -151,6 +152,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 ->middleware('throttle:6,1')->name('toyyibpay-sandbox.start');
             Route::get('payment-preferences/toyyibpay-sandbox/result', [ToyyibPaySandboxController::class, 'result'])
                 ->middleware('throttle:12,1')->name('toyyibpay-sandbox.result');
+            Route::post('payment-preferences/billplz-sandbox', [BillplzSandboxController::class, 'start'])
+                ->middleware('throttle:6,1')->name('billplz-sandbox.start');
+            Route::get('payment-preferences/billplz-sandbox/result', [BillplzSandboxController::class, 'result'])
+                ->middleware('throttle:12,1')->name('billplz-sandbox.result');
             Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);
             Route::patch('job-cards/{job_card}/status', [JobCardController::class, 'advance'])->name('job-cards.advance');
             Route::middleware(EnsureInventoryAccess::class)->group(function () {

@@ -36,6 +36,13 @@ return [
         'test_category' => env('TOYYIBPAY_TEST_CATEGORY'),
     ],
 
+    'billplz' => [
+        'sandbox_enabled' => env('BILLPLZ_SANDBOX_ENABLED', false),
+        'test_secret' => env('BILLPLZ_TEST_SECRET'),
+        'test_collection' => env('BILLPLZ_TEST_COLLECTION'),
+        'test_signature_key' => env('BILLPLZ_TEST_SIGNATURE_KEY'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PaymentPreference;
+use App\Services\BillplzSandboxCheckout;
 use App\Services\StripeSandboxCheckout;
 use App\Services\ToyyibPaySandboxCheckout;
 use Illuminate\Http\RedirectResponse;
@@ -13,14 +14,19 @@ use Illuminate\View\View;
 
 class PaymentPreferenceController extends Controller
 {
-    public function edit(Request $request, StripeSandboxCheckout $stripe, ToyyibPaySandboxCheckout $toyyibPay): View
-    {
+    public function edit(
+        Request $request,
+        StripeSandboxCheckout $stripe,
+        ToyyibPaySandboxCheckout $toyyibPay,
+        BillplzSandboxCheckout $billplz
+    ): View {
         return view('payment-preferences.edit', [
             'preferences' => PaymentPreference::where('user_id', $request->user()->id)->first(),
             'gatewayGroups' => config('payment_methods.gateways'),
             'offlineOptions' => config('payment_methods.offline'),
             'stripeSandboxEnabled' => $stripe->enabled(),
             'toyyibPaySandboxEnabled' => $toyyibPay->enabled(),
+            'billplzSandboxEnabled' => $billplz->enabled(),
         ]);
     }
 

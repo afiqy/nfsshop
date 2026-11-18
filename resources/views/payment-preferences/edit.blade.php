@@ -93,4 +93,14 @@
             </form>
         </section>
     @endif
+    @if ($billplzSandboxEnabled && $preferences?->usesGateway('billplz'))
+        <section class="card shadow-sm p-3 mt-4" aria-labelledby="billplz-sandbox">
+            <h2 class="h5" id="billplz-sandbox">Billplz sandbox</h2>
+            <p>Try a RM 10.00 demo payment using Billplz's simulator. No money is charged and no invoice is updated.</p>
+            <form method="POST" action="{{ route('billplz-sandbox.start') }}">
+                @csrf
+                <button class="btn btn-outline-primary" type="submit">Open Billplz test checkout</button>
+            </form>
+        </section>
+    @endif
 @endsection

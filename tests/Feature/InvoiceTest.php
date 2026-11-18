@@ -720,6 +720,125 @@ class InvoiceTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_billplz_sandbox_verifies_a_demo_payment_without_recording_it(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $this->configureBillplzSandbox();
+        $host = 'https://www.billplz-sandbox.com';
+        $api = $host.'/api/v3/bills';
+        $id = 'bill_demo';
+        $url = $host.'/bills/'.$id;
+        $bill = ['id' => $id, 'collection_id' => 'demo-collection', 'amount' => 1000, 'url' => $url];
+        Http::preventStrayRequests()->fake([
+            $api => Http::response($bill, 201),
+            "$api/$id" => Http::sequence()
+                ->push(array_replace($bill, ['collection_id' => 'another-collection']))
+                ->push(array_replace($bill, ['amount' => 100]))
+                ->push($bill + ['paid' => true, 'state' => 'paid', 'paid_amount' => 100])
+                ->push($bill + ['paid' => true, 'state' => 'paid', 'paid_amount' => 1000]),
+        ]);
+        $this->actingAs($admin)->put(route('payment-preferences.update'), ['gateways' => [['provider' => 'billplz']]])
+            ->assertRedirect();
+        $this->get(route('payment-preferences.edit'))->assertOk()->assertSee('Open Billplz test checkout');
+        $result = route('billplz-sandbox.result');
+        $fields = [
+            'paid' => 'true',
+            'id' => $id,
+            'paid_at' => '2026-04-23 15:15:09 +0800',
+            'x_signature' => hash_hmac('sha256', 'billplzidbill_demo|billplzpaid_at2026-04-23 15:15:09 +0800|billplzpaidtrue', 'fake-signature-key'),
+        ];
+        $signedReturn = $result.'?'.http_build_query(['billplz' => $fields]);
+        $this->get($signedReturn)->assertNotFound();
+        $this->post(route('billplz-sandbox.start'), ['amount' => 1, 'email' => 'not-sent@example.test'])
+            ->assertStatus(303)->assertRedirect($url);
+        $this->get($result.'?'.http_build_query(['billplz' => array_replace($fields, ['paid' => 'false'])]))
+            ->assertForbidden();
+        $this->get($signedReturn)->assertStatus(502);
+        $this->get($signedReturn)->assertStatus(502);
+        $this->get($signedReturn)->assertOk()->assertSee('Billplz has not confirmed the test payment.');
+        $this->get($signedReturn)->assertOk()->assertSee('Billplz confirmed the test payment.')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
+        $workshop->run(function () {
+            $this->assertSame(0, Invoice::query()->count());
+            $this->assertSame(0, \App\Models\InvoicePayment::query()->count());
+        });
+
+        Http::assertSent(function ($request) use ($api) {
+            if ($request->method() !== 'POST' || $request->url() !== $api) {
+                return false;
+            }
+
+            parse_str($request->body(), $form);
+            $this->assertTrue($request->hasHeader('Authorization', 'Basic '.base64_encode('fake-test-secret:')));
+            $this->assertSame('1000', $form['amount']);
+            $this->assertSame('demo-collection', $form['collection_id']);
+            $this->assertSame('sandbox@example.com', $form['email']);
+            $this->assertSame('https://staging.example.test/api/sandbox/billplz/callback', $form['callback_url']);
+            $this->assertSame('https://staging.example.test/payment-preferences/billplz-sandbox/result', $form['redirect_url']);
+
+            return true;
+        });
+        Http::assertSentCount(5);
+    }
+
+    public function test_billplz_sandbox_requires_configuration_and_a_saved_preference_and_rejects_external_links(): void
+    {
+        [$admin] = $this->createWorkshop();
+        Http::preventStrayRequests()->fake([
+            'https://www.billplz-sandbox.com/api/v3/bills' => Http::response([
+                'id' => 'bill_demo',
+                'collection_id' => 'demo-collection',
+                'amount' => 1000,
+                'url' => 'https://www.billplz-sandbox.com.example.test/bills/bill_demo',
+            ]),
+        ]);
+        $this->actingAs($admin);
+        $start = route('billplz-sandbox.start');
+        config(['services.billplz.sandbox_enabled' => false]);
+        $this->post($start)->assertNotFound();
+        $this->configureBillplzSandbox();
+        $this->post($start)->assertForbidden();
+        $this->put(route('payment-preferences.update'), ['gateways' => [['provider' => 'billplz']]])->assertRedirect();
+        $this->post($start)->assertStatus(502);
+        Http::assertSentCount(1);
+    }
+
+    public function test_billplz_accepts_only_valid_signed_sandbox_callbacks_without_authentication(): void
+    {
+        $this->configureBillplzSandbox();
+        Http::preventStrayRequests()->fake();
+        $callback = route('billplz-sandbox.callback');
+        $fields = [
+            'paid' => 'true',
+            'paid_at' => '2026-04-23 15:15:09 +0800',
+            'id' => 'bill_demo',
+            'collection_id' => 'demo-collection',
+            'amount' => '1000',
+            'mobile' => '',
+            'x_signature' => hash_hmac('sha256', 'amount1000|collection_iddemo-collection|idbill_demo|mobile|paid_at2026-04-23 15:15:09 +0800|paidtrue', 'fake-signature-key'),
+        ];
+        $post = fn (array $body) => $this->call('POST', $callback, [], [], [],
+            ['CONTENT_TYPE' => 'application/x-www-form-urlencoded'], http_build_query($body));
+
+        $post($fields)->assertOk()->assertContent('OK');
+        $post(array_replace($fields, ['paid' => 'false']))->assertForbidden();
+        $post(array_replace($fields, ['paid_at' => ['bad']]))->assertForbidden();
+        config(['services.billplz.sandbox_enabled' => false]);
+        $post($fields)->assertNotFound();
+        Http::assertNothingSent();
+    }
+
+    private function configureBillplzSandbox(): void
+    {
+        config([
+            'app.url' => 'https://staging.example.test',
+            'services.billplz.sandbox_enabled' => true,
+            'services.billplz.test_secret' => 'fake-test-secret',
+            'services.billplz.test_collection' => 'demo-collection',
+            'services.billplz.test_signature_key' => 'fake-signature-key',
+        ]);
+    }
+
     private function stripeDemoSession(string $id): array
     {
         return [

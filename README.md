@@ -103,6 +103,8 @@ To try Stripe on staging, set `STRIPE_SANDBOX_ENABLED=true`, provide a Stripe te
 
 To try toyyibPay on staging, create a category in your [toyyibPay sandbox account](https://dev.toyyibpay.com). Set `TOYYIBPAY_SANDBOX_ENABLED=true`, `TOYYIBPAY_TEST_SECRET`, and `TOYYIBPAY_TEST_CATEGORY` using that sandbox account. Use the same `APP_URL` and config-cache setup as above. Save **toyyibPay** under **Payment settings**, open the test checkout, and use the FPX bank simulator. Return in the same browser session to verify the RM 10.00 demo payment. The app contacts only the sandbox API and does not send customer or invoice data, process callbacks, or record the payment. Leave it disabled on the live pilot. No new migration is needed.
 
+To try Billplz, create a collection in a [Billplz sandbox account](https://www.billplz-sandbox.com/) and [enable its X Signature key](https://support.billplz.com/guide/enable-x-signature-key). On staging, set `BILLPLZ_SANDBOX_ENABLED=true` and supply `BILLPLZ_TEST_SECRET`, `BILLPLZ_TEST_COLLECTION`, and `BILLPLZ_TEST_SIGNATURE_KEY` from that sandbox account. Set `APP_URL` to the public HTTPS staging URL and refresh the config cache if used. Billplz must be able to POST to `/api/sandbox/billplz/callback` without a login. Save **Billplz** under **Payment settings**, select **Open Billplz test checkout**, and use the [sandbox payment simulator](https://support.billplz.com/guide/sandbox-testing). Return in the same signed-in browser session to check the RM 10.00 demo result. The app acknowledges signed callbacks and checks the bill with the sandbox API on return. It sends no real customer or invoice data and records no payment. No migration is needed; leave this disabled on the live pilot.
+
 ---
 
 ## 📌 Repository
