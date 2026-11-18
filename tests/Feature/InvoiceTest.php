@@ -392,6 +392,54 @@ class InvoiceTest extends TestCase
         $this->assertSame(0, $workshop->run(fn () => Invoice::query()->sole()->payments()->count()));
     }
 
+    public function test_workshop_admin_can_print_an_acknowledgment_for_one_payment(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.10']],
+        ])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $record = route('invoices.payments.store', $invoice);
+        $this->post($record, ['amount' => '10.05', 'reference' => 'Internal transaction note'])->assertRedirect();
+        $payment = $invoice->payments()->sole();
+        $receipt = route('invoices.payments.receipt', [$invoice, $payment]);
+        $this->post($record, ['amount' => '15.05'])->assertRedirect();
+
+        $this->get(route('invoices.show', $invoice))->assertOk()->assertSee($receipt);
+        $response = $this->get($receipt)->assertOk()
+            ->assertSee('PAY-000001')->assertSee($invoice->number())->assertSee($customer->name)
+            ->assertSee('RM 10.05')->assertSee('Print / Save as PDF')->assertSee('not a MyInvois-validated document')
+            ->assertDontSee('RM 15.05')->assertDontSee('Internal transaction note');
+        $this->assertTrue($response->headers->hasCacheControlDirective('no-store'));
+    }
+
+    public function test_receipt_requires_the_correct_invoice_and_workshop_admin(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $details = [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.00']],
+        ];
+
+        $this->actingAs($admin)->post(route('invoices.store'), $details)->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $this->post(route('invoices.payments.store', $invoice), ['amount' => '10'])->assertRedirect();
+        $payment = $invoice->payments()->sole();
+        $this->post(route('invoices.store'), $details)->assertRedirect();
+        $otherInvoice = Invoice::query()->whereKeyNot($invoice->id)->sole();
+
+        $receipt = route('invoices.payments.receipt', [$invoice, $payment]);
+        $this->get(route('invoices.payments.receipt', [$otherInvoice, $payment]))->assertNotFound();
+        $this->actingAs($client)->get($receipt)->assertForbidden();
+        $this->actingAs($otherAdmin)->get($receipt)->assertNotFound();
+    }
+
     public function test_vehicle_history_shows_only_records_linked_to_that_vehicle(): void
     {
         [$admin, $workshop] = $this->createWorkshop();

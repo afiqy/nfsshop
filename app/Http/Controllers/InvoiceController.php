@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Vehicle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -92,6 +93,15 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'payments' => $invoice->payments()->latest('id')->paginate(15),
         ]);
+    }
+
+    public function receipt(string $invoice, string $payment): Response
+    {
+        $invoice = Invoice::query()->findOrFail($invoice);
+        $payment = $invoice->payments()->findOrFail($payment);
+
+        return response()->view('invoices.receipt', compact('invoice', 'payment'))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function recordPayment(Request $request, string $invoice): RedirectResponse

@@ -137,6 +137,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::get('vehicles/{vehicle}/history', [VehicleController::class, 'history'])->name('vehicles.history');
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
             Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
+            Route::get('invoices/{invoice}/payments/{payment}/receipt', [InvoiceController::class, 'receipt'])->name('invoices.payments.receipt');
             Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);
             Route::patch('job-cards/{job_card}/status', [JobCardController::class, 'advance'])->name('job-cards.advance');
             Route::middleware(EnsureInventoryAccess::class)->group(function () {

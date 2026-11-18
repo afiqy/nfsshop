@@ -93,7 +93,7 @@ Open a **Job card** for an existing vehicle, or use **Open job card** on a sched
 
 Under **Inventory**, eligible Pro and Enterprise workshop admins and active trial workshops can add an item, record its opening balance as stock in, and record later stock in/out with a reason. Check that the movement history shows the resulting balance and that the item is marked low stock at or below its threshold. Suppliers, purchase orders, and automatic stock changes from invoices or jobs are not included.
 
-On an invoice, use **Record payment** for money already received outside the app. In the smoke test, record a partial payment and check the remaining balance, then record the rest and confirm the invoice shows **Paid**. Existing invoices have no recorded payments until you enter them. This is an internal history, not a payment processor or receipt. Entries cannot be edited, deleted, or reversed in the pilot.
+On an invoice, use **Record payment** for money already received outside the app. In the smoke test, record a partial payment and check the remaining balance, then record the rest and confirm the invoice shows **Paid**. In the payment history, select **View receipt** to print or save an acknowledgment for an individual payment. It is not a MyInvois-validated document and does not show internal references or the current balance. Existing invoices have no recorded payments until you enter them. The app does not process payments, and entries cannot be edited, deleted, or reversed in the pilot.
 
 Under **Vehicles**, select **History** to find that vehicle's appointments, job cards, and invoices. Only records linked to the vehicle appear; invoices created without a vehicle are not included. No new migration is needed for service history.
 

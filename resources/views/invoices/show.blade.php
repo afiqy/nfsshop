@@ -99,7 +99,7 @@
             <h3>Payment history</h3>
             <table>
                 <thead>
-                    <tr><th scope="col">Recorded (MYT)</th><th scope="col">Reference</th><th scope="col">Recorded by</th><th scope="col" class="amount">Amount</th></tr>
+                    <tr><th scope="col">Recorded (MYT)</th><th scope="col">Reference</th><th scope="col">Recorded by</th><th scope="col" class="amount">Amount</th><th scope="col">Receipt</th></tr>
                 </thead>
                 <tbody>
                     @forelse ($payments as $payment)
@@ -108,9 +108,10 @@
                             <td class="description">{{ $payment->reference ?? '—' }}</td>
                             <td>User #{{ $payment->recorded_by_user_id }}</td>
                             <td class="amount">{{ \App\Models\Invoice::formatAmount($payment->amount_sen) }}</td>
+                            <td><a href="{{ route('invoices.payments.receipt', [$invoice, $payment]) }}">View receipt</a></td>
                         </tr>
                     @empty
-                        <tr><td colspan="4">No payments recorded.</td></tr>
+                        <tr><td colspan="5">No payments recorded.</td></tr>
                     @endforelse
                 </tbody>
             </table>
