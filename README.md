@@ -77,6 +77,16 @@ Use this account for initial login:
 
 ---
 
+## Workshop invoice beta
+
+After deploying to the beta environment, back up the databases and run `php artisan tenants:migrate --tenants=YOUR_BETA_TENANT_ID` for each beta workshop with a provisioned tenant database. New workshops get the table during provisioning. No invoice seeder or new central migration is required.
+
+Use an active or trialing workshop-admin account and a workshop that already has a test customer (and optionally a test vehicle). Do not use the example credentials above on a shared beta. Go to **Invoices > New invoice**. Select the customer, add a few MYR line items, save, confirm the totals, and try **Print / Save as PDF**. Sign in as a different workshop admin and confirm the invoice is not in that workshop's list. Use synthetic data only: this beta cannot edit, void, email, collect payments, or submit invoices to LHDN MyInvois.
+
+To run `InvoiceTest`, configure PHPUnit with a disposable MySQL database and credentials that can create and drop tenant databases. The central migrations use MySQL-specific SQL; do not run the test suite against a real workshop database.
+
+---
+
 ## 📌 Repository
 🔗 **GitHub:** [nfsshop](https://github.com/afiqy/nfsshop.git)
 

@@ -136,7 +136,9 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
         Route::resource('vehicles', VehicleController::class);
 
         // 📌 Invoices
-        Route::resource('invoices', InvoiceController::class);
+        Route::middleware('role:admin')->group(function () {
+            Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
+        });
 
         // 📌 Inventory Management
         Route::resource('inventory', InventoryController::class);

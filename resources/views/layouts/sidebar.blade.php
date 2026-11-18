@@ -1,7 +1,7 @@
 <!-- Sidebar -->
-@php($user = auth()->user())
-@php($isSuperAdmin = $user && method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin())
 @php
+    $user = auth()->user();
+    $isSuperAdmin = $user?->isSuperAdmin() ?? false;
     $subscriptionUsable = request()->attributes->get('subscription_usable');
     if ($subscriptionUsable === null && $user && in_array($user->role, [
         \App\Models\User::ROLE_ADMIN,
@@ -86,12 +86,14 @@
             Modules
         </div>
 
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('invoices.index') }}">
-                <i class="fas fa-file-invoice"></i>
-                <span>Invoices</span>
-            </a>
-        </li>
+        @if ($user?->role === \App\Models\User::ROLE_ADMIN)
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('invoices.index') }}">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>Invoices</span>
+                </a>
+            </li>
+        @endif
 
         <li class="nav-item">
             <a class="nav-link" href="{{ route('customers.index') }}">
