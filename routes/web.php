@@ -8,6 +8,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\PaymentPreferenceController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\JobCardController;
@@ -138,6 +139,8 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
             Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
             Route::get('invoices/{invoice}/payments/{payment}/receipt', [InvoiceController::class, 'receipt'])->name('invoices.payments.receipt');
+            Route::get('payment-preferences', [PaymentPreferenceController::class, 'edit'])->name('payment-preferences.edit');
+            Route::put('payment-preferences', [PaymentPreferenceController::class, 'update'])->name('payment-preferences.update');
             Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);
             Route::patch('job-cards/{job_card}/status', [JobCardController::class, 'advance'])->name('job-cards.advance');
             Route::middleware(EnsureInventoryAccess::class)->group(function () {

@@ -97,6 +97,8 @@ On an invoice, use **Record payment** for money already received outside the app
 
 Under **Vehicles**, select **History** to find that vehicle's appointments, job cards, and invoices. Only records linked to the vehicle appear; invoices created without a vehicle are not included. No new migration is needed for service history.
 
+Under **Payment settings**, each workshop admin can save up to two gateway preferences and select offline methods separately. The Malaysia-focused catalog includes [PayNet FPX merchant banks and acquirers](https://paynet.my/business-solutions/fpx/contact-your-preferred-banks-tpa.html) and additional providers; choose **Other provider** if yours is missing. Listings are not endorsements or a guarantee of merchant eligibility. These settings do not collect credentials, change invoices, or activate checkout. Live integrations and sandbox verification are separate work.
+
 ---
 
 ## 📌 Repository

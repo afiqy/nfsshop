@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InventoryItem;
 use App\Models\JobCard;
+use App\Models\PaymentPreference;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
@@ -494,6 +495,80 @@ class InvoiceTest extends TestCase
         $this->actingAs($client)->get($history)->assertForbidden();
         $this->actingAs($otherAdmin)->get($history)->assertNotFound();
         $this->actingAs($admin)->get($history)->assertOk();
+    }
+
+    public function test_workshop_admin_can_save_every_listed_gateway_and_clear_preferences(): void
+    {
+        [$admin] = $this->createWorkshop();
+        $edit = route('payment-preferences.edit');
+        $update = route('payment-preferences.update');
+        $this->actingAs($admin);
+        $page = $this->get($edit)->assertOk();
+
+        foreach (array_merge(...array_values(config('payment_methods.gateways'))) as $provider => $label) {
+            $page->assertSee($label);
+            $this->put($update, ['gateways' => [['provider' => $provider]]])->assertRedirect($edit);
+            $this->assertSame([['provider' => $provider]], PaymentPreference::query()->sole()->gateways);
+        }
+
+        $this->put($update, [
+            'gateways' => [['provider' => 'stripe'], ['provider' => 'custom', 'name' => 'Local provider']],
+            'offline_methods' => ['cash', 'bank-transfer', 'duitnow-qr'],
+        ])->assertRedirect($edit);
+        $preference = PaymentPreference::query()->sole();
+        $this->assertSame(['cash', 'bank-transfer', 'duitnow-qr'], $preference->offline_methods);
+        $this->assertCount(2, $preference->gateways);
+        $this->get($edit)->assertOk()->assertSee('value="stripe" selected', false)->assertSee('Local provider');
+        $this->put($update, ['gateways' => [['provider' => ''], ['provider' => '']]])->assertRedirect($edit);
+        $this->assertSame([], $preference->fresh()->gateways);
+        $this->assertSame([], $preference->fresh()->offline_methods);
+    }
+
+    public function test_payment_preferences_enforce_valid_choices_and_the_two_gateway_limit(): void
+    {
+        [$admin] = $this->createWorkshop();
+        $this->actingAs($admin);
+        $update = route('payment-preferences.update');
+
+        $cases = [
+            ['gateways', [['provider' => 'stripe'], ['provider' => 'billplz'], ['provider' => 'chip']]],
+            ['gateways.1.provider', [['provider' => 'stripe'], ['provider' => 'stripe']]],
+            ['gateways.1.provider', [['provider' => 'custom', 'name' => 'Local'], ['provider' => 'custom', 'name' => 'local']]],
+            ['gateways.0.provider', [['provider' => 'unknown']]],
+            ['gateways.0.name', [['provider' => 'custom']]],
+            ['gateways.0', [['provider' => 'stripe', 'api_key' => 'test-only']]],
+        ];
+
+        foreach ($cases as [$field, $gateways]) {
+            $this->putJson($update, ['gateways' => $gateways])->assertUnprocessable()->assertJsonValidationErrors($field);
+        }
+
+        $this->putJson($update, ['offline_methods' => ['stripe']])->assertUnprocessable()
+            ->assertJsonValidationErrors('offline_methods.0');
+        $this->assertSame(0, PaymentPreference::query()->count());
+    }
+
+    public function test_payment_preferences_belong_to_the_signed_in_workshop_admin(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherWorkshopAdmin] = $this->createWorkshop();
+        $colleague = User::factory()->create(['role' => User::ROLE_ADMIN, 'tenant_id' => $workshop->id]);
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        $edit = route('payment-preferences.edit');
+        $update = route('payment-preferences.update');
+
+        $this->actingAs($admin)->put($update, [
+            'gateways' => [['provider' => 'custom', 'name' => 'Private provider']],
+        ])->assertRedirect($edit);
+
+        $this->actingAs($colleague)->get($edit)->assertOk()->assertDontSee('Private provider');
+        $this->put($update, ['user_id' => $admin->id, 'offline_methods' => ['cash']])->assertRedirect($edit);
+        $this->assertSame(['cash'], PaymentPreference::where('user_id', $colleague->id)->sole()->offline_methods);
+        $this->assertSame('Private provider', PaymentPreference::where('user_id', $admin->id)->sole()->gateways[0]['name']);
+
+        $this->actingAs($otherWorkshopAdmin)->get($edit)->assertOk()->assertDontSee('Private provider');
+        $this->actingAs($client)->get($edit)->assertForbidden();
+        $this->put($update, ['offline_methods' => ['cash']])->assertForbidden();
     }
 
     protected function tearDown(): void
