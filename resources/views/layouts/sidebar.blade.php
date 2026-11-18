@@ -2,14 +2,15 @@
 @php
     $user = auth()->user();
     $isSuperAdmin = $user?->isSuperAdmin() ?? false;
+    $accountSubscription = request()->attributes->get('account_subscription');
     $subscriptionUsable = request()->attributes->get('subscription_usable');
     if ($subscriptionUsable === null && $user && in_array($user->role, [
         \App\Models\User::ROLE_ADMIN,
         \App\Models\User::ROLE_ACCOUNT_SUPER_ADMIN,
         \App\Models\User::ROLE_MECHANIC,
     ], true)) {
-        $subscriptionUsable = app(\App\Services\SubscriptionEntitlementService::class)
-            ->subscriptionFor($user)?->isUsable() ?? false;
+        $accountSubscription = app(\App\Services\SubscriptionEntitlementService::class)->subscriptionFor($user);
+        $subscriptionUsable = $accountSubscription?->isUsable() ?? false;
     }
     $subscriptionUsable ??= true;
 @endphp
@@ -117,14 +118,15 @@
                     <span>Job cards</span>
                 </a>
             </li>
+            @if ($accountSubscription?->canManageInventory())
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ route('inventory.index') }}">
+                        <i class="fas fa-warehouse"></i>
+                        <span>Inventory</span>
+                    </a>
+                </li>
+            @endif
         @endif
-
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('inventory.index') }}">
-                <i class="fas fa-warehouse"></i>
-                <span>Inventory</span>
-            </a>
-        </li>
 
         <li class="nav-item">
             <a class="nav-link" href="{{ route('users.index') }}">

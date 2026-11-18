@@ -27,6 +27,7 @@ class EnsureSubscriptionIsActive
         }
 
         $subscription = $this->entitlements->subscriptionFor($user);
+        $request->attributes->set('account_subscription', $subscription);
         $isUsable = $subscription?->isUsable() ?? false;
         $request->attributes->set('subscription_usable', $isUsable);
 

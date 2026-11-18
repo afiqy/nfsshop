@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AccountSubscription extends Model
 {
+    public function canManageInventory(): bool
+    {
+        return $this->isUsable()
+            && ($this->status === self::STATUS_TRIALING || in_array($this->plan?->slug, ['pro', 'enterprise'], true));
+    }
+
     use HasFactory;
 
     public const STATUS_ACTIVE = 'active';

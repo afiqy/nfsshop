@@ -91,6 +91,8 @@ Under **Calendar**, book a service for an existing vehicle, change its time, and
 
 Open a **Job card** for an existing vehicle, or use **Open job card** on a scheduled appointment (one card per appointment). Start work, then mark the job completed. Mechanic assignment and automatic invoicing are not part of this pilot.
 
+Under **Inventory**, eligible Pro and Enterprise workshop admins and active trial workshops can add an item, record its opening balance as stock in, and record later stock in/out with a reason. Check that the movement history shows the resulting balance and that the item is marked low stock at or below its threshold. Suppliers, purchase orders, and automatic stock changes from invoices or jobs are not included.
+
 ---
 
 ## 📌 Repository

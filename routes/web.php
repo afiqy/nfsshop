@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Middleware\EnsureWorkshopContext;
+use App\Http\Middleware\EnsureInventoryAccess;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\CalendarController;
@@ -136,6 +137,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
             Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);
             Route::patch('job-cards/{job_card}/status', [JobCardController::class, 'advance'])->name('job-cards.advance');
+            Route::middleware(EnsureInventoryAccess::class)->group(function () {
+                Route::resource('inventory', InventoryController::class)->except(['destroy']);
+                Route::post('inventory/{inventory}/movements', [InventoryController::class, 'move'])->name('inventory.move');
+            });
             Route::prefix('calendar')->name('calendar.')->group(function () {
                 Route::get('/', [CalendarController::class, 'index'])->name('index');
                 Route::get('create', [CalendarController::class, 'create'])->name('create');
@@ -145,9 +150,6 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 Route::patch('appointments/{appointment}/cancel', [CalendarController::class, 'cancel'])->name('cancel');
             });
         });
-
-        // 📌 Inventory Management
-        Route::resource('inventory', InventoryController::class);
 
         // 📌 User Management
         Route::resource('users', UserController::class);

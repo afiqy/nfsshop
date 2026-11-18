@@ -6,6 +6,7 @@ use App\Models\AccountSubscription;
 use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\InventoryItem;
 use App\Models\JobCard;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
@@ -294,6 +295,50 @@ class InvoiceTest extends TestCase
         $this->actingAs($otherAdmin)->get(route('job-cards.index'))->assertOk()->assertSee('No job cards yet.');
         $this->patch(route('job-cards.advance', $job), ['status' => JobCard::IN_PROGRESS])->assertNotFound();
         $this->post(route('job-cards.store'), $details)->assertSessionHasErrors('vehicle_id');
+    }
+
+    public function test_inventory_movements_are_traced_and_cannot_overdraw_stock(): void
+    {
+        [$admin] = $this->createWorkshop();
+        $details = ['sku' => 'FILTER-01', 'name' => 'Oil filter', 'low_stock_threshold' => 3];
+
+        $this->actingAs($admin)->get(route('inventory.create'))->assertOk();
+        $this->post(route('inventory.store'), $details + ['quantity' => 99])->assertRedirect();
+        $item = InventoryItem::query()->sole();
+        $this->assertSame(0, $item->quantity);
+        $show = route('inventory.show', $item);
+        $move = route('inventory.move', $item);
+        $this->post($move, ['direction' => 'in', 'quantity' => 8, 'note' => 'Opening stock'])->assertRedirect($show);
+        $this->get(route('inventory.index'))->assertOk()->assertSee('In stock');
+        $this->post($move, ['direction' => 'out', 'quantity' => 5, 'note' => 'Used for a service'])->assertRedirect($show);
+        $this->get($show)->assertOk()->assertSee('Low stock')->assertSee('Used for a service');
+        $this->post($move, ['direction' => 'out', 'quantity' => 4, 'note' => 'Overdraw'])->assertSessionHasErrors('quantity');
+        $this->assertSame(3, $item->fresh()->quantity);
+        $this->assertSame([8, 3], $item->movements()->orderBy('id')->pluck('balance_after')->all());
+        $this->assertSame([$admin->id], $item->movements()->distinct()->pluck('recorded_by_user_id')->all());
+        $this->get(route('inventory.edit', $item))->assertOk()->assertSee('FILTER-01');
+        $this->put(route('inventory.update', $item), array_replace($details, ['low_stock_threshold' => 2]))->assertRedirect($show);
+        $this->get(route('inventory.index'))->assertOk()->assertSee('In stock');
+    }
+
+    public function test_inventory_is_limited_to_eligible_workshop_admins_and_their_own_items(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        $basic = SubscriptionPlan::create(['name' => 'Basic', 'slug' => 'basic']);
+        $pro = SubscriptionPlan::create(['name' => 'Pro', 'slug' => 'pro']);
+        $admin->accountSubscription()->update(['status' => AccountSubscription::STATUS_ACTIVE, 'subscription_plan_id' => $basic->id]);
+        $this->actingAs($admin)->get(route('inventory.index'))->assertForbidden();
+
+        tenancy()->end();
+        $admin->accountSubscription()->update(['subscription_plan_id' => $pro->id]);
+        $this->post(route('inventory.store'), ['sku' => 'PART-01', 'name' => 'Pilot part', 'low_stock_threshold' => 1])->assertRedirect();
+        $item = InventoryItem::query()->sole();
+        $this->actingAs($client)->get(route('inventory.show', $item))->assertForbidden();
+        $this->actingAs($otherAdmin)->get(route('inventory.index'))->assertOk()->assertSee('No inventory items yet.');
+        $this->post(route('inventory.move', $item), ['direction' => 'in', 'quantity' => 1, 'note' => 'Invalid workshop'])
+            ->assertNotFound();
     }
 
     protected function tearDown(): void
