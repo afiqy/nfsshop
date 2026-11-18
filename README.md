@@ -101,6 +101,8 @@ Under **Payment settings**, each workshop admin can save up to two gateway prefe
 
 To try Stripe on staging, set `STRIPE_SANDBOX_ENABLED=true`, provide a Stripe test secret as `STRIPE_TEST_SECRET` in the deployment environment, and verify `APP_URL` points to the staging site. Refresh Laravel's config cache if used. Save **Stripe Malaysia** in **Payment settings**, then choose **Open Stripe test checkout** and use [Stripe test card details](https://docs.stripe.com/testing) only. The demo sends a fixed RM 10.00 charge request in test mode with no invoice or customer data. Returning in the same browser session verifies the result directly with Stripe; it does not write to the payment ledger. No new migration is needed. Leave this disabled on the live pilot; live checkout and webhook reconciliation are not implemented.
 
+To try toyyibPay on staging, create a category in your [toyyibPay sandbox account](https://dev.toyyibpay.com). Set `TOYYIBPAY_SANDBOX_ENABLED=true`, `TOYYIBPAY_TEST_SECRET`, and `TOYYIBPAY_TEST_CATEGORY` using that sandbox account. Use the same `APP_URL` and config-cache setup as above. Save **toyyibPay** under **Payment settings**, open the test checkout, and use the FPX bank simulator. Return in the same browser session to verify the RM 10.00 demo payment. The app contacts only the sandbox API and does not send customer or invoice data, process callbacks, or record the payment. Leave it disabled on the live pilot. No new migration is needed.
+
 ---
 
 ## 📌 Repository

@@ -648,6 +648,78 @@ class InvoiceTest extends TestCase
         $this->get(route('stripe-sandbox.result', ['session_id' => 'cs_test_Demo123']))->assertNotFound();
     }
 
+    public function test_toyyibpay_sandbox_verifies_the_matching_fpx_payment_without_recording_it(): void
+    {
+        [$admin] = $this->createWorkshop();
+        config([
+            'services.toyyibpay.sandbox_enabled' => true,
+            'services.toyyibpay.test_secret' => 'fake-test-secret',
+            'services.toyyibpay.test_category' => 'test-category',
+        ]);
+        $api = 'https://dev.toyyibpay.com/index.php/api/';
+        $reference = null;
+        $attempt = 0;
+        Http::preventStrayRequests()->fake(function ($request) use ($api, &$reference, &$attempt) {
+            $this->assertSame('POST', $request->method());
+            parse_str($request->body(), $form);
+            if ($request->url() === $api.'createBill') {
+                $this->assertSame('1000', $form['billAmount']);
+                $this->assertSame('0', $form['billPaymentChannel']);
+                $this->assertSame('0', $form['billPayorInfo']);
+                $this->assertArrayNotHasKey('billEmail', $form);
+                $this->assertStringEndsWith('/payment-preferences/toyyibpay-sandbox/result', $form['billReturnUrl']);
+                $reference = $form['billExternalReferenceNo'];
+
+                return Http::response([['BillCode' => 'demobill1']]);
+            }
+
+            $this->assertSame($api.'getBillTransactions', $request->url());
+            $this->assertSame('demobill1', $form['billCode']);
+            $attempt++;
+
+            return Http::response([[
+                'billExternalReferenceNo' => $attempt === 1 ? 'different-reference' : $reference,
+                'billpaymentStatus' => '1',
+                'billpaymentAmount' => $attempt === 2 ? '1.00' : '10.00',
+            ]]);
+        });
+
+        $this->actingAs($admin)->put(route('payment-preferences.update'), ['gateways' => [['provider' => 'toyyibpay']]])
+            ->assertRedirect();
+        $this->get(route('payment-preferences.edit'))->assertOk()->assertSee('Open toyyibPay test checkout');
+        $this->post(route('toyyibpay-sandbox.start'), ['billAmount' => 1, 'billEmail' => 'not-sent@example.test'])
+            ->assertStatus(303)->assertRedirect('https://dev.toyyibpay.com/demobill1');
+        $this->get(route('toyyibpay-sandbox.result', ['billcode' => 'another']))->assertNotFound();
+        $result = route('toyyibpay-sandbox.result', ['billcode' => 'demobill1', 'status_id' => '1']);
+        $this->get($result)->assertOk()->assertSee('toyyibPay has not confirmed the test payment.');
+        $this->get($result)->assertOk()->assertSee('toyyibPay has not confirmed the test payment.');
+        $this->get($result)->assertOk()->assertSee('toyyibPay confirmed the test payment.');
+        $this->assertSame(0, Invoice::query()->count());
+        $this->assertSame(0, \App\Models\InvoicePayment::query()->count());
+        Http::assertSentCount(4);
+    }
+
+    public function test_toyyibpay_sandbox_requires_configuration_and_rejects_api_errors_with_http_200(): void
+    {
+        [$admin] = $this->createWorkshop();
+        Http::preventStrayRequests()->fake([
+            'https://dev.toyyibpay.com/index.php/api/createBill' => Http::response('[CATEGORY-NOT-MATCH]', 200),
+        ]);
+        $this->actingAs($admin);
+        $start = route('toyyibpay-sandbox.start');
+        config(['services.toyyibpay.sandbox_enabled' => false]);
+        $this->post($start)->assertNotFound();
+        config([
+            'services.toyyibpay.sandbox_enabled' => true,
+            'services.toyyibpay.test_secret' => 'fake-test-secret',
+            'services.toyyibpay.test_category' => 'test-category',
+        ]);
+        $this->post($start)->assertForbidden();
+        $this->put(route('payment-preferences.update'), ['gateways' => [['provider' => 'toyyibpay']]])->assertRedirect();
+        $this->post($start)->assertStatus(502);
+        Http::assertSentCount(1);
+    }
+
     private function stripeDemoSession(string $id): array
     {
         return [

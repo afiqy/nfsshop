@@ -30,6 +30,12 @@ return [
         'test_secret' => env('STRIPE_TEST_SECRET'),
     ],
 
+    'toyyibpay' => [
+        'sandbox_enabled' => env('TOYYIBPAY_SANDBOX_ENABLED', false),
+        'test_secret' => env('TOYYIBPAY_TEST_SECRET'),
+        'test_category' => env('TOYYIBPAY_TEST_CATEGORY'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

@@ -83,4 +83,14 @@
             </form>
         </section>
     @endif
+    @if ($toyyibPaySandboxEnabled && $preferences?->usesGateway('toyyibpay'))
+        <section class="card shadow-sm p-3 mt-4" aria-labelledby="toyyibpay-sandbox">
+            <h2 class="h5" id="toyyibpay-sandbox">toyyibPay sandbox</h2>
+            <p>Try a RM 10.00 demo payment using the FPX bank simulator only. No money is charged and no invoice is updated.</p>
+            <form method="POST" action="{{ route('toyyibpay-sandbox.start') }}">
+                @csrf
+                <button class="btn btn-outline-primary" type="submit">Open toyyibPay test checkout</button>
+            </form>
+        </section>
+    @endif
 @endsection

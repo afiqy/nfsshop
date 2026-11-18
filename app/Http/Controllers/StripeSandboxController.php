@@ -42,7 +42,8 @@ class StripeSandboxController extends Controller
         $session = $stripe->retrieve($id);
         abort_unless($session['id'] === $id, 502, 'Stripe returned a different checkout session.');
 
-        return response()->view('payment-preferences.stripe-result', [
+        return response()->view('payment-preferences.sandbox-result', [
+            'provider' => 'Stripe',
             'paid' => ($session['status'] ?? null) === 'complete' && ($session['payment_status'] ?? null) === 'paid',
         ])->header('Cache-Control', 'private, no-store')->header('Referrer-Policy', 'no-referrer');
     }
