@@ -72,4 +72,15 @@
         </fieldset>
         <div><button class="btn btn-primary" type="submit">Save payment preferences</button></div>
     </form>
+
+    @if ($stripeSandboxEnabled && $preferences?->usesGateway('stripe'))
+        <section class="card shadow-sm p-3 mt-4" aria-labelledby="stripe-sandbox">
+            <h2 class="h5" id="stripe-sandbox">Stripe sandbox</h2>
+            <p>Try a RM 10.00 demo payment using Stripe test card details only. No money is charged and no invoice is updated.</p>
+            <form method="POST" action="{{ route('stripe-sandbox.start') }}">
+                @csrf
+                <button class="btn btn-outline-primary" type="submit">Open Stripe test checkout</button>
+            </form>
+        </section>
+    @endif
 @endsection

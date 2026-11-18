@@ -14,4 +14,9 @@ class PaymentPreference extends Model
     protected $fillable = ['user_id', 'gateways', 'offline_methods'];
 
     protected $casts = ['gateways' => 'array', 'offline_methods' => 'array'];
+
+    public function usesGateway(string $provider): bool
+    {
+        return in_array($provider, array_column($this->gateways, 'provider'), true);
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PaymentPreference;
+use App\Services\StripeSandboxCheckout;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -11,12 +12,13 @@ use Illuminate\View\View;
 
 class PaymentPreferenceController extends Controller
 {
-    public function edit(Request $request): View
+    public function edit(Request $request, StripeSandboxCheckout $stripe): View
     {
         return view('payment-preferences.edit', [
             'preferences' => PaymentPreference::where('user_id', $request->user()->id)->first(),
             'gatewayGroups' => config('payment_methods.gateways'),
             'offlineOptions' => config('payment_methods.offline'),
+            'stripeSandboxEnabled' => $stripe->enabled(),
         ]);
     }
 

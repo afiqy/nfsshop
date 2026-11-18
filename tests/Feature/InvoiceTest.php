@@ -14,6 +14,8 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request as StripeRequest;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -569,6 +571,93 @@ class InvoiceTest extends TestCase
         $this->actingAs($otherWorkshopAdmin)->get($edit)->assertOk()->assertDontSee('Private provider');
         $this->actingAs($client)->get($edit)->assertForbidden();
         $this->put($update, ['offline_methods' => ['cash']])->assertForbidden();
+    }
+
+    public function test_stripe_sandbox_verifies_a_demo_payment_without_recording_it(): void
+    {
+        [$admin] = $this->createWorkshop();
+        config(['services.stripe.sandbox_enabled' => true, 'services.stripe.test_secret' => 'sk_test_FakeKey']);
+        $api = 'https://api.stripe.com/v1/checkout/sessions';
+        $id = 'cs_test_Demo123';
+        $checkout = 'https://checkout.stripe.com/c/pay/'.$id.'#stripe';
+        $session = $this->stripeDemoSession($id) + ['url' => $checkout];
+        Http::preventStrayRequests()->fake([
+            $api => Http::response($session),
+            "$api/$id" => Http::sequence()
+                ->push($session + ['status' => 'open', 'payment_status' => 'unpaid'])
+                ->push($session + ['status' => 'complete', 'payment_status' => 'paid']),
+        ]);
+
+        $this->actingAs($admin)->put(route('payment-preferences.update'), ['gateways' => [['provider' => 'stripe']]])
+            ->assertRedirect();
+        $this->get(route('payment-preferences.edit'))->assertOk()->assertSee('Open Stripe test checkout');
+        $this->post(route('stripe-sandbox.start'), ['amount' => 999, 'customer_email' => 'not-sent@example.test'])
+            ->assertStatus(303)->assertRedirect($checkout);
+        $this->get(route('stripe-sandbox.result', ['session_id' => 'cs_test_Unrelated']))->assertNotFound();
+        $result = route('stripe-sandbox.result', ['session_id' => $id]);
+        $this->get($result)->assertOk()->assertSee('Stripe has not confirmed the test payment.');
+        $this->get($result)->assertOk()->assertSee('Stripe confirmed the test payment.');
+        $this->assertSame(0, Invoice::query()->count());
+        $this->assertSame(0, \App\Models\InvoicePayment::query()->count());
+
+        Http::assertSent(function (StripeRequest $request) use ($api) {
+            if ($request->method() !== 'POST' || $request->url() !== $api) {
+                return false;
+            }
+
+            parse_str($request->body(), $form);
+            $this->assertSame('1000', data_get($form, 'line_items.0.price_data.unit_amount'));
+            $this->assertSame('myr', data_get($form, 'line_items.0.price_data.currency'));
+            $this->assertStringEndsWith('session_id={CHECKOUT_SESSION_ID}', $form['success_url']);
+            $this->assertArrayNotHasKey('customer_email', $form);
+
+            return true;
+        });
+        Http::assertSentCount(3);
+    }
+
+    public function test_stripe_sandbox_stays_disabled_for_live_keys_and_requires_a_saved_preference(): void
+    {
+        [$admin] = $this->createWorkshop();
+        Http::preventStrayRequests()->fake();
+        $this->actingAs($admin);
+        $start = route('stripe-sandbox.start');
+
+        config(['services.stripe.sandbox_enabled' => false, 'services.stripe.test_secret' => 'sk_test_FakeKey']);
+        $this->post($start)->assertNotFound();
+        config(['services.stripe.sandbox_enabled' => true, 'services.stripe.test_secret' => 'sk_live_FakeKey']);
+        $this->post($start)->assertNotFound();
+        config(['services.stripe.test_secret' => 'sk_test_FakeKey']);
+        $this->post($start)->assertForbidden();
+        Http::assertNothingSent();
+    }
+
+    public function test_stripe_sandbox_rejects_checkout_links_outside_stripe(): void
+    {
+        [$admin] = $this->createWorkshop();
+        config(['services.stripe.sandbox_enabled' => true, 'services.stripe.test_secret' => 'sk_test_FakeKey']);
+        Http::preventStrayRequests()->fake([
+            'https://api.stripe.com/v1/checkout/sessions' => Http::response(
+                $this->stripeDemoSession('cs_test_Demo123') + ['url' => 'https://checkout.stripe.com.example.test/c/pay/demo']
+            ),
+        ]);
+
+        $this->actingAs($admin)->put(route('payment-preferences.update'), ['gateways' => [['provider' => 'stripe']]])
+            ->assertRedirect();
+        $this->post(route('stripe-sandbox.start'))->assertStatus(502);
+        $this->get(route('stripe-sandbox.result', ['session_id' => 'cs_test_Demo123']))->assertNotFound();
+    }
+
+    private function stripeDemoSession(string $id): array
+    {
+        return [
+            'id' => $id,
+            'object' => 'checkout.session',
+            'livemode' => false,
+            'mode' => 'payment',
+            'currency' => 'myr',
+            'amount_total' => 1000,
+        ];
     }
 
     protected function tearDown(): void
