@@ -4,6 +4,13 @@
 
 @section('content')
 <div class="container-fluid">
+    @if (! ($subscriptionUsable ?? false) && auth()->user()->role === \App\Models\User::ROLE_ADMIN)
+        <div class="alert alert-warning">
+            Your subscription is inactive or expired. Workshop operations are locked until you renew or reactivate your subscription.
+            <a href="{{ route('workshop.subscription') }}" class="alert-link">View subscription</a>
+        </div>
+    @endif
+
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>

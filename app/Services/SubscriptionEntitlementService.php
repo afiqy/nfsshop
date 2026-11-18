@@ -10,9 +10,17 @@ class SubscriptionEntitlementService
 {
     public function subscriptionFor(User $user): ?AccountSubscription
     {
+        $accountOwnerId = $user->id;
+
+        if ($user->tenant_id) {
+            $accountOwnerId = Tenant::query()
+                ->whereKey($user->tenant_id)
+                ->value('account_owner_id') ?? $user->id;
+        }
+
         return AccountSubscription::query()
             ->with('plan')
-            ->where('user_id', $user->id)
+            ->where('user_id', $accountOwnerId)
             ->first();
     }
 

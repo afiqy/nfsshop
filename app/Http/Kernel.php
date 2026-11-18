@@ -68,5 +68,6 @@ class Kernel extends HttpKernel
         'role' => \App\Http\Middleware\EnsureUserHasRole::class,
         'check.lockout' => \App\Http\Middleware\CheckAccountLockout::class,
         'session.timeout' => \App\Http\Middleware\SessionTimeout::class,
+        'subscription.active' => \App\Http\Middleware\EnsureSubscriptionIsActive::class,
     ];
 }

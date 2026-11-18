@@ -388,19 +388,19 @@ class RegistrationController extends Controller
                 $payload['status'] = WorkshopSubscription::STATUS_TRIALING;
                 break;
             case 'paid_monthly':
-                $payload['status'] = 'pending';
+                $payload['status'] = AccountSubscription::STATUS_PENDING;
                 $payload['trial_type'] = 'none';
                 $payload['billing_cycle'] = 'monthly';
                 $payload['next_billing_date'] = $now->clone()->addMonth()->toDateString();
                 break;
             case 'paid_quarterly':
-                $payload['status'] = 'pending';
+                $payload['status'] = AccountSubscription::STATUS_PENDING;
                 $payload['trial_type'] = 'none';
                 $payload['billing_cycle'] = 'quarterly';
                 $payload['next_billing_date'] = $now->clone()->addMonths(3)->toDateString();
                 break;
             case 'paid_annual':
-                $payload['status'] = 'pending';
+                $payload['status'] = AccountSubscription::STATUS_PENDING;
                 $payload['trial_type'] = 'none';
                 $payload['billing_cycle'] = 'annual';
                 $payload['next_billing_date'] = $now->clone()->addYear()->toDateString();

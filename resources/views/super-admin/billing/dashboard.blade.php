@@ -19,13 +19,20 @@
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
 
+@if (session('warning'))
+    <div class="alert alert-warning">{{ session('warning') }}</div>
+@endif
+
 @if ($errors->any())
     <div class="alert alert-danger">{{ $errors->first() }}</div>
 @endif
 
 @if ($subscription)
     @php
-        $statusClass = in_array($subscription->status, ['active', 'trialing'], true) ? 'success' : 'warning';
+        $status = ! $subscriptionUsable && in_array($subscription->status, ['active', 'trialing'], true)
+            ? 'expired'
+            : $subscription->status;
+        $statusClass = $subscriptionUsable ? 'success' : 'warning';
     @endphp
 
     <div class="row">
@@ -33,7 +40,7 @@
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex align-items-center justify-content-between">
                     <h6 class="m-0 font-weight-bold text-primary">{{ $subscription->plan->name }} Plan</h6>
-                    <span class="badge badge-{{ $statusClass }}">{{ ucfirst(str_replace('_', ' ', $subscription->status)) }}</span>
+                    <span class="badge badge-{{ $statusClass }}">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
                 </div>
                 <div class="card-body">
                     <div class="row mb-4">
@@ -73,8 +80,8 @@
                 </div>
                 <div class="card-body">
                     <dl class="row mb-0">
-                            <dt class="col-6">Subscription source</dt>
-                            <dd class="col-6 text-right">Qysoft Main (sync pending)</dd>
+                        <dt class="col-6">Subscription source</dt>
+                        <dd class="col-6 text-right">Qysoft Main (sync pending)</dd>
 
                         <dt class="col-6">Subscription ID</dt>
                         <dd class="col-6 text-right text-break">{{ $subscription->external_subscription_id ?? 'Local record' }}</dd>

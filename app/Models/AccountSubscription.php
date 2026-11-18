@@ -14,6 +14,7 @@ class AccountSubscription extends Model
     public const STATUS_TRIALING = 'trialing';
     public const STATUS_PAST_DUE = 'past_due';
     public const STATUS_CANCELED = 'canceled';
+    public const STATUS_PENDING = 'pending';
 
     protected $fillable = [
         'user_id',
@@ -32,6 +33,11 @@ class AccountSubscription extends Model
         'last_checked_at' => 'datetime',
         'provider_payload' => 'array',
     ];
+
+    public function getConnectionName()
+    {
+        return config('tenancy.database.central_connection');
+    }
 
     public function user(): BelongsTo
     {
@@ -54,6 +60,11 @@ class AccountSubscription extends Model
 
     public function isUsable(): bool
     {
-        return in_array($this->status, [self::STATUS_ACTIVE, self::STATUS_TRIALING], true);
+        if ($this->status === self::STATUS_CANCELED) {
+            return $this->current_period_ends_at?->isFuture() ?? false;
+        }
+
+        return in_array($this->status, [self::STATUS_ACTIVE, self::STATUS_TRIALING], true)
+            && ($this->current_period_ends_at === null || $this->current_period_ends_at->isFuture());
     }
 }

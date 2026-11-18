@@ -41,6 +41,11 @@ class SubscriptionPlan extends Model
         });
     }
 
+    public function getConnectionName()
+    {
+        return config('tenancy.database.central_connection');
+    }
+
     public function workshopSubscriptions(): HasMany
     {
         return $this->hasMany(WorkshopSubscription::class);

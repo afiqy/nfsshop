@@ -1,6 +1,18 @@
 <!-- Sidebar -->
 @php($user = auth()->user())
 @php($isSuperAdmin = $user && method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin())
+@php
+    $subscriptionUsable = request()->attributes->get('subscription_usable');
+    if ($subscriptionUsable === null && $user && in_array($user->role, [
+        \App\Models\User::ROLE_ADMIN,
+        \App\Models\User::ROLE_ACCOUNT_SUPER_ADMIN,
+        \App\Models\User::ROLE_MECHANIC,
+    ], true)) {
+        $subscriptionUsable = app(\App\Services\SubscriptionEntitlementService::class)
+            ->subscriptionFor($user)?->isUsable() ?? false;
+    }
+    $subscriptionUsable ??= true;
+@endphp
 <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
 
     <!-- Sidebar - Brand -->
@@ -52,19 +64,21 @@
         <div class="sidebar-heading">
             Account Management
         </div>
+        @if ($subscriptionUsable)
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('account.workshops.index') }}">
+                    <i class="fas fa-warehouse"></i>
+                    <span>My Workshops</span>
+                </a>
+            </li>
+        @endif
         <li class="nav-item">
-            <a class="nav-link" href="{{ route('account.workshops.index') }}">
-                <i class="fas fa-warehouse"></i>
-                <span>My Workshops</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('workshop.subscription') }}">
+            <a class="nav-link" href="{{ route('account.subscription') }}">
                 <i class="fas fa-credit-card"></i>
                 <span>My Subscription</span>
             </a>
         </li>
-    @else
+    @elseif ($subscriptionUsable)
         <!-- Divider -->
         <hr class="sidebar-divider">
 
@@ -144,12 +158,21 @@
 
         @if ($user && $user->role === \App\Models\User::ROLE_ADMIN)
             <li class="nav-item">
-                <a class="nav-link" href="{{ route('account.subscription') }}">
+                <a class="nav-link" href="{{ route('workshop.subscription') }}">
                     <i class="fas fa-credit-card"></i>
                     <span>My Subscription</span>
                 </a>
             </li>
         @endif
+    @elseif ($user && $user->role === \App\Models\User::ROLE_ADMIN)
+        <hr class="sidebar-divider">
+        <div class="sidebar-heading">Subscription</div>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('workshop.subscription') }}">
+                <i class="fas fa-credit-card"></i>
+                <span>My Subscription</span>
+            </a>
+        </li>
     @endif
 
     <!-- Divider -->

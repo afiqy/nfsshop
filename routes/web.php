@@ -97,51 +97,69 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:account_sup
     ->prefix('account')
     ->name('account.')
     ->group(function () {
-        Route::resource('workshops', WorkshopController::class)
-            ->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::middleware('subscription.active')->group(function () {
+            Route::resource('workshops', WorkshopController::class)
+                ->only(['index', 'create', 'store', 'edit', 'update']);
+        });
 
         Route::get('/subscription', [BillingController::class, 'dashboard'])
             ->name('subscription');
     });
 
+Route::get('/subscription-required', function (Request $request) {
+    $tenant = \App\Models\Tenant::find($request->user()->tenant_id);
+
+    return view('auth.subscription-required', [
+        'ownerEmail' => data_get($tenant?->data ?? [], 'owner_email'),
+    ]);
+})
+    ->middleware(['auth', 'check.lockout', 'session.timeout', 'role:mechanic'])
+    ->name('subscription.required');
+
 // 🔹 Protected Routes (Only Accessible if Logged In)
 Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context'])->group(function () {
 
     // 📌 Dashboard
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', function (Request $request, \App\Services\SubscriptionEntitlementService $entitlements) {
+        $subscription = $entitlements->subscriptionFor($request->user());
+        $subscriptionUsable = $subscription?->isUsable() ?? false;
+        $request->attributes->set('subscription_usable', $subscriptionUsable);
 
-    // 📌 Customer Management
-    Route::resource('customers', CustomerController::class);
+        return view('dashboard', ['subscriptionUsable' => $subscriptionUsable]);
+    })->middleware('subscription.active')->name('dashboard');
 
-    // 📌 Vehicle Management
-    Route::resource('vehicles', VehicleController::class);
+    Route::middleware('subscription.active')->group(function () {
+        // 📌 Customer Management
+        Route::resource('customers', CustomerController::class);
 
-    // 📌 Invoices
-    Route::resource('invoices', InvoiceController::class);
+        // 📌 Vehicle Management
+        Route::resource('vehicles', VehicleController::class);
 
-    // 📌 Inventory Management
-    Route::resource('inventory', InventoryController::class);
+        // 📌 Invoices
+        Route::resource('invoices', InvoiceController::class);
 
-    // 📌 User Management
-    Route::resource('users', UserController::class);
+        // 📌 Inventory Management
+        Route::resource('inventory', InventoryController::class);
 
-    // 📌 Tasks Management
-    Route::resource('tasks', TaskController::class);
+        // 📌 User Management
+        Route::resource('users', UserController::class);
 
-    // 📌 Admin & Role Settings
-    Route::prefix('admin')->name('admin.')->group(function () {
-        Route::get('/', [AdminController::class, 'index'])->name('settings');
-        Route::prefix('/roles')->name('roles.')->group(function () {
-            Route::get('/', [RoleController::class, 'index'])->name('index');
+        // 📌 Tasks Management
+        Route::resource('tasks', TaskController::class);
+
+        // 📌 Admin & Role Settings
+        Route::prefix('admin')->name('admin.')->group(function () {
+            Route::get('/', [AdminController::class, 'index'])->name('settings');
+            Route::prefix('/roles')->name('roles.')->group(function () {
+                Route::get('/', [RoleController::class, 'index'])->name('index');
+            });
         });
-    });
 
-    // 📌 Calendar Module (Workshop Service Appointments)
-    Route::prefix('calendar')->name('calendar.')->group(function () {
-        Route::get('/', [CalendarController::class, 'index'])->name('index');
-        Route::get('/appointments', [CalendarController::class, 'fetchAppointments'])->name('appointments');
-        Route::post('/store', [CalendarController::class, 'store'])->name('store');
+        // 📌 Calendar Module (Workshop Service Appointments)
+        Route::prefix('calendar')->name('calendar.')->group(function () {
+            Route::get('/', [CalendarController::class, 'index'])->name('index');
+            Route::get('/appointments', [CalendarController::class, 'fetchAppointments'])->name('appointments');
+            Route::post('/store', [CalendarController::class, 'store'])->name('store');
+        });
     });
 });

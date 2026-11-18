@@ -13,9 +13,11 @@ class BillingController extends Controller
     {
         $subscription = $entitlements->subscriptionFor($request->user());
         $workshopCount = $entitlements->workshopCount($request->user());
+        $request->attributes->set('subscription_usable', $subscription?->isUsable() ?? false);
 
         return view('super-admin.billing.dashboard', [
             'subscription' => $subscription,
+            'subscriptionUsable' => $subscription?->isUsable() ?? false,
             'workshopCount' => $workshopCount,
             'allowedWorkshops' => $subscription?->allowedWorkshops(),
         ]);
