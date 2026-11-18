@@ -53,6 +53,12 @@
                             <td>{{ $appointment->customer?->name ?? 'Customer unavailable' }}<br>{{ $appointment->vehicle?->plate_number ?? 'Vehicle unavailable' }}</td>
                             <td>{{ $appointment->status }}</td>
                             <td>
+                                @if ($appointment->jobCard)
+                                    <a class="d-block" href="{{ route('job-cards.show', $appointment->jobCard) }}">View job card</a>
+                                @elseif ($appointment->status === \App\Models\Calendar::STATUS_SCHEDULED
+                                    && $appointment->vehicle && $appointment->vehicle->customer_id === $appointment->customer_id)
+                                    <a class="d-block" href="{{ route('job-cards.create', ['appointment' => $appointment->id]) }}">Open job card</a>
+                                @endif
                                 @if ($appointment->status === \App\Models\Calendar::STATUS_SCHEDULED)
                                     @if ($appointment->vehicle)
                                         <a href="{{ route('calendar.edit', $appointment) }}">Reschedule</a>

@@ -29,4 +29,9 @@ class Calendar extends Model
     {
         return $this->belongsTo(Vehicle::class);
     }
+
+    public function jobCard()
+    {
+        return $this->hasOne(JobCard::class);
+    }
 }

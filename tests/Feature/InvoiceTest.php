@@ -6,6 +6,7 @@ use App\Models\AccountSubscription;
 use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\JobCard;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
@@ -240,6 +241,59 @@ class InvoiceTest extends TestCase
         $this->actingAs($otherAdmin)->get($week)->assertOk()->assertDontSee('Private booking');
         $this->patch(route('calendar.cancel', $booking))->assertNotFound();
         $this->post(route('calendar.store'), $details)->assertSessionHasErrors('vehicle_id');
+    }
+
+    public function test_workshop_admin_can_open_a_job_from_the_calendar_and_track_progress(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $week = route('calendar.index', ['week' => '2026-11-18']);
+        $this->actingAs($admin)->post(route('calendar.store'), [
+            'vehicle_id' => $vehicle->id,
+            'service_type' => 'Brake inspection',
+            'start' => '2026-11-18T09:00',
+            'end' => '2026-11-18T10:00',
+        ])->assertRedirect($week);
+        $appointment = Calendar::query()->sole();
+        $create = route('job-cards.create', ['appointment' => $appointment->id]);
+        $this->get($week)->assertOk()->assertSee($create);
+        $this->get($create)->assertOk()->assertSee('Brake inspection');
+
+        $details = ['vehicle_id' => $vehicle->id, 'calendar_id' => $appointment->id, 'description' => 'Check brake pads'];
+        $this->post(route('job-cards.store'), $details)->assertRedirect();
+        $job = JobCard::query()->sole();
+        $show = route('job-cards.show', $job);
+        $this->assertSame($customer->id, $job->customer_id);
+        $this->assertSame($appointment->id, $job->calendar_id);
+        $this->get($show)->assertOk()->assertSee('Check brake pads')->assertSee('Start work');
+        $this->get($create)->assertRedirect($show);
+        $this->post(route('job-cards.store'), $details)->assertSessionHasErrors('calendar_id');
+
+        $update = route('job-cards.advance', $job);
+        $this->patch($update, ['status' => JobCard::COMPLETED])->assertSessionHasErrors('status');
+        $this->patch($update, ['status' => JobCard::IN_PROGRESS])->assertRedirect($show);
+        $this->patch($update, ['status' => JobCard::COMPLETED])->assertRedirect($show);
+        $this->get($show)->assertOk()->assertSee('Completed at')->assertDontSee('Start work');
+        $this->assertNotNull($job->fresh()->completed_at);
+    }
+
+    public function test_job_cards_can_be_created_without_appointments_and_are_workshop_scoped(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        [, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $details = ['vehicle_id' => $vehicle->id, 'description' => 'Walk-in battery test'];
+
+        $this->actingAs($admin)->get(route('job-cards.create'))->assertOk()->assertSee($vehicle->plate_number);
+        $this->post(route('job-cards.store'), $details)->assertRedirect();
+        $job = JobCard::query()->sole();
+        $this->assertNull($job->calendar_id);
+        $this->get(route('job-cards.index'))->assertOk()->assertSee($vehicle->plate_number);
+        $this->actingAs($client)->get(route('job-cards.show', $job))->assertForbidden();
+        $this->actingAs($otherAdmin)->get(route('job-cards.index'))->assertOk()->assertSee('No job cards yet.');
+        $this->patch(route('job-cards.advance', $job), ['status' => JobCard::IN_PROGRESS])->assertNotFound();
+        $this->post(route('job-cards.store'), $details)->assertSessionHasErrors('vehicle_id');
     }
 
     protected function tearDown(): void

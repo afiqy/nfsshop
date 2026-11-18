@@ -9,7 +9,7 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\TaskController;
+use App\Http\Controllers\JobCardController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\AuthController;
@@ -134,6 +134,8 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::resource('customers', CustomerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
             Route::resource('vehicles', VehicleController::class)->only(['index', 'create', 'store', 'edit', 'update']);
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
+            Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);
+            Route::patch('job-cards/{job_card}/status', [JobCardController::class, 'advance'])->name('job-cards.advance');
             Route::prefix('calendar')->name('calendar.')->group(function () {
                 Route::get('/', [CalendarController::class, 'index'])->name('index');
                 Route::get('create', [CalendarController::class, 'create'])->name('create');
@@ -149,9 +151,6 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
 
         // 📌 User Management
         Route::resource('users', UserController::class);
-
-        // 📌 Tasks Management
-        Route::resource('tasks', TaskController::class);
 
         // 📌 Admin & Role Settings
         Route::prefix('admin')->name('admin.')->group(function () {

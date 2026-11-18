@@ -21,7 +21,7 @@ class CalendarController extends Controller
             : CarbonImmutable::now(Calendar::TIMEZONE);
         $weekStart = $date->startOfWeek(CarbonImmutable::MONDAY);
         $weekEnd = $weekStart->addWeek();
-        $appointments = Calendar::with(['customer', 'vehicle'])
+        $appointments = Calendar::with(['customer', 'vehicle', 'jobCard'])
             ->where('start', '<', $weekEnd->toDateTimeString())
             ->where(fn ($query) => $query
                 ->where('start', '>=', $weekStart->toDateTimeString())

@@ -111,6 +111,12 @@
                     <span>Calendar</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('job-cards.index') }}">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Job cards</span>
+                </a>
+            </li>
         @endif
 
         <li class="nav-item">
@@ -124,13 +130,6 @@
             <a class="nav-link" href="{{ route('users.index') }}">
                 <i class="fas fa-user-cog"></i>
                 <span>Users</span>
-            </a>
-        </li>
-
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('tasks.index') }}">
-                <i class="fas fa-tasks"></i>
-                <span>Tasks</span>
             </a>
         </li>
 

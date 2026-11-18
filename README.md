@@ -79,7 +79,7 @@ Use this account for initial login:
 
 ## Workshop invoice beta
 
-After deploying to the beta environment, back up the databases and run `php artisan tenants:migrate --tenants=YOUR_BETA_TENANT_ID` for each beta workshop with a provisioned tenant database. New workshops get the table during provisioning. No invoice seeder or new central migration is required.
+After deploying to the beta environment, back up the databases and run `php artisan tenants:migrate --tenants=YOUR_BETA_TENANT_ID` for each beta workshop with a provisioned tenant database. New workshops get the tables during provisioning. No seeding or new central migration is required.
 
 Before the live pilot, smoke-test on a separate environment with synthetic data. As an active or trialing workshop admin, add a customer under **Customers**, add a vehicle linked to that customer under **Vehicles**, then select both under **Invoices > New invoice**. Check the totals and **Print / Save as PDF**. Sign in as a different workshop admin and verify that none of those records appear.
 
@@ -88,6 +88,8 @@ For the live pilot, use a dedicated workshop account (not the example credential
 To run `InvoiceTest`, configure PHPUnit with a disposable MySQL database and credentials that can create and drop tenant databases. The central migrations use MySQL-specific SQL; do not run the test suite against a real workshop database.
 
 Under **Calendar**, book a service for an existing vehicle, change its time, and cancel it. The weekly calendar uses Malaysia time. Overlapping bookings for the same vehicle are blocked, while different vehicles can be booked in parallel. Cancellations stay visible and release the slot. There are no customer notifications or self-service bookings yet.
+
+Open a **Job card** for an existing vehicle, or use **Open job card** on a scheduled appointment (one card per appointment). Start work, then mark the job completed. Mechanic assignment and automatic invoicing are not part of this pilot.
 
 ---
 
