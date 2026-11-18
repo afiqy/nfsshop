@@ -17,7 +17,6 @@ use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperAdmin\OwnerController;
 use App\Http\Controllers\SuperAdmin\WorkshopController;
-use App\Http\Controllers\SuperAdmin\SubscriptionPlanController;
 use App\Http\Controllers\SuperAdmin\BillingController;
 use App\Http\Controllers\SuperAdmin\ImpersonationController;
 
@@ -30,9 +29,11 @@ use App\Http\Controllers\SuperAdmin\ImpersonationController;
 // 🔹 Authentication Routes (Public)
 Route::get('/', function () {
     return auth()->check()
-        ? auth()->user()->hasRole('super_admin')
+        ? (auth()->user()->isSuperAdmin()
             ? redirect()->route('super-admin.dashboard')
-            : redirect()->route('dashboard')
+            : (auth()->user()->isAccountSuperAdmin()
+                ? redirect()->route('account.workshops.index')
+                : redirect()->route('dashboard')))
         : redirect()->route('login');
 })->name('home');
 
@@ -72,15 +73,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:super_admin
         Route::get('impersonation', [ImpersonationController::class, 'index'])->name('impersonation.index');
         Route::post('impersonation', [ImpersonationController::class, 'start'])->name('impersonation.start');
 
-        Route::resource('workshops', WorkshopController::class)->only(['index', 'create', 'store', 'edit', 'update']);
-
-        Route::prefix('billing')->name('billing.')->group(function () {
-            Route::get('/', [BillingController::class, 'dashboard'])->name('dashboard');
-            Route::patch('/subscriptions/{subscription}', [BillingController::class, 'update'])->name('subscriptions.update');
-            Route::post('/subscriptions/{tenant}/sync', [BillingController::class, 'syncTenant'])->name('subscriptions.sync');
-
-            Route::resource('plans', SubscriptionPlanController::class);
-        });
+        Route::resource('workshops', WorkshopController::class)->only(['index', 'edit', 'update']);
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.logs.index');
         Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit.logs.export');
@@ -95,6 +88,21 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout'])->group(function 
         Route::patch('/password', [UserController::class, 'updatePassword'])->name('password.update');
     });
 });
+
+Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:admin'])
+    ->get('/subscription', [BillingController::class, 'dashboard'])
+    ->name('workshop.subscription');
+
+Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:account_super_admin'])
+    ->prefix('account')
+    ->name('account.')
+    ->group(function () {
+        Route::resource('workshops', WorkshopController::class)
+            ->only(['index', 'create', 'store', 'edit', 'update']);
+
+        Route::get('/subscription', [BillingController::class, 'dashboard'])
+            ->name('subscription');
+    });
 
 // 🔹 Protected Routes (Only Accessible if Logged In)
 Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context'])->group(function () {

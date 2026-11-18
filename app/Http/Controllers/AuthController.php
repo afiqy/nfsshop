@@ -82,7 +82,13 @@ class AuthController extends Controller
             'last_activity' => now(),
         ]);
         error_log("User logged in: " . $user->email);
-        return redirect()->intended(route('dashboard'));
+        $fallbackRoute = $user->isSuperAdmin()
+            ? route('super-admin.dashboard')
+            : ($user->isAccountSuperAdmin()
+                ? route('account.workshops.index')
+                : route('dashboard'));
+
+        return redirect()->intended($fallbackRoute);
     }
 
     public function logout(Request $request)

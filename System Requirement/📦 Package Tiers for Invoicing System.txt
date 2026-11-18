@@ -23,6 +23,9 @@ Package scope:
  - If the user registers as Workshop Admin, the package subscription belongs to that one workshop/admin.
  - If the user registers as Superadmin, the package subscription belongs to the superadmin parent account and covers the linked workshops according to the selected tier limits.
  - Package visibility, billing actions, upgrades, downgrades, and renewal information must follow this account scope.
+ - Subscription packages and billing authority belong to the Qysoft Main website, which controls products across the company. This invoicing app stores and enforces the subscription entitlement provisioned for its account; it must not create or price packages.
+ - The invoicing app's system administrator is separate from a customer account's superadmin and must not be treated as the subscription owner.
+ - Until the Qysoft Main API contract is available, this app must not claim to synchronize subscription status. Paid registrations remain pending until Qysoft Main confirms their entitlement.
 
 
 🟢 Basic Tier (Starter – small workshops)
@@ -50,7 +53,8 @@ Package scope:
  - Vehicle Management: service reminders, insurance/tax renewal reminders
  - System Core: multi-language, audit trail, mobile responsiveness
  - Mobile App: included (shared app, standard branding).
-👉 Target: single-workshop admin accounts with 5–15 staff, needing automation, customer retention, and mobility.
+ - Workshop allowance: one to four workshops.
+👉 Target: workshops needing automation, customer retention, and mobility.
 
 
 🔴 Enterprise Tier (Custom – large / multi-branch)
@@ -62,6 +66,7 @@ Package scope:
      - Cross-workshop analytics for linked workshops only (churn, growth, top services).
      - API integrations (accounting, WhatsApp, ERP).
  - Workshop Admin: advanced dashboards, financial summaries, supplier integration
+ - Workshop allowance: up to ten included workshops; extra workshops require approval/request through Qysoft Main.
  - E-Invoicing: compliance sandbox/live toggle, bulk submissions
  - Vehicle Management: fleet analytics (most serviced brands, mileage patterns)
  - System Core: advanced notifications, multi-factor authentication

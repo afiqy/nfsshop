@@ -3,9 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\WorkshopSubscription;
 use Stancl\Tenancy\Database\Models\Tenant;
-use Illuminate\Support\Arr;
 
 class SuperAdminController extends Controller
 {
@@ -23,25 +21,7 @@ class SuperAdminController extends Controller
 
         $tenants = Tenant::query()->get();
 
-        $workshopMetrics = [
-            'total' => $tenants->count(),
-            'active' => $tenants->filter(function ($tenant) {
-                return Arr::get($tenant->data, 'subscription.status') === 'active';
-            })->count(),
-            'past_due' => $tenants->filter(function ($tenant) {
-                return Arr::get($tenant->data, 'subscription.status') === 'past_due';
-            })->count(),
-        ];
-
-        $billingMetrics = [
-            'mrr' => WorkshopSubscription::query()
-                ->where('status', WorkshopSubscription::STATUS_ACTIVE)
-                ->sum('amount'),
-            'overdue' => WorkshopSubscription::query()->sum('overdue_amount'),
-            'past_due_accounts' => WorkshopSubscription::query()
-                ->where('status', WorkshopSubscription::STATUS_PAST_DUE)
-                ->count(),
-        ];
+        $workshopMetrics = ['total' => $tenants->count()];
 
         $tenantsWithoutOwner = Tenant::query()
             ->whereNotIn('id', function ($query) {
@@ -58,7 +38,6 @@ class SuperAdminController extends Controller
             'recentOwners' => $owners,
             'metrics' => $metrics,
             'workshopMetrics' => $workshopMetrics,
-            'billingMetrics' => $billingMetrics,
             'tenantsWithoutOwner' => $tenantsWithoutOwner,
         ]);
     }

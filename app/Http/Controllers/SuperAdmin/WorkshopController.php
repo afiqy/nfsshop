@@ -4,22 +4,27 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SuperAdmin\WorkshopUpdateRequest;
-use App\Models\SubscriptionPlan;
+use App\Models\AccountSubscription;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkshopSubscription;
-use Illuminate\Support\Str;
+use App\Services\SubscriptionEntitlementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
-use Stancl\Tenancy\Database\Models\Tenant;
 
 class WorkshopController extends Controller
 {
     public function index(Request $request): View
     {
         $tenants = Tenant::query()
+            ->when(
+                ! $request->user()->isSuperAdmin(),
+                fn ($query) => $query->where('account_owner_id', $request->user()->id)
+            )
             ->orderByDesc('created_at')
             ->get()
             ->map(function (Tenant $tenant) {
@@ -49,6 +54,7 @@ class WorkshopController extends Controller
 
         return view('super-admin.workshops.index', [
             'workshops' => $tenants,
+            'accountArea' => $request->user()->isAccountSuperAdmin(),
             'filters' => [
                 'search' => $request->input('search'),
                 'subscription_status' => $request->input('subscription_status'),
@@ -56,10 +62,10 @@ class WorkshopController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('super-admin.workshops.add', [
-            'plans' => SubscriptionPlan::orderBy('price')->get(),
+            'accountArea' => $request->user()->isAccountSuperAdmin(),
             'workshop' => [
                 'services' => [],
                 'subscription' => [],
@@ -68,12 +74,22 @@ class WorkshopController extends Controller
         ]);
     }
 
-    public function store(WorkshopUpdateRequest $request): RedirectResponse
+    public function store(
+        WorkshopUpdateRequest $request,
+        SubscriptionEntitlementService $entitlements
+    ): RedirectResponse
     {
         $payload = $request->validated();
 
+        if (! $entitlements->canCreateWorkshop($request->user())) {
+            return back()
+                ->withInput()
+                ->withErrors(['workshop_limit' => 'Your subscription does not allow another workshop branch.']);
+        }
+
         $tenant = Tenant::create([
             'id' => Str::slug($payload['workshop_name'].'-'.Str::random(5)),
+            'account_owner_id' => $request->user()->id,
             'data' => [
                 'workshop_name' => $payload['workshop_name'],
                 'owner_email' => $payload['owner_email'],
@@ -81,51 +97,33 @@ class WorkshopController extends Controller
         ]);
 
         return redirect()
-            ->route('super-admin.workshops.edit', $tenant)
+            ->route($request->user()->isAccountSuperAdmin()
+                ? 'account.workshops.edit'
+                : 'super-admin.workshops.edit', $tenant)
             ->with('success', 'Workshop created successfully. You can now configure its details.');
     }
 
-    public function edit(Tenant $workshop): View
+    public function edit(Request $request, Tenant $workshop): View
     {
+        $this->authorizeWorkshopAccess($request, $workshop);
+
         $workshopData = $this->mapTenantWithMetrics($workshop);
 
         return view('super-admin.workshops.edit', [
             'workshop' => $workshopData,
-            'plans' => SubscriptionPlan::orderBy('price')->get(),
+            'accountArea' => $request->user()->isAccountSuperAdmin(),
         ]);
     }
 
     public function update(WorkshopUpdateRequest $request, Tenant $workshop): RedirectResponse
     {
+        $this->authorizeWorkshopAccess($request, $workshop);
+
         $payload = $request->validated();
 
         $data = $workshop->data ?? [];
 
         $services = array_values(array_filter(array_map('trim', explode(',', $payload['services'] ?? ''))));
-
-        $planId = $payload['subscription_plan_id'] ?? null;
-
-        if (! $planId && ! empty($payload['subscription_plan_label'])) {
-            $planId = SubscriptionPlan::query()
-                ->where('name', $payload['subscription_plan_label'])
-                ->orWhere('slug', Str::slug($payload['subscription_plan_label']))
-                ->value('id');
-        }
-
-        $plan = $planId ? SubscriptionPlan::find($planId) : null;
-
-        $planLabel = $payload['subscription_plan_label']
-            ?? $plan?->name
-            ?? ($data['subscription']['plan'] ?? 'Standard');
-
-        $subscriptionPayload = [
-            'plan' => $planLabel,
-            'plan_id' => $plan?->id,
-            'status' => $payload['subscription_status'],
-            'monthly_fee' => $payload['monthly_fee'],
-            'next_billing_date' => $payload['next_billing_date'],
-            'notes' => $payload['subscription_notes'] ?? null,
-        ];
 
         $updated = array_merge($data, [
             'workshop_name' => $payload['workshop_name'],
@@ -140,7 +138,6 @@ class WorkshopController extends Controller
                 'labor_rate' => $payload['labor_rate'],
                 'callout_fee' => $payload['callout_fee'],
             ],
-            'subscription' => $subscriptionPayload,
         ]);
 
         $workshop->update(['data' => $updated]);
@@ -149,19 +146,10 @@ class WorkshopController extends Controller
             ->where('tenant_id', $workshop->id)
             ->update(['workshop_name' => $payload['workshop_name']]);
 
-        WorkshopSubscription::updateOrCreate(
-            ['tenant_id' => $workshop->id],
-            [
-                'subscription_plan_id' => $plan?->id,
-                'status' => $payload['subscription_status'],
-                'amount' => $payload['monthly_fee'],
-                'next_billing_date' => $payload['next_billing_date'],
-                'notes' => $payload['subscription_notes'] ?? null,
-            ]
-        );
-
         return redirect()
-            ->route('super-admin.workshops.edit', $workshop)
+            ->route($request->user()->isAccountSuperAdmin()
+                ? 'account.workshops.edit'
+                : 'super-admin.workshops.edit', $workshop)
             ->with('success', 'Workshop details updated successfully.');
     }
 
@@ -177,13 +165,28 @@ class WorkshopController extends Controller
         $staffCount = $users->whereIn('role', [User::ROLE_ADMIN, User::ROLE_MECHANIC])->count();
         $clientCount = $users->where('role', User::ROLE_CLIENT)->count();
 
-        $subscription = $data['subscription'] ?? [
-            'plan' => 'standard',
-            'status' => 'active',
-            'monthly_fee' => null,
-            'next_billing_date' => null,
-            'notes' => null,
-        ];
+        $accountSubscription = $tenant->account_owner_id
+            ? AccountSubscription::query()
+                ->with('plan')
+                ->where('user_id', $tenant->account_owner_id)
+                ->first()
+            : null;
+
+        $subscription = $accountSubscription
+            ? [
+                'plan' => $accountSubscription->plan->name,
+                'status' => $accountSubscription->status,
+                'monthly_fee' => null,
+                'next_billing_date' => $accountSubscription->current_period_ends_at?->toDateString(),
+                'notes' => null,
+            ]
+            : ($data['subscription'] ?? [
+                'plan' => '—',
+                'status' => 'pending',
+                'monthly_fee' => null,
+                'next_billing_date' => null,
+                'notes' => null,
+            ]);
 
         $nextBillingDateFormatted = null;
         $nextBillingDateValue = null;
@@ -209,7 +212,8 @@ class WorkshopController extends Controller
             'callout_fee' => null,
         ];
 
-        $subscriptionRecord = WorkshopSubscription::query()->where('tenant_id', $tenant->id)->with('plan')->first();
+        $subscriptionRecord = $accountSubscription
+            ?? WorkshopSubscription::query()->where('tenant_id', $tenant->id)->with('plan')->first();
 
         return [
             'id' => $tenant->id,
@@ -232,6 +236,15 @@ class WorkshopController extends Controller
             ],
             'raw' => $tenant,
         ];
+    }
+
+    private function authorizeWorkshopAccess(Request $request, Tenant $workshop): void
+    {
+        abort_unless(
+            $request->user()->isSuperAdmin()
+                || (int) $workshop->account_owner_id === $request->user()->id,
+            404
+        );
     }
 
 }

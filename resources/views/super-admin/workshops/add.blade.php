@@ -3,12 +3,13 @@
 @section('title', 'Add Workshop')
 
 @section('content')
+@php($workshopRoute = auth()->user()->isAccountSuperAdmin() ? 'account.workshops' : 'super-admin.workshops')
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <div>
         <h1 class="h3 mb-0 text-gray-800">Add Workshop</h1>
         <p class="mb-0 text-muted">Create a new workshop and configure its details.</p>
     </div>
-    <a href="{{ route('super-admin.workshops.index') }}" class="btn btn-outline-secondary">Back to workshops</a>
+    <a href="{{ route($workshopRoute.'.index') }}" class="btn btn-outline-secondary">Back to workshops</a>
 </div>
 
 @if (session('success'))
@@ -29,9 +30,9 @@
     <div class="col-lg-8">
         <div class="card shadow mb-4">
             <div class="card-body">
-                <form method="POST" action="{{ route('super-admin.workshops.store') }}">
+                <form method="POST" action="{{ route($workshopRoute.'.store') }}">
                     @csrf
-                    @include('super-admin.workshops._form', ['workshop' => $workshop, 'plans' => $plans])
+                    @include('super-admin.workshops._form', ['workshop' => $workshop, 'accountArea' => $accountArea ?? false])
                 </form>
             </div>
         </div>

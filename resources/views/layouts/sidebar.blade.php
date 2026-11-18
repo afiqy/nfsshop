@@ -47,10 +47,21 @@
                 <span>Workshops</span>
             </a>
         </li>
+    @elseif ($user && $user->isAccountSuperAdmin())
+        <hr class="sidebar-divider">
+        <div class="sidebar-heading">
+            Account Management
+        </div>
         <li class="nav-item">
-            <a class="nav-link" href="{{ route('super-admin.billing.dashboard') }}">
+            <a class="nav-link" href="{{ route('account.workshops.index') }}">
+                <i class="fas fa-warehouse"></i>
+                <span>My Workshops</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('workshop.subscription') }}">
                 <i class="fas fa-credit-card"></i>
-                <span>Billing & Plans</span>
+                <span>My Subscription</span>
             </a>
         </li>
     @else
@@ -130,6 +141,15 @@
                 <span>Role Management</span>
             </a>
         </li>
+
+        @if ($user && $user->role === \App\Models\User::ROLE_ADMIN)
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('account.subscription') }}">
+                    <i class="fas fa-credit-card"></i>
+                    <span>My Subscription</span>
+                </a>
+            </li>
+        @endif
     @endif
 
     <!-- Divider -->

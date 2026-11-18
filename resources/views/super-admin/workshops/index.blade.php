@@ -3,14 +3,18 @@
 @section('title', 'Workshops')
 
 @section('content')
+@php($workshopRoute = $accountArea ? 'account.workshops' : 'super-admin.workshops')
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <div>
         <h1 class="h3 mb-0 text-gray-800">Workshop Management</h1>
         <p class="mb-0 text-muted">View, audit, and configure every workshop across the platform.</p>
     </div>
     <div>
-        <a href="{{ route('super-admin.owners.index') }}" class="btn btn-outline-primary">Manage Owners</a>
-        <a href="{{ route('super-admin.workshops.create') }}" class="btn btn-primary">Add Workshop</a>
+        @unless ($accountArea)
+            <a href="{{ route('super-admin.owners.index') }}" class="btn btn-outline-primary">Manage Owners</a>
+        @else
+            <a href="{{ route($workshopRoute.'.create') }}" class="btn btn-primary">Add Workshop</a>
+        @endunless
     </div>
 </div>
 
@@ -20,7 +24,7 @@
 
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <form method="GET" action="{{ route('super-admin.workshops.index') }}" class="form-inline">
+        <form method="GET" action="{{ route($workshopRoute.'.index') }}" class="form-inline">
             <div class="form-group mr-2">
                 <label for="search" class="sr-only">Search</label>
                 <input type="text" name="search" id="search" class="form-control" placeholder="Search workshops or owners" value="{{ $filters['search'] ?? '' }}">
@@ -94,7 +98,7 @@
                             <td>{{ $workshop['metrics']['client_count'] }}</td>
                             <td>{{ optional($workshop['metrics']['created_at'])->format('M d, Y') }}</td>
                             <td class="text-right">
-                                <a href="{{ route('super-admin.workshops.edit', $workshop['raw']) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                <a href="{{ route($workshopRoute.'.edit', $workshop['raw']) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
                             </td>
                         </tr>
                     @empty

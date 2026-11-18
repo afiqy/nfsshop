@@ -10,34 +10,57 @@ class SubscriptionPlanSeeder extends Seeder
     public function run(): void
     {
         SubscriptionPlan::updateOrCreate(
-            ['slug' => 'standard-monthly'],
+            ['slug' => 'basic'],
             [
-                'name' => 'Standard Monthly',
-                'description' => 'Core invoicing features for small workshops.',
-                'price' => 99,
+                'name' => 'Basic',
+                'description' => 'Basic workshop features for one workshop. Pricing is managed by Qysoft Main.',
+                'price' => 0,
                 'billing_interval' => 'monthly',
                 'trial_days' => 14,
+                'included_workshops' => 1,
+                'max_workshops' => 1,
                 'features' => [
-                    'Unlimited invoices',
-                    'Customer and vehicle CRM',
-                    'Basic analytics dashboard',
+                    'Basic invoicing and workshop features',
+                    'One workshop',
                 ],
                 'is_active' => true,
             ]
         );
 
         SubscriptionPlan::updateOrCreate(
-            ['slug' => 'growth-annual'],
+            ['slug' => 'pro'],
             [
-                'name' => 'Growth Annual',
-                'description' => 'All modules plus premium support billed yearly.',
-                'price' => 999,
-                'billing_interval' => 'yearly',
-                'trial_days' => 30,
+                'name' => 'Pro',
+                'description' => 'Additional features for one to four workshops. Pricing is managed by Qysoft Main.',
+                'price' => 0,
+                'billing_interval' => 'monthly',
+                'trial_days' => 14,
+                'included_workshops' => 1,
+                'max_workshops' => 4,
                 'features' => [
-                    'Everything in Standard',
-                    'Advanced analytics & export',
-                    'Priority support & onboarding',
+                    'All Basic features',
+                    'Additional Pro features',
+                    'Up to four workshops',
+                ],
+                'is_active' => true,
+            ]
+        );
+
+        SubscriptionPlan::updateOrCreate(
+            ['slug' => 'enterprise'],
+            [
+                'name' => 'Enterprise',
+                'description' => 'Enterprise features for up to ten workshops; additional workshops by request. Pricing is managed by Qysoft Main.',
+                'price' => 0,
+                'billing_interval' => 'annual',
+                'trial_days' => 0,
+                'included_workshops' => 10,
+                'max_workshops' => null,
+                'features' => [
+                    'All Pro features',
+                    'Enterprise features',
+                    'Ten included workshops',
+                    'Additional workshops by request',
                 ],
                 'is_active' => true,
             ]

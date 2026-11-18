@@ -1,14 +1,18 @@
 @extends('layouts.app')
 
-@section('title', 'Billing Overview')
+@section('title', 'My Subscription')
 
 @section('content')
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <div>
-        <h1 class="h3 mb-0 text-gray-800">Billing & Subscriptions</h1>
-        <p class="mb-0 text-muted">Monitor subscription health, overdue balances, and recurring revenue.</p>
+        <h1 class="h3 mb-0 text-gray-800">My Subscription</h1>
+        <p class="mb-0 text-muted">Your account plan and workshop branch allowance.</p>
     </div>
-    <a href="{{ route('super-admin.billing.plans.index') }}" class="btn btn-outline-primary">Manage Plans</a>
+    <div class="mt-3 mt-sm-0">
+        <a href="https://qysoft-tech.com" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            Manage at Qysoft Tech
+        </a>
+    </div>
 </div>
 
 @if (session('success'))
@@ -16,145 +20,80 @@
 @endif
 
 @if ($errors->any())
-    <div class="alert alert-danger">
-        <ul class="mb-0">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
+    <div class="alert alert-danger">{{ $errors->first() }}</div>
 @endif
 
-<div class="row">
-    <div class="col-md-3">
-        <div class="card shadow mb-4 border-left-primary">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">MRR (Active)</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($metrics['monthly_recurring_revenue'], 2) }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow mb-4 border-left-danger">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Overdue Amount</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($metrics['overdue_total'], 2) }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow mb-4 border-left-warning">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Past Due Accounts</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $metrics['past_due_count'] }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow mb-4 border-left-info">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Trialing</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $metrics['trialing_count'] }}</div>
-            </div>
-        </div>
-    </div>
-</div>
+@if ($subscription)
+    @php
+        $statusClass = in_array($subscription->status, ['active', 'trialing'], true) ? 'success' : 'warning';
+    @endphp
 
-<div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <form method="GET" action="{{ route('super-admin.billing.dashboard') }}" class="form-inline">
-            <div class="form-group mr-2">
-                <label for="status" class="sr-only">Status</label>
-                <select name="status" id="status" class="form-control">
-                    <option value="">All statuses</option>
-                    @foreach ([
-                        \App\Models\WorkshopSubscription::STATUS_ACTIVE => 'Active',
-                        \App\Models\WorkshopSubscription::STATUS_TRIALING => 'Trialing',
-                        \App\Models\WorkshopSubscription::STATUS_PAST_DUE => 'Past Due',
-                        \App\Models\WorkshopSubscription::STATUS_CANCELED => 'Canceled',
-                    ] as $value => $label)
-                        <option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">{{ $subscription->plan->name }} Plan</h6>
+                    <span class="badge badge-{{ $statusClass }}">{{ ucfirst(str_replace('_', ' ', $subscription->status)) }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-sm-4 mb-3 mb-sm-0">
+                            <div class="text-xs font-weight-bold text-uppercase text-muted">Workshop branches</div>
+                            <div class="h4 mb-0 text-gray-800">
+                                {{ $workshopCount }} / {{ $allowedWorkshops }}
+                            </div>
+                        </div>
+                        <div class="col-sm-4 mb-3 mb-sm-0">
+                            <div class="text-xs font-weight-bold text-uppercase text-muted">Included</div>
+                            <div class="h4 mb-0 text-gray-800">{{ $subscription->plan->included_workshops }}</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="text-xs font-weight-bold text-uppercase text-muted">Branch add-ons</div>
+                            <div class="h4 mb-0 text-gray-800">{{ $subscription->additional_workshops }}</div>
+                        </div>
+                    </div>
+
+                    <progress class="w-100 mb-2" value="{{ $workshopCount }}" max="{{ $allowedWorkshops }}"></progress>
+                    <p class="small text-muted mb-0">
+                        {{ max(0, $allowedWorkshops - $workshopCount) }} branch slots available.
+                        @if ($subscription->plan->max_workshops)
+                            This plan has an absolute maximum of {{ $subscription->plan->max_workshops }} workshops.
+                        @else
+                            More branch slots can be added through Qysoft Tech.
+                        @endif
+                    </p>
+                </div>
             </div>
-            <div class="form-group mr-2">
-                <label for="plan_id" class="sr-only">Plan</label>
-                <select name="plan_id" id="plan_id" class="form-control">
-                    <option value="">All plans</option>
-                    @foreach ($plans as $plan)
-                        <option value="{{ $plan->id }}" @selected((int) ($filters['plan_id'] ?? 0) === $plan->id)>{{ $plan->name }}</option>
-                    @endforeach
-                </select>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Provider Details</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                            <dt class="col-6">Subscription source</dt>
+                            <dd class="col-6 text-right">Qysoft Main (sync pending)</dd>
+
+                        <dt class="col-6">Subscription ID</dt>
+                        <dd class="col-6 text-right text-break">{{ $subscription->external_subscription_id ?? 'Local record' }}</dd>
+
+                        <dt class="col-6">Period ends</dt>
+                        <dd class="col-6 text-right">{{ optional($subscription->current_period_ends_at)->format('M d, Y') ?? 'Not set' }}</dd>
+
+                        <dt class="col-6">Last checked</dt>
+                        <dd class="col-6 text-right">{{ optional($subscription->last_checked_at)->diffForHumans() ?? 'Not checked' }}</dd>
+                    </dl>
+                </div>
             </div>
-            <button type="submit" class="btn btn-outline-primary">Filter</button>
-        </form>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="thead-light">
-                    <tr>
-                        <th>Workshop</th>
-                        <th>Plan</th>
-                        <th>Status</th>
-                        <th>Amount</th>
-                        <th>Next Billing</th>
-                        <th>Overdue</th>
-                        <th>Last Paid</th>
-                        <th class="text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($subscriptions as $subscription)
-                        <tr>
-                            <td>
-                                <div class="font-weight-bold">{{ $subscription->tenant->data['workshop_name'] ?? $subscription->tenant_id }}</div>
-                                <div class="small text-muted">ID: {{ $subscription->tenant_id }}</div>
-                            </td>
-                            <td>{{ $subscription->plan->name ?? ($subscription->tenant->data['subscription']['plan'] ?? '—') }}</td>
-                            <td>
-                                @switch($subscription->status)
-                                    @case(\App\Models\WorkshopSubscription::STATUS_ACTIVE)
-                                        <span class="badge badge-success">Active</span>
-                                        @break
-                                    @case(\App\Models\WorkshopSubscription::STATUS_TRIALING)
-                                        <span class="badge badge-info">Trialing</span>
-                                        @break
-                                    @case(\App\Models\WorkshopSubscription::STATUS_PAST_DUE)
-                                        <span class="badge badge-warning">Past Due</span>
-                                        @break
-                                    @default
-                                        <span class="badge badge-secondary">{{ ucfirst(str_replace('_', ' ', $subscription->status)) }}</span>
-                                @endswitch
-                            </td>
-                            <td>{{ number_format($subscription->amount ?? 0, 2) }}</td>
-                            <td>{{ optional($subscription->next_billing_date)->format('M d, Y') ?? '—' }}</td>
-                            <td class="{{ ($subscription->overdue_amount ?? 0) > 0 ? 'text-danger font-weight-bold' : '' }}">
-                                {{ number_format($subscription->overdue_amount ?? 0, 2) }}
-                            </td>
-                            <td>{{ optional($subscription->last_paid_at)->format('M d, Y') ?? '—' }}</td>
-                            <td class="text-right">
-                                <div class="btn-group" role="group">
-                                    <a href="{{ route('super-admin.workshops.edit', $subscription->tenant_id) }}" class="btn btn-sm btn-outline-secondary">View Workshop</a>
-                                    <form action="{{ route('super-admin.billing.subscriptions.update', $subscription) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="overdue_amount" value="0">
-                                        <input type="hidden" name="last_paid_at" value="{{ now()->toDateString() }}">
-                                        <input type="hidden" name="status" value="{{ \App\Models\WorkshopSubscription::STATUS_ACTIVE }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-success" @disabled(($subscription->overdue_amount ?? 0) == 0)>Mark Paid</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="text-center text-muted py-4">No subscription records found.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
         </div>
     </div>
-</div>
+@else
+    <div class="alert alert-warning">
+        No subscription entitlement has been provisioned for this account. Manage packages through
+        <a href="https://qysoft-tech.com" target="_blank" rel="noopener noreferrer">qysoft-tech.com</a>
+        once Qysoft Main integration is available.
+    </div>
+@endif
 @endsection

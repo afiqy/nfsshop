@@ -19,6 +19,7 @@ use App\Traits\Auditable;
 class User extends Authenticatable
 {
     public const ROLE_SUPER_ADMIN = 'super_admin';
+    public const ROLE_ACCOUNT_SUPER_ADMIN = 'account_super_admin';
     public const ROLE_ADMIN = 'admin';
     public const ROLE_MECHANIC = 'mechanic';
     public const ROLE_CLIENT = 'client';
@@ -81,6 +82,11 @@ class User extends Authenticatable
         return $this->hasMany(UserSession::class);
     }
 
+    public function accountSubscription(): HasOne
+    {
+        return $this->hasOne(AccountSubscription::class);
+    }
+
     public function hasRole(array|string $roles): bool
     {
         if (is_string($roles)) {
@@ -98,6 +104,11 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    public function isAccountSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_ACCOUNT_SUPER_ADMIN;
     }
 
     public function isSuspended(): bool

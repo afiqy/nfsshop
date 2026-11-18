@@ -18,12 +18,16 @@ class SubscriptionPlan extends Model
         'price',
         'billing_interval',
         'trial_days',
+        'included_workshops',
+        'max_workshops',
         'features',
         'is_active',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'included_workshops' => 'integer',
+        'max_workshops' => 'integer',
         'features' => 'array',
         'is_active' => 'boolean',
     ];

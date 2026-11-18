@@ -3,12 +3,13 @@
 @section('title', 'Edit Workshop')
 
 @section('content')
+@php($workshopRoute = $accountArea ? 'account.workshops' : 'super-admin.workshops')
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <div>
         <h1 class="h3 mb-0 text-gray-800">{{ $workshop['name'] }}</h1>
-        <p class="mb-0 text-muted">Update contact details, subscription settings, and service offerings.</p>
+        <p class="mb-0 text-muted">Update contact details and service offerings.</p>
     </div>
-    <a href="{{ route('super-admin.workshops.index') }}" class="btn btn-outline-secondary">Back to workshops</a>
+    <a href="{{ route($workshopRoute.'.index') }}" class="btn btn-outline-secondary">Back to workshops</a>
 </div>
 
 @if (session('success'))
@@ -29,10 +30,10 @@
     <div class="col-lg-8">
         <div class="card shadow mb-4">
             <div class="card-body">
-                <form method="POST" action="{{ route('super-admin.workshops.update', $workshop['raw']) }}">
+                <form method="POST" action="{{ route($workshopRoute.'.update', $workshop['raw']) }}">
                     @csrf
                     @method('PUT')
-                    @include('super-admin.workshops._form', ['workshop' => $workshop, 'plans' => $plans])
+                    @include('super-admin.workshops._form', ['workshop' => $workshop, 'accountArea' => $accountArea])
                 </form>
             </div>
         </div>

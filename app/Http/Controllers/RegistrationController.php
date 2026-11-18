@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountSubscription;
+use App\Models\SubscriptionPlan;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkshopSubscription;
 use Illuminate\Http\RedirectResponse;
@@ -15,7 +18,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Illuminate\View\View;
-use Stancl\Tenancy\Database\Models\Tenant;
 
 class RegistrationController extends Controller
 {
@@ -252,7 +254,7 @@ class RegistrationController extends Controller
                 'subscription' => $subscriptionPayload,
             ];
 
-            Tenant::create([
+            $tenant = Tenant::create([
                 'id' => $tenantId,
                 'data' => $tenantData,
             ]);
@@ -268,11 +270,31 @@ class RegistrationController extends Controller
                 'status' => User::STATUS_ACTIVE,
             ]);
 
+            $tenant->update(['account_owner_id' => $user->id]);
+
+            $subscriptionPlan = SubscriptionPlan::query()
+                ->where('slug', $plan['tier'])
+                ->where('is_active', true)
+                ->firstOrFail();
+
+            AccountSubscription::create([
+                'user_id' => $user->id,
+                'subscription_plan_id' => $subscriptionPlan->id,
+                'status' => $subscriptionPayload['status'],
+                'current_period_ends_at' => $subscriptionPayload['status'] === WorkshopSubscription::STATUS_TRIALING
+                    ? $subscriptionPayload['trial_ends_at']
+                    : $subscriptionPayload['next_billing_date'],
+                'provider_payload' => [
+                    'source' => 'registration',
+                    'billing_option' => $plan['billing_option'],
+                ],
+            ]);
+
             WorkshopSubscription::create([
                 'tenant_id' => $tenantId,
-                'subscription_plan_id' => null,
+                'subscription_plan_id' => $subscriptionPlan->id,
                 'status' => $subscriptionPayload['status'],
-                'amount' => $subscriptionPayload['monthly_fee'] ?? 0,
+                'amount' => $subscriptionPayload['monthly_fee'],
                 'overdue_amount' => 0,
                 'next_billing_date' => $subscriptionPayload['next_billing_date'] ?? null,
                 'last_paid_at' => null,
@@ -366,24 +388,21 @@ class RegistrationController extends Controller
                 $payload['status'] = WorkshopSubscription::STATUS_TRIALING;
                 break;
             case 'paid_monthly':
-                $payload['status'] = WorkshopSubscription::STATUS_ACTIVE;
+                $payload['status'] = 'pending';
                 $payload['trial_type'] = 'none';
                 $payload['billing_cycle'] = 'monthly';
-                $payload['monthly_fee'] = $tier === 'pro' ? 149 : 99;
                 $payload['next_billing_date'] = $now->clone()->addMonth()->toDateString();
                 break;
             case 'paid_quarterly':
-                $payload['status'] = WorkshopSubscription::STATUS_ACTIVE;
+                $payload['status'] = 'pending';
                 $payload['trial_type'] = 'none';
                 $payload['billing_cycle'] = 'quarterly';
-                $payload['monthly_fee'] = $tier === 'pro' ? 420 : 270;
                 $payload['next_billing_date'] = $now->clone()->addMonths(3)->toDateString();
                 break;
             case 'paid_annual':
-                $payload['status'] = WorkshopSubscription::STATUS_ACTIVE;
+                $payload['status'] = 'pending';
                 $payload['trial_type'] = 'none';
                 $payload['billing_cycle'] = 'annual';
-                $payload['monthly_fee'] = $tier === 'pro' ? 1500 : 900;
                 $payload['next_billing_date'] = $now->clone()->addYear()->toDateString();
                 break;
         }

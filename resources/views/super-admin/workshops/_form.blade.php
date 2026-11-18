@@ -2,10 +2,6 @@
     $workshop = $workshop ?? [];
     $pricing = $workshop['pricing'] ?? [];
     $subscription = $workshop['subscription'] ?? [];
-    $nextBillingValue = old('next_billing_date', $subscription['next_billing_date_value'] ?? '');
-    $plans = $plans ?? collect();
-    $subscriptionRecord = $workshop['subscriptionRecord'] ?? null;
-    $selectedPlanId = old('subscription_plan_id', optional($subscriptionRecord)->subscription_plan_id);
 @endphp
 
 <div class="row">
@@ -108,81 +104,7 @@
     </div>
 </div>
 
-<hr>
-<h5 class="mb-3">Subscription</h5>
-
-<div class="row">
-    <div class="col-md-3">
-        <div class="form-group">
-            <label for="subscription_plan_id">Plan</label>
-            <select class="form-control @error('subscription_plan_id') is-invalid @enderror" id="subscription_plan_id" name="subscription_plan_id">
-                <option value="">Unassigned</option>
-                @foreach ($plans as $plan)
-                    <option value="{{ $plan->id }}" @selected((int) $selectedPlanId === $plan->id)>
-                        {{ $plan->name }} ({{ strtoupper($plan->billing_interval) }})
-                    </option>
-                @endforeach
-            </select>
-            @error('subscription_plan_id')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="form-group">
-            <label for="subscription_plan_label">Plan Label</label>
-            <input type="text" class="form-control @error('subscription_plan_label') is-invalid @enderror" id="subscription_plan_label" name="subscription_plan_label" value="{{ old('subscription_plan_label', $subscription['plan'] ?? optional($subscriptionRecord?->plan)->name ?? '') }}">
-            @error('subscription_plan_label')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="form-group">
-            <label for="subscription_status">Status</label>
-            <select class="form-control @error('subscription_status') is-invalid @enderror" id="subscription_status" name="subscription_status" required>
-                @foreach (['active' => 'Active', 'trialing' => 'Trialing', 'past_due' => 'Past Due', 'canceled' => 'Canceled'] as $value => $label)
-                    <option value="{{ $value }}" @selected(old('subscription_status', $subscription['status'] ?? 'active') === $value)>{{ $label }}</option>
-                @endforeach
-            </select>
-            @error('subscription_status')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="form-group">
-            <label for="monthly_fee">Monthly Fee</label>
-            <input type="number" step="0.01" min="0" class="form-control @error('monthly_fee') is-invalid @enderror" id="monthly_fee" name="monthly_fee" value="{{ old('monthly_fee', $subscription['monthly_fee'] ?? '') }}">
-            @error('monthly_fee')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="next_billing_date">Next Billing Date</label>
-            <input type="date" class="form-control @error('next_billing_date') is-invalid @enderror" id="next_billing_date" name="next_billing_date" value="{{ $nextBillingValue }}">
-            @error('next_billing_date')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="form-group">
-            <label for="subscription_notes">Subscription Notes</label>
-            <textarea class="form-control @error('subscription_notes') is-invalid @enderror" id="subscription_notes" name="subscription_notes" rows="3">{{ old('subscription_notes', $subscription['notes'] ?? '') }}</textarea>
-            @error('subscription_notes')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
-    </div>
-</div>
-
 <div class="d-flex justify-content-end">
-    <a href="{{ route('super-admin.workshops.index') }}" class="btn btn-secondary mr-2">Cancel</a>
+    <a href="{{ route(($accountArea ?? false) ? 'account.workshops.index' : 'super-admin.workshops.index') }}" class="btn btn-secondary mr-2">Cancel</a>
     <button type="submit" class="btn btn-primary">Save Changes</button>
 </div>

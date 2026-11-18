@@ -10,7 +10,6 @@
     </div>
     <div class="btn-group">
         <a href="{{ route('super-admin.impersonation.index') }}" class="btn btn-outline-secondary">Switch to Workshop</a>
-        <a href="{{ route('super-admin.billing.dashboard') }}" class="btn btn-outline-info">Billing Overview</a>
         <a href="{{ route('super-admin.workshops.index') }}" class="btn btn-outline-primary">Manage Workshops</a>
         <a href="{{ route('super-admin.owners.index') }}" class="btn btn-primary">Manage Owners</a>
     </div>
@@ -53,49 +52,6 @@
             <div class="card-body">
                 <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Workshops</div>
                 <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $workshopMetrics['total'] }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow mb-4 border-left-success">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Active Subscriptions</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $workshopMetrics['active'] }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow mb-4 border-left-warning">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Past Due Accounts</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $workshopMetrics['past_due'] }}</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-4">
-        <div class="card shadow mb-4 border-left-primary">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">MRR (Active)</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($billingMetrics['mrr'], 2) }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow mb-4 border-left-danger">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Overdue Balance</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($billingMetrics['overdue'], 2) }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow mb-4 border-left-warning">
-            <div class="card-body">
-                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Past Due Accounts</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $billingMetrics['past_due_accounts'] }}</div>
             </div>
         </div>
     </div>
