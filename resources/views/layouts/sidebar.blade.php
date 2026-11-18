@@ -99,14 +99,13 @@
                     <span>Customers</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('vehicles.index') }}">
+                    <i class="fas fa-car"></i>
+                    <span>Vehicles</span>
+                </a>
+            </li>
         @endif
-
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('vehicles.index') }}">
-                <i class="fas fa-car"></i>
-                <span>Vehicles</span>
-            </a>
-        </li>
 
         <li class="nav-item">
             <a class="nav-link" href="{{ route('inventory.index') }}">

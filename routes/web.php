@@ -132,11 +132,9 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
     Route::middleware('subscription.active')->group(function () {
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
             Route::resource('customers', CustomerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+            Route::resource('vehicles', VehicleController::class)->only(['index', 'create', 'store', 'edit', 'update']);
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
         });
-
-        // 📌 Vehicle Management
-        Route::resource('vehicles', VehicleController::class);
 
         // 📌 Inventory Management
         Route::resource('inventory', InventoryController::class);

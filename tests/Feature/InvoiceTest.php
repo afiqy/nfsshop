@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -94,7 +95,7 @@ class InvoiceTest extends TestCase
         ])->assertSessionHasErrors('customer_id');
     }
 
-    public function test_workshop_admin_can_add_edit_and_invoice_a_customer(): void
+    public function test_workshop_admin_can_add_edit_and_invoice_a_customer_with_a_vehicle(): void
     {
         [$admin] = $this->createWorkshop();
         $details = [
@@ -106,6 +107,7 @@ class InvoiceTest extends TestCase
 
         $this->actingAs($admin)->get(route('invoices.create'))->assertOk()
             ->assertSee(route('customers.create'));
+        $this->get(route('vehicles.create'))->assertOk()->assertSee(route('customers.create'));
         $this->get(route('customers.create'))->assertOk()->assertSee('Add customer');
         $this->post(route('customers.store'), $details)->assertRedirect(route('customers.index'));
 
@@ -115,12 +117,24 @@ class InvoiceTest extends TestCase
 
         $details['name'] = 'Updated Beta Customer';
         $this->put(route('customers.update', $customer), $details)->assertRedirect(route('customers.index'));
-        $this->get(route('invoices.create'))->assertOk()->assertSee($details['name']);
+        $vehicleDetails = $this->vehicleDetails($customer);
+        $this->get(route('vehicles.create'))->assertOk()->assertSee($details['name']);
+        $this->post(route('vehicles.store'), $vehicleDetails)->assertRedirect(route('vehicles.index'));
+        $vehicle = Vehicle::query()->sole();
+        $this->get(route('vehicles.index'))->assertOk()->assertSee($vehicleDetails['plate_number']);
+        $this->get(route('vehicles.edit', $vehicle))->assertOk()->assertSee($vehicleDetails['chassis_number']);
+
+        $vehicleDetails['plate_number'] = 'BETA456';
+        $this->put(route('vehicles.update', $vehicle), $vehicleDetails)->assertRedirect(route('vehicles.index'));
+        $this->get(route('invoices.create'))->assertOk()->assertSee($details['name'])->assertSee('BETA456');
         $this->post(route('invoices.store'), [
             'customer_id' => $customer->id,
+            'vehicle_id' => $vehicle->id,
             'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.00']],
         ])->assertRedirect();
-        $this->assertSame($details['name'], Invoice::query()->sole()->customer_name);
+        $invoice = Invoice::query()->sole();
+        $this->assertSame($details['name'], $invoice->customer_name);
+        $this->assertSame('BETA456', $invoice->vehicle_plate);
     }
 
     public function test_customer_records_and_email_uniqueness_are_scoped_to_the_workshop(): void
@@ -139,6 +153,24 @@ class InvoiceTest extends TestCase
         $this->actingAs($otherAdmin)->get(route('customers.index'))->assertOk()->assertSee('No customers yet.');
         $this->put(route('customers.update', $customer), $details)->assertNotFound();
         $this->post(route('customers.store'), $details)->assertRedirect(route('customers.index'));
+    }
+
+    public function test_vehicle_records_and_customer_links_are_scoped_to_the_workshop(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        [$customer, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $details = $this->vehicleDetails($customer);
+
+        $this->actingAs($admin)->post(route('vehicles.store'), $details)
+            ->assertSessionHasErrors(['plate_number', 'chassis_number', 'engine_number']);
+        $this->delete(route('vehicles.update', $vehicle))->assertMethodNotAllowed();
+        $this->actingAs($client)->get(route('vehicles.index'))->assertForbidden();
+
+        $this->actingAs($otherAdmin)->get(route('vehicles.index'))->assertOk()->assertSee('No vehicles yet.');
+        $this->put(route('vehicles.update', $vehicle), $details)->assertNotFound();
+        $this->post(route('vehicles.store'), $details)->assertSessionHasErrors('customer_id');
     }
 
     protected function tearDown(): void
@@ -177,14 +209,18 @@ class InvoiceTest extends TestCase
     private function createCustomerAndVehicle(): array
     {
         $customer = Customer::create(['name' => 'Sample Customer', 'email' => 'sample@example.test']);
-        $vehicle = $customer->vehicles()->create([
+        return [$customer, Vehicle::create($this->vehicleDetails($customer))];
+    }
+
+    private function vehicleDetails(Customer $customer): array
+    {
+        return [
+            'customer_id' => $customer->id,
             'plate_number' => 'BETA123',
             'chassis_number' => 'TEST-CHASSIS',
             'engine_number' => 'TEST-ENGINE',
             'brand' => 'Sample',
             'model' => 'Car',
-        ]);
-
-        return [$customer, $vehicle];
+        ];
     }
 }

@@ -81,7 +81,9 @@ Use this account for initial login:
 
 After deploying to the beta environment, back up the databases and run `php artisan tenants:migrate --tenants=YOUR_BETA_TENANT_ID` for each beta workshop with a provisioned tenant database. New workshops get the table during provisioning. No invoice seeder or new central migration is required.
 
-Use an active or trialing workshop-admin account. Do not use the example credentials above on a shared beta. Go to **Customers > Add customer**, enter synthetic contact details, and verify that you can edit the record. Then go to **Invoices > New invoice**, select that customer, add a few MYR line items, save, confirm the totals, and try **Print / Save as PDF**. Sign in as a different workshop admin and confirm neither record appears in that workshop's lists. Customer deletion and client self-service are out of scope. The beta cannot edit, void, or email invoices, collect payments, or submit invoices to LHDN MyInvois.
+Before the live pilot, smoke-test on a separate environment with synthetic data. As an active or trialing workshop admin, add a customer under **Customers**, add a vehicle linked to that customer under **Vehicles**, then select both under **Invoices > New invoice**. Check the totals and **Print / Save as PDF**. Sign in as a different workshop admin and verify that none of those records appear.
+
+For the live pilot, use a dedicated workshop account (not the example credentials), HTTPS, `APP_DEBUG=false`, and backups with a tested restore. Keep real customer records out of development databases and bug reports. Confirm the workshop's entitlement covers the pilot before admitting real data. Customer and vehicle deletion and client self-service are out of scope. The beta cannot edit, void, or email invoices, collect payments, or submit invoices to LHDN MyInvois; do not use it as the sole system for official invoices.
 
 To run `InvoiceTest`, configure PHPUnit with a disposable MySQL database and credentials that can create and drop tenant databases. The central migrations use MySQL-specific SQL; do not run the test suite against a real workshop database.
 
