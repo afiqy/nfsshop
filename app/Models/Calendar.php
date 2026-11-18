@@ -4,18 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Stancl\Tenancy\Database\Concerns\UsesTenantConnection;
+use Stancl\Tenancy\Database\Concerns\TenantConnection;
 
 class Calendar extends Model
 {
     use HasFactory;
-    use UsesTenantConnection;
-    //  Define the table name (only if it does not follow Laravel's convention)
-    protected $table = 'calendars';
-    
+    use TenantConnection;
+
+    public const TIMEZONE = 'Asia/Kuala_Lumpur';
+    public const STATUS_SCHEDULED = 'Scheduled';
+    public const STATUS_CANCELLED = 'Cancelled';
+
     protected $fillable = [
-        'customer_id', 'vehicle_id', 'title', 'service_type', 
-        'start', 'end', 'status'
+        'customer_id', 'vehicle_id', 'title', 'service_type',
+        'start', 'end', 'status',
     ];
 
     public function customer()

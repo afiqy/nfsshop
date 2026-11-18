@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AccountSubscription;
+use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\SubscriptionPlan;
@@ -171,6 +172,74 @@ class InvoiceTest extends TestCase
         $this->actingAs($otherAdmin)->get(route('vehicles.index'))->assertOk()->assertSee('No vehicles yet.');
         $this->put(route('vehicles.update', $vehicle), $details)->assertNotFound();
         $this->post(route('vehicles.store'), $details)->assertSessionHasErrors('customer_id');
+    }
+
+    public function test_workshop_admin_can_book_reschedule_and_cancel_an_appointment(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $details = [
+            'vehicle_id' => $vehicle->id,
+            'customer_id' => $customer->id + 1,
+            'service_type' => 'Oil change',
+            'start' => '2026-11-18T09:00',
+            'end' => '2026-11-18T10:00',
+        ];
+        $week = route('calendar.index', ['week' => '2026-11-18']);
+
+        $this->actingAs($admin)->get(route('calendar.create'))->assertOk()
+            ->assertSee($vehicle->plate_number)->assertSee($customer->name);
+        $this->post(route('calendar.store'), $details)->assertRedirect($week);
+        $booking = Calendar::query()->sole();
+        $this->assertSame($customer->id, $booking->customer_id);
+        $this->get($week)->assertOk()->assertSee('Oil change')->assertSee('2026-11-18 09:00');
+        $this->get(route('calendar.index', ['week' => '2026-11-23']))->assertOk()->assertDontSee('Oil change');
+
+        $this->get(route('calendar.edit', $booking))->assertOk()->assertSee('2026-11-18T09:00');
+        $this->put(route('calendar.update', $booking), ['start' => '2026-11-18T11:00', 'end' => '2026-11-18T12:00'])
+            ->assertRedirect($week);
+        $this->get($week)->assertSee('2026-11-18 11:00')->assertDontSee('2026-11-18 09:00');
+        $this->patch(route('calendar.cancel', $booking))->assertRedirect($week);
+        $this->get($week)->assertSee('Cancelled')->assertDontSee('Reschedule');
+        $this->put(route('calendar.update', $booking), $details)->assertStatus(409);
+        $this->post(route('calendar.store'), array_replace($details, ['start' => '2026-11-18T11:00', 'end' => '2026-11-18T12:00']))
+            ->assertRedirect($week);
+    }
+
+    public function test_calendar_blocks_conflicting_vehicle_slots_and_cross_workshop_access(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        [$customer, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $otherVehicle = $workshop->run(fn () => Vehicle::create(array_replace($this->vehicleDetails($customer), [
+            'plate_number' => 'BETA567', 'chassis_number' => 'OTHER-CHASSIS', 'engine_number' => 'OTHER-ENGINE',
+        ])));
+        $details = [
+            'vehicle_id' => $vehicle->id,
+            'service_type' => 'Private booking',
+            'start' => '2026-11-18T09:00',
+            'end' => '2026-11-18T10:00',
+        ];
+        $week = route('calendar.index', ['week' => '2026-11-18']);
+
+        $this->actingAs($admin)->post(route('calendar.store'), $details)->assertRedirect($week);
+        $booking = Calendar::query()->sole();
+        $this->post(route('calendar.store'), array_replace($details, ['start' => '2026-11-18T09:30']))
+            ->assertSessionHasErrors('start');
+        $this->post(route('calendar.store'), array_replace($details, ['end' => $details['start']]))
+            ->assertSessionHasErrors('end');
+        $this->post(route('calendar.store'), array_replace($details, ['vehicle_id' => $otherVehicle->id]))
+            ->assertRedirect($week);
+        $this->post(route('calendar.store'), array_replace($details, ['start' => '2026-11-18T10:00', 'end' => '2026-11-18T11:00']))
+            ->assertRedirect($week);
+        $this->put(route('calendar.update', $booking), ['start' => '2026-11-18T10:30', 'end' => '2026-11-18T11:30'])
+            ->assertSessionHasErrors('start');
+
+        $this->actingAs($client)->get($week)->assertForbidden();
+        $this->actingAs($otherAdmin)->get($week)->assertOk()->assertDontSee('Private booking');
+        $this->patch(route('calendar.cancel', $booking))->assertNotFound();
+        $this->post(route('calendar.store'), $details)->assertSessionHasErrors('vehicle_id');
     }
 
     protected function tearDown(): void

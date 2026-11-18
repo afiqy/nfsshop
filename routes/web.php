@@ -134,6 +134,14 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::resource('customers', CustomerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
             Route::resource('vehicles', VehicleController::class)->only(['index', 'create', 'store', 'edit', 'update']);
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
+            Route::prefix('calendar')->name('calendar.')->group(function () {
+                Route::get('/', [CalendarController::class, 'index'])->name('index');
+                Route::get('create', [CalendarController::class, 'create'])->name('create');
+                Route::post('appointments', [CalendarController::class, 'store'])->name('store');
+                Route::get('appointments/{appointment}/edit', [CalendarController::class, 'edit'])->name('edit');
+                Route::put('appointments/{appointment}', [CalendarController::class, 'update'])->name('update');
+                Route::patch('appointments/{appointment}/cancel', [CalendarController::class, 'cancel'])->name('cancel');
+            });
         });
 
         // 📌 Inventory Management
@@ -153,11 +161,5 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             });
         });
 
-        // 📌 Calendar Module (Workshop Service Appointments)
-        Route::prefix('calendar')->name('calendar.')->group(function () {
-            Route::get('/', [CalendarController::class, 'index'])->name('index');
-            Route::get('/appointments', [CalendarController::class, 'fetchAppointments'])->name('appointments');
-            Route::post('/store', [CalendarController::class, 'store'])->name('store');
-        });
     });
 });
