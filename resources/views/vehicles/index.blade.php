@@ -29,7 +29,10 @@
                             <td>{{ $vehicle->plate_number }}</td>
                             <td>{{ $vehicle->brand }} {{ $vehicle->model }}</td>
                             <td>{{ $vehicle->customer->name }}</td>
-                            <td><a href="{{ route('vehicles.edit', $vehicle) }}" aria-label="Edit {{ $vehicle->plate_number }}">Edit</a></td>
+                            <td>
+                                <a class="mr-2" href="{{ route('vehicles.history', $vehicle) }}" aria-label="Service history for {{ $vehicle->plate_number }}">History</a>
+                                <a href="{{ route('vehicles.edit', $vehicle) }}" aria-label="Edit {{ $vehicle->plate_number }}">Edit</a>
+                            </td>
                         </tr>
                     @empty
                         <tr><td colspan="4" class="text-center">No vehicles yet.</td></tr>

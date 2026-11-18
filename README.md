@@ -95,6 +95,8 @@ Under **Inventory**, eligible Pro and Enterprise workshop admins and active tria
 
 On an invoice, use **Record payment** for money already received outside the app. In the smoke test, record a partial payment and check the remaining balance, then record the rest and confirm the invoice shows **Paid**. Existing invoices have no recorded payments until you enter them. This is an internal history, not a payment processor or receipt. Entries cannot be edited, deleted, or reversed in the pilot.
 
+Under **Vehicles**, select **History** to find that vehicle's appointments, job cards, and invoices. Only records linked to the vehicle appear; invoices created without a vehicle are not included. No new migration is needed for service history.
+
 ---
 
 ## 📌 Repository

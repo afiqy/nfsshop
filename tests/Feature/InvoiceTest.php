@@ -392,6 +392,62 @@ class InvoiceTest extends TestCase
         $this->assertSame(0, $workshop->run(fn () => Invoice::query()->sole()->payments()->count()));
     }
 
+    public function test_vehicle_history_shows_only_records_linked_to_that_vehicle(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $otherVehicle = $workshop->run(fn () => Vehicle::create(array_replace($this->vehicleDetails($customer), [
+            'plate_number' => 'BETA567', 'chassis_number' => 'OTHER-CHASSIS', 'engine_number' => 'OTHER-ENGINE',
+        ])));
+
+        $this->actingAs($admin)->post(route('calendar.store'), [
+            'vehicle_id' => $vehicle->id,
+            'service_type' => 'Brake inspection',
+            'start' => '2026-11-18T09:00',
+            'end' => '2026-11-18T10:00',
+        ])->assertRedirect();
+        $this->post(route('job-cards.store'), [
+            'vehicle_id' => $vehicle->id,
+            'description' => 'Replace brake pads',
+        ])->assertRedirect();
+        $job = JobCard::query()->sole();
+
+        $invoiceDetails = [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Brake pads', 'quantity' => 1, 'unit_price' => '25.00']],
+        ];
+        $this->post(route('invoices.store'), $invoiceDetails + ['vehicle_id' => $vehicle->id])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $this->post(route('invoices.store'), $invoiceDetails)->assertRedirect();
+        $unlinkedInvoice = Invoice::query()->whereNull('vehicle_id')->sole();
+
+        $history = route('vehicles.history', $vehicle);
+        $this->get(route('vehicles.index'))->assertOk()->assertSee($history);
+        $this->get($history)->assertOk()
+            ->assertSee($vehicle->plate_number)
+            ->assertSee('Brake inspection')->assertSee(route('calendar.index', ['week' => '2026-11-18']))
+            ->assertSee('Replace brake pads')->assertSee(route('job-cards.show', $job))
+            ->assertSee($invoice->number())->assertSee(route('invoices.show', $invoice))
+            ->assertDontSee($unlinkedInvoice->number());
+        $this->get(route('vehicles.history', $otherVehicle))->assertOk()
+            ->assertSee('No appointments for this vehicle.')
+            ->assertSee('No job cards for this vehicle.')
+            ->assertSee('No invoices for this vehicle.');
+    }
+
+    public function test_vehicle_history_is_limited_to_workshop_admins_in_the_same_workshop(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        [, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $history = route('vehicles.history', $vehicle);
+
+        $this->actingAs($client)->get($history)->assertForbidden();
+        $this->actingAs($otherAdmin)->get($history)->assertNotFound();
+        $this->actingAs($admin)->get($history)->assertOk();
+    }
+
     protected function tearDown(): void
     {
         if ($this->workshops) {

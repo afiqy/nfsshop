@@ -35,6 +35,21 @@ class VehicleController extends Controller
         return $this->form(Vehicle::query()->findOrFail($vehicle));
     }
 
+    public function history(string $vehicle): View
+    {
+        $vehicle = Vehicle::with('customer')->findOrFail($vehicle);
+
+        return view('vehicles.history', [
+            'vehicle' => $vehicle,
+            'appointments' => $vehicle->appointments()->latest('start')->latest('id')
+                ->paginate(10, ['*'], 'appointments_page')->withQueryString(),
+            'jobs' => $vehicle->jobCards()->latest('id')
+                ->paginate(10, ['*'], 'jobs_page')->withQueryString(),
+            'invoices' => $vehicle->invoices()->latest('id')
+                ->paginate(10, ['*'], 'invoices_page')->withQueryString(),
+        ]);
+    }
+
     public function update(Request $request, string $vehicle): RedirectResponse
     {
         $vehicle = Vehicle::query()->findOrFail($vehicle);
