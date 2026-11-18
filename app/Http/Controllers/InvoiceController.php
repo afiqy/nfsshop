@@ -13,15 +13,6 @@ use Illuminate\View\View;
 
 class InvoiceController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware(function (Request $request, \Closure $next) {
-            abort_unless(tenancy()->initialized && $request->user()->tenant_id === tenant('id'), 403);
-
-            return $next($request);
-        });
-    }
-
     public function index(): View
     {
         return view('invoices.index', ['invoices' => Invoice::query()->latest('id')->paginate(15)]);

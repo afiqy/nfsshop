@@ -8,7 +8,10 @@
     <p>Beta only. Use test data. These invoices are not submitted to MyInvois.</p>
 
     @if ($customers->isEmpty())
-        <div class="alert alert-warning">This workshop needs an existing customer before you can create an invoice.</div>
+        <div class="alert alert-warning">
+            This workshop needs a customer before you can create an invoice.
+            <a href="{{ route('customers.create') }}" class="alert-link">Add a customer</a>.
+        </div>
     @else
         @if ($errors->any())
             <div class="alert alert-danger" role="alert">

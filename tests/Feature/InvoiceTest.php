@@ -94,6 +94,53 @@ class InvoiceTest extends TestCase
         ])->assertSessionHasErrors('customer_id');
     }
 
+    public function test_workshop_admin_can_add_edit_and_invoice_a_customer(): void
+    {
+        [$admin] = $this->createWorkshop();
+        $details = [
+            'name' => 'Beta Customer',
+            'email' => 'customer@example.test',
+            'phone' => '0123456789',
+            'address' => 'Test address',
+        ];
+
+        $this->actingAs($admin)->get(route('invoices.create'))->assertOk()
+            ->assertSee(route('customers.create'));
+        $this->get(route('customers.create'))->assertOk()->assertSee('Add customer');
+        $this->post(route('customers.store'), $details)->assertRedirect(route('customers.index'));
+
+        $customer = Customer::query()->sole();
+        $this->get(route('customers.index'))->assertOk()->assertSee($details['email']);
+        $this->get(route('customers.edit', $customer))->assertOk()->assertSee($details['address']);
+
+        $details['name'] = 'Updated Beta Customer';
+        $this->put(route('customers.update', $customer), $details)->assertRedirect(route('customers.index'));
+        $this->get(route('invoices.create'))->assertOk()->assertSee($details['name']);
+        $this->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.00']],
+        ])->assertRedirect();
+        $this->assertSame($details['name'], Invoice::query()->sole()->customer_name);
+    }
+
+    public function test_customer_records_and_email_uniqueness_are_scoped_to_the_workshop(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        $details = ['name' => 'Private Customer', 'email' => 'customer@example.test'];
+
+        $this->actingAs($admin)->post(route('customers.store'), $details)->assertRedirect(route('customers.index'));
+        $customer = Customer::query()->sole();
+        $this->from(route('customers.create'))->post(route('customers.store'), $details)->assertSessionHasErrors('email');
+        $this->delete(route('customers.update', $customer))->assertMethodNotAllowed();
+
+        $this->actingAs($client)->get(route('customers.index'))->assertForbidden();
+        $this->actingAs($otherAdmin)->get(route('customers.index'))->assertOk()->assertSee('No customers yet.');
+        $this->put(route('customers.update', $customer), $details)->assertNotFound();
+        $this->post(route('customers.store'), $details)->assertRedirect(route('customers.index'));
+    }
+
     protected function tearDown(): void
     {
         if ($this->workshops) {

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Http\Middleware\EnsureWorkshopContext;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\CalendarController;
@@ -129,16 +130,13 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
     })->middleware('subscription.active')->name('dashboard');
 
     Route::middleware('subscription.active')->group(function () {
-        // 📌 Customer Management
-        Route::resource('customers', CustomerController::class);
+        Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
+            Route::resource('customers', CustomerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+            Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
+        });
 
         // 📌 Vehicle Management
         Route::resource('vehicles', VehicleController::class);
-
-        // 📌 Invoices
-        Route::middleware('role:admin')->group(function () {
-            Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
-        });
 
         // 📌 Inventory Management
         Route::resource('inventory', InventoryController::class);

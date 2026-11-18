@@ -1,58 +1,59 @@
-<?php 
+<?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class CustomerController extends Controller
 {
-    public function index()
+    public function index(): View
     {
-        $customers = Customer::paginate(10);
-        return view('customers.index', compact('customers'));
-    }
-
-    public function create()
-    {
-        return view('customers.create');
-    }
-
-    public function store(Request $request)
-    {
-        $request->validate([
-            'name' => 'required',
-            'email' => 'required|email|unique:customers,email',
-            'phone' => 'nullable|string',
-            'address' => 'nullable|string',
+        return view('customers.index', [
+            'customers' => Customer::query()->orderBy('name')->orderBy('id')->paginate(15),
         ]);
+    }
 
-        Customer::create($request->all());
+    public function create(): View
+    {
+        return view('customers.form', ['customer' => new Customer()]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        Customer::create($this->validateCustomer($request));
 
         return redirect()->route('customers.index')->with('success', 'Customer added successfully.');
     }
 
-    public function edit(Customer $customer)
+    public function edit(string $customer): View
     {
-        return view('customers.edit', compact('customer'));
+        return view('customers.form', ['customer' => Customer::query()->findOrFail($customer)]);
     }
 
-    public function update(Request $request, Customer $customer)
+    public function update(Request $request, string $customer): RedirectResponse
     {
-        $request->validate([
-            'name' => 'required',
-            'email' => "required|email|unique:customers,email,{$customer->id}",
-            'phone' => 'nullable|string',
-            'address' => 'nullable|string',
-        ]);
-
-        $customer->update($request->all());
+        $customer = Customer::query()->findOrFail($customer);
+        $customer->update($this->validateCustomer($request, $customer));
 
         return redirect()->route('customers.index')->with('success', 'Customer updated successfully.');
     }
 
-    public function destroy(Customer $customer)
+    private function validateCustomer(Request $request, ?Customer $customer = null): array
     {
-        $customer->delete();
-        return redirect()->route('customers.index')->with('success', 'Customer deleted successfully.');
+        $uniqueEmail = Rule::unique(Customer::class, 'email');
+        if ($customer) {
+            $uniqueEmail->ignore($customer);
+        }
+
+        return $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', $uniqueEmail],
+            'phone' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:1000'],
+        ]);
     }
 }
