@@ -341,6 +341,57 @@ class InvoiceTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_workshop_admin_can_record_partial_and_final_invoice_payments(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.10']],
+        ])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $show = route('invoices.show', $invoice);
+        $record = route('invoices.payments.store', $invoice);
+
+        $this->get(route('invoices.index'))->assertOk()->assertSee('Unpaid');
+        $this->from($show)->post($record, ['amount' => '10.05', 'reference' => 'Transfer ref 123'])
+            ->assertRedirect($show);
+        $this->get($show)->assertOk()->assertSee('Partially paid')
+            ->assertSee('Outstanding: RM 15.05')->assertSee('Transfer ref 123');
+
+        foreach (['0', '-1', '1.001', '15.06'] as $invalidAmount) {
+            $this->post($record, ['amount' => $invalidAmount])->assertSessionHasErrors('amount');
+        }
+        $this->assertSame(1, $invoice->payments()->count());
+        $this->assertSame($admin->id, $invoice->payments()->sole()->recorded_by_user_id);
+
+        $this->post($record, ['amount' => '15.05'])->assertRedirect($show);
+        $this->get($show)->assertOk()->assertSee('Outstanding: RM 0.00')->assertDontSee('Record payment');
+        $this->get(route('invoices.index'))->assertOk()->assertSee('Paid')->assertDontSee('Partially paid');
+        $this->post($record, ['amount' => '0.01'])->assertSessionHasErrors('amount');
+        $this->assertSame([1005, 1505], $invoice->payments()->orderBy('id')->pluck('amount_sen')->all());
+    }
+
+    public function test_invoice_payments_require_an_admin_in_the_same_workshop(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.00']],
+        ])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $record = route('invoices.payments.store', $invoice);
+
+        $this->actingAs($client)->post($record, ['amount' => '10'])->assertForbidden();
+        $this->actingAs($otherAdmin)->post($record, ['amount' => '10'])->assertNotFound();
+        $this->assertSame(0, $workshop->run(fn () => Invoice::query()->sole()->payments()->count()));
+    }
+
     protected function tearDown(): void
     {
         if ($this->workshops) {

@@ -18,6 +18,8 @@
                         <th scope="col">Customer</th>
                         <th scope="col">Vehicle</th>
                         <th scope="col" class="text-right">Total</th>
+                        <th scope="col" class="text-right">Balance</th>
+                        <th scope="col">Payment status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -28,9 +30,11 @@
                             <td>{{ $invoice->customer_name }}</td>
                             <td>{{ $invoice->vehicle_plate ?? '—' }}</td>
                             <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}</td>
+                            <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->total_sen - ($invoice->paid_sen ?? 0)) }}</td>
+                            <td>{{ $invoice->paymentStatus($invoice->paid_sen ?? 0) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="text-center">No invoices yet.</td></tr>
+                        <tr><td colspan="7" class="text-center">No invoices yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

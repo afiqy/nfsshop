@@ -15,7 +15,9 @@ class InvoiceController extends Controller
 {
     public function index(): View
     {
-        return view('invoices.index', ['invoices' => Invoice::query()->latest('id')->paginate(15)]);
+        return view('invoices.index', [
+            'invoices' => Invoice::withSum('payments as paid_sen', 'amount_sen')->latest('id')->paginate(15),
+        ]);
     }
 
     public function create(): View
@@ -57,8 +59,7 @@ class InvoiceController extends Controller
 
             $items = [];
             foreach ($validated['items'] as $item) {
-                [$ringgit, $sen] = array_pad(explode('.', (string) $item['unit_price'], 2), 2, '');
-                $unitPrice = (int) $ringgit * 100 + (int) str_pad($sen, 2, '0');
+                $unitPrice = Invoice::toSen((string) $item['unit_price']);
                 $quantity = (int) $item['quantity'];
                 $items[] = [
                     'description' => $item['description'],
@@ -85,6 +86,39 @@ class InvoiceController extends Controller
 
     public function show(string $invoice): View
     {
-        return view('invoices.show', ['invoice' => Invoice::query()->findOrFail($invoice)]);
+        $invoice = Invoice::withSum('payments as paid_sen', 'amount_sen')->findOrFail($invoice);
+
+        return view('invoices.show', [
+            'invoice' => $invoice,
+            'payments' => $invoice->payments()->latest('id')->paginate(15),
+        ]);
+    }
+
+    public function recordPayment(Request $request, string $invoice): RedirectResponse
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'regex:/\A[0-9]{1,11}(?:\.[0-9]{1,2})?\z/'],
+            'reference' => ['nullable', 'string', 'max:255'],
+        ]);
+        $amount = Invoice::toSen((string) $data['amount']);
+        if ($amount === 0) {
+            throw ValidationException::withMessages(['amount' => 'Enter a payment greater than zero.']);
+        }
+
+        DB::connection('tenant')->transaction(function () use ($invoice, $request, $data, $amount) {
+            $record = Invoice::query()->lockForUpdate()->findOrFail($invoice);
+            $paid = (int) $record->payments()->sum('amount_sen');
+            if ($amount > $record->total_sen - $paid) {
+                throw ValidationException::withMessages(['amount' => 'The payment exceeds the outstanding balance.']);
+            }
+
+            $record->payments()->create([
+                'amount_sen' => $amount,
+                'reference' => $data['reference'] ?? null,
+                'recorded_by_user_id' => $request->user()->id,
+            ]);
+        }, 3);
+
+        return redirect()->route('invoices.show', $invoice)->with('success', 'Payment recorded.');
     }
 }

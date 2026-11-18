@@ -13,7 +13,7 @@
         .address { white-space: pre-line; }
         .description { overflow-wrap: anywhere; }
         @media print {
-            nav, [role="status"] { display: none; }
+            nav, [role="status"], #payments { display: none; }
             body { margin: 0; max-width: none; }
             thead { display: table-header-group; }
             tfoot { display: table-row-group; }
@@ -68,6 +68,54 @@
             </tfoot>
         </table>
         <p>Beta test document — not submitted to MyInvois.</p>
+        <section id="payments" aria-labelledby="payments-heading">
+            @php
+                $paid = $invoice->paid_sen ?? 0;
+                $balance = $invoice->total_sen - $paid;
+            @endphp
+            <h2 id="payments-heading">Payments</h2>
+            <p><strong>{{ $invoice->paymentStatus($paid) }}</strong><br>
+                Recorded: {{ \App\Models\Invoice::formatAmount($paid) }}<br>
+                Outstanding: {{ \App\Models\Invoice::formatAmount($balance) }}</p>
+            @if ($errors->any())
+                <ul role="alert">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            @endif
+            @if ($balance > 0)
+                <form action="{{ route('invoices.payments.store', $invoice) }}" method="POST">
+                    @csrf
+                    <p>Only record money already received outside this app. Double-check the amount before saving; entries cannot be edited or deleted here.</p>
+                    <p><label for="amount">Amount received (RM)</label><br>
+                        <input type="text" name="amount" id="amount" inputmode="decimal" pattern="[0-9]{1,11}(\.[0-9]{1,2})?" maxlength="14"
+                            value="{{ is_scalar(old('amount')) ? old('amount') : '' }}" required></p>
+                    <p><label for="reference">Reference (optional)</label><br>
+                        <input type="text" name="reference" id="reference" maxlength="255" value="{{ is_string(old('reference')) ? old('reference') : '' }}"></p>
+                    <button type="submit">Record payment</button>
+                </form>
+            @endif
+            <h3>Payment history</h3>
+            <table>
+                <thead>
+                    <tr><th scope="col">Recorded (MYT)</th><th scope="col">Reference</th><th scope="col">Recorded by</th><th scope="col" class="amount">Amount</th></tr>
+                </thead>
+                <tbody>
+                    @forelse ($payments as $payment)
+                        <tr>
+                            <td>{{ $payment->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</td>
+                            <td class="description">{{ $payment->reference ?? '—' }}</td>
+                            <td>User #{{ $payment->recorded_by_user_id }}</td>
+                            <td class="amount">{{ \App\Models\Invoice::formatAmount($payment->amount_sen) }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4">No payments recorded.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+            {{ $payments->links() }}
+        </section>
     </main>
 </body>
 </html>
