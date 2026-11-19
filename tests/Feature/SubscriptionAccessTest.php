@@ -23,7 +23,9 @@ class SubscriptionAccessTest extends TestCase
         $this->actingAs($owner)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('subscription is inactive or expired');
+            ->assertSee('subscription is inactive or expired')
+            ->assertDontSeeText('Outstanding invoice balance')
+            ->assertDontSeeText('Book appointment');
 
         $this->get(route('invoices.index'))
             ->assertRedirect(route('workshop.subscription'));

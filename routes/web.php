@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureWorkshopContext;
 use App\Http\Middleware\EnsureInventoryAccess;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\WorkshopDashboardController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentPreferenceController;
@@ -126,13 +127,8 @@ Route::get('/subscription-required', function (Request $request) {
 Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context'])->group(function () {
 
     // 📌 Dashboard
-    Route::get('/dashboard', function (Request $request, \App\Services\SubscriptionEntitlementService $entitlements) {
-        $subscription = $entitlements->subscriptionFor($request->user());
-        $subscriptionUsable = $subscription?->isUsable() ?? false;
-        $request->attributes->set('subscription_usable', $subscriptionUsable);
-
-        return view('dashboard', ['subscriptionUsable' => $subscriptionUsable]);
-    })->middleware('subscription.active')->name('dashboard');
+    Route::get('/dashboard', WorkshopDashboardController::class)
+        ->middleware('subscription.active')->name('dashboard');
 
     Route::middleware('subscription.active')->group(function () {
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {

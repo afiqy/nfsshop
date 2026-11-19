@@ -13,6 +13,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Vehicle;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as StripeRequest;
 use Illuminate\Support\Facades\Http;
@@ -24,6 +25,74 @@ class InvoiceTest extends TestCase
     use RefreshDatabase;
 
     private array $workshops = [];
+
+    public function test_workshop_dashboard_shows_todays_appointments_jobs_and_outstanding_balances(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 17:00:00', 'UTC'));
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $staff = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+
+        $workshop->run(function () use ($admin) {
+            [$customer, $vehicle] = $this->createCustomerAndVehicle();
+            $details = ['customer_id' => $customer->id, 'vehicle_id' => $vehicle->id];
+            foreach ([
+                ['Morning service', '2026-11-19 09:00:00', '2026-11-19 10:00:00', Calendar::STATUS_SCHEDULED],
+                ['Overnight service', '2026-11-18 23:30:00', '2026-11-19 00:30:00', Calendar::STATUS_SCHEDULED],
+                ['Cancelled service', '2026-11-19 14:00:00', '2026-11-19 15:00:00', Calendar::STATUS_CANCELLED],
+                ['Tomorrow service', '2026-11-20 00:00:00', '2026-11-20 01:00:00', Calendar::STATUS_SCHEDULED],
+                ['Yesterday service', '2026-11-18 23:00:00', '2026-11-19 00:00:00', Calendar::STATUS_SCHEDULED],
+            ] as [$title, $start, $end, $status]) {
+                Calendar::create($details + compact('title', 'start', 'end', 'status'));
+            }
+
+            foreach ([JobCard::OPEN, JobCard::IN_PROGRESS, JobCard::COMPLETED] as $status) {
+                JobCard::create($details + ['description' => 'Workshop job', 'status' => $status]);
+            }
+
+            foreach ([[10000, [1000, 1499]], [1235, []], [5000, [5000]], [0, []]] as [$total, $payments]) {
+                $invoice = Invoice::create($details + [
+                    'workshop_name' => 'Beta Workshop',
+                    'customer_name' => $customer->name,
+                    'items' => [],
+                    'total_sen' => $total,
+                ]);
+                foreach ($payments as $amount) {
+                    $invoice->payments()->create(['amount_sen' => $amount, 'recorded_by_user_id' => $admin->id]);
+                }
+            }
+        });
+
+        $this->actingAs($admin)->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('appointmentCount', 2)
+            ->assertViewHas('openJobCount', 2)
+            ->assertSeeText('Thu, 19 Nov 2026')
+            ->assertSeeTextInOrder(['Overnight service', 'Morning service'])
+            ->assertDontSeeText('Cancelled service')
+            ->assertDontSeeText('Tomorrow service')
+            ->assertDontSeeText('Yesterday service')
+            ->assertSeeText('Plan: Invoice beta')
+            ->assertSeeText('RM 87.36')
+            ->assertSeeText('2 invoices with a balance')
+            ->assertSee(route('invoices.create'))
+            ->assertSee(route('job-cards.create'))
+            ->assertSee(route('calendar.create'));
+
+        $this->actingAs($staff)->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSeeText('Morning service')
+            ->assertDontSeeText('Outstanding invoice balance')
+            ->assertDontSeeText('Create invoice');
+
+        $this->actingAs($otherAdmin)->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('openJobCount', 0)
+            ->assertSeeText('RM 0.00')
+            ->assertSeeText('No appointments scheduled today.')
+            ->assertDontSeeText('Morning service')
+            ->assertDontSeeText('RM 87.36');
+    }
 
     public function test_workshop_admin_can_create_list_and_print_invoice_with_exact_totals(): void
     {

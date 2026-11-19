@@ -83,6 +83,8 @@ After deploying to the beta environment, back up the databases and run `php arti
 
 Before the live pilot, smoke-test on a separate environment with synthetic data. As an active or trialing workshop admin, add a customer under **Customers**, add a vehicle linked to that customer under **Vehicles**, then select both under **Invoices > New invoice**. Check the totals and **Print / Save as PDF**. Sign in as a different workshop admin and verify that none of those records appear.
 
+On the **Dashboard**, check the workshop name and plan, today's scheduled appointments (Malaysia time), open and in-progress jobs, and the total invoice balance after recorded payments. Quick actions open the forms for new invoices, job cards, appointments, and vehicles. Outstanding balances are not overdue totals: invoices do not have due dates yet. Staff availability and configurable widgets are not included.
+
 For the live pilot, use a dedicated workshop account (not the example credentials), HTTPS, `APP_DEBUG=false`, and backups with a tested restore. Keep real customer records out of development databases and bug reports. Confirm the workshop's entitlement covers the pilot before admitting real data. Customer and vehicle deletion and client self-service are out of scope. The beta cannot edit, void, or email invoices, collect payments, or submit invoices to LHDN MyInvois; do not use it as the sole system for official invoices.
 
 To run `InvoiceTest`, configure PHPUnit with a disposable MySQL database and credentials that can create and drop tenant databases. The central migrations use MySQL-specific SQL; do not run the test suite against a real workshop database.
