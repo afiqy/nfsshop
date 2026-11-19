@@ -141,33 +141,34 @@
             </li>
         @endif
 
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('users.index') }}">
-                <i class="fas fa-user-cog"></i>
-                <span>Users</span>
-            </a>
-        </li>
+        @if ($user?->role === \App\Models\User::ROLE_ADMIN)
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('users.index') }}">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Users</span>
+                </a>
+            </li>
 
-        <!-- Divider -->
-        <hr class="sidebar-divider">
+            <hr class="sidebar-divider">
 
-        <div class="sidebar-heading">
-            Admin Settings
-        </div>
+            <div class="sidebar-heading">
+                Admin Settings
+            </div>
 
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('admin.settings') }}">
-                <i class="fas fa-cogs"></i>
-                <span>Admin Settings</span>
-            </a>
-        </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('admin.settings') }}">
+                    <i class="fas fa-cogs"></i>
+                    <span>Admin Settings</span>
+                </a>
+            </li>
 
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('admin.roles.index') }}">
-                <i class="fas fa-user-shield"></i>
-                <span>Role Management</span>
-            </a>
-        </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('admin.roles.index') }}">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Role Management</span>
+                </a>
+            </li>
+        @endif
 
         @if ($user && $user->role === \App\Models\User::ROLE_ADMIN)
             <li class="nav-item">

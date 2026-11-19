@@ -5,7 +5,7 @@
 @section('content')
 <div class="container-fluid">
     <header class="mb-4">
-        <h1 class="h3 text-gray-800">{{ $workshopName ? 'Workshop dashboard' : 'Dashboard' }}</h1>
+        <h1 class="h3 text-gray-800">{{ $workshopName ? 'Workshop dashboard' : ($staffDashboard ? 'My dashboard' : 'Dashboard') }}</h1>
         @if ($workshopName)
             <p class="mb-0">{{ $workshopName }} &middot; Plan: {{ $planName ?? 'Not assigned' }}</p>
         @endif
@@ -18,6 +18,52 @@
         </div>
     @elseif ($isWorkshopAdmin && ! $hasWorkshop)
         <div class="alert alert-warning">No workshop is linked to your account.</div>
+    @elseif ($staffDashboard)
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <section class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6">Jobs assigned to you today</h2>
+                        <p class="h4">{{ $todayJobCount }}</p>
+                    </div>
+                </section>
+            </div>
+            <div class="col-md-6 mb-4">
+                <section class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6">Pending assigned jobs</h2>
+                        <p class="h4">{{ $assignedJobCount }}</p>
+                        <a href="{{ route('my-jobs.index') }}">View all my jobs</a>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <section class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h5">Today's assigned jobs</h2>
+                <p>{{ $today->format('D, j M Y') }} (Malaysia time)</p>
+                @if ($todayJobs->isEmpty())
+                    <p>No assigned jobs scheduled for today.</p>
+                @else
+                    <ul class="list-group">
+                        @foreach ($todayJobs as $job)
+                            <li class="list-group-item">
+                                {{ \Carbon\CarbonImmutable::parse($job->appointment->start, $today->timezone)->format('H:i') }}
+                                &middot;
+                                <a href="{{ route('my-jobs.show', $job) }}">Job #{{ $job->id }}: {{ $job->appointment->service_type ?? $job->appointment->title }}</a>
+                                &middot; {{ $job->customer?->name ?? 'Customer unavailable' }}
+                                &middot; {{ $job->vehicle?->plate_number ?? 'Vehicle unavailable' }}
+                                &middot; {{ \App\Models\JobCard::LABELS[$job->status] }}
+                                <span class="d-block">{{ $job->description }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                    @if ($todayJobCount > $todayJobs->count())
+                        <p class="mt-2">Showing the first {{ $todayJobs->count() }} of {{ $todayJobCount }} assigned jobs today.</p>
+                    @endif
+                @endif
+            </div>
+        </section>
     @elseif ($hasWorkshop)
         <nav class="d-flex flex-wrap mb-3" aria-label="Workshop quick actions">
             <a class="btn btn-primary mr-2 mb-2" href="{{ route('invoices.create') }}">Create invoice</a>

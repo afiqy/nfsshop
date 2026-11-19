@@ -16,4 +16,7 @@ npm-debug.log
 yarn-error.log
 /.fleet
 /.idea
-/.vscode
+/.vscode/*
+!/.vscode/Documentation/
+/.vscode/Documentation/*
+!/.vscode/Documentation/Development-Checklist.md

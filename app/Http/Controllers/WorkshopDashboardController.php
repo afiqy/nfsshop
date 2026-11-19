@@ -17,7 +17,10 @@ class WorkshopDashboardController extends Controller
     {
         $user = $request->user();
         $isWorkshopAdmin = $user->role === User::ROLE_ADMIN;
+        $isMechanic = $user->role === User::ROLE_MECHANIC;
         $hasWorkshop = $isWorkshopAdmin && tenancy()->initialized && $user->tenant_id === tenant('id');
+        $hasMechanicWorkshop = $isMechanic && $user->status === User::STATUS_ACTIVE
+            && tenancy()->initialized && $user->tenant_id === tenant('id');
         $subscriptionUsable = $request->attributes->get('subscription_usable', false);
         $today = CarbonImmutable::today(Calendar::TIMEZONE);
 
@@ -25,6 +28,7 @@ class WorkshopDashboardController extends Controller
             'isWorkshopAdmin' => $isWorkshopAdmin,
             'subscriptionUsable' => $subscriptionUsable,
             'hasWorkshop' => $hasWorkshop,
+            'staffDashboard' => $hasMechanicWorkshop && $subscriptionUsable,
             'workshopName' => $hasWorkshop ? (tenant('workshop_name') ?: $user->workshop_name ?: tenant('id')) : null,
             'planName' => $request->attributes->get('account_subscription')?->plan?->name,
             'today' => $today,
@@ -59,6 +63,22 @@ class WorkshopDashboardController extends Controller
                 'outstandingSen' => (int) $outstanding->balance_sen,
                 'overdueCount' => (int) $outstanding->overdue_count,
                 'overdueSen' => (int) $outstanding->overdue_sen,
+            ];
+        } elseif ($hasMechanicWorkshop && $subscriptionUsable) {
+            $assignedJobs = JobCard::query()
+                ->where('assigned_mechanic_id', $user->id)
+                ->whereIn('status', [JobCard::OPEN, JobCard::IN_PROGRESS]);
+            $todayJobsQuery = (clone $assignedJobs)->whereHas('appointment', fn ($query) => $query
+                ->where('status', Calendar::STATUS_SCHEDULED)
+                ->where('start', '>=', $today->toDateTimeString())
+                ->where('start', '<', $today->addDay()->toDateTimeString()));
+
+            $data += [
+                'assignedJobCount' => (clone $assignedJobs)->count(),
+                'todayJobCount' => (clone $todayJobsQuery)->count(),
+                'todayJobs' => $todayJobsQuery->with(['customer', 'vehicle', 'appointment'])
+                    ->orderByRaw('(SELECT start FROM calendars WHERE calendars.id = job_cards.calendar_id)')
+                    ->orderBy('id')->limit(10)->get(),
             ];
         }
 

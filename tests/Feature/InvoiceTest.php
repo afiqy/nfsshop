@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Models\AccountSubscription;
 use App\Models\Calendar;
 use App\Models\Customer;
-use App\Models\Invoice;
 use App\Models\InventoryItem;
+use App\Models\Invoice;
 use App\Models\JobCard;
 use App\Models\PaymentPreference;
 use App\Models\SubscriptionPlan;
@@ -249,6 +249,78 @@ class InvoiceTest extends TestCase
             ->assertSeeText('No appointments scheduled today.')
             ->assertDontSeeText('Morning service')
             ->assertDontSeeText('RM 87.36');
+    }
+
+    public function test_mechanic_dashboard_shows_only_their_open_jobs_scheduled_today_in_malaysia_time(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 17:00:00', 'UTC'));
+        [$admin, $workshop] = $this->createWorkshop();
+        $mechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $otherMechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+
+        $workshop->run(function () use ($mechanic, $otherMechanic) {
+            [$customer, $vehicle] = $this->createCustomerAndVehicle();
+            $appointment = fn (string $title, string $start, string $status = Calendar::STATUS_SCHEDULED) => Calendar::create([
+                'customer_id' => $customer->id,
+                'vehicle_id' => $vehicle->id,
+                'title' => $title,
+                'service_type' => $title,
+                'start' => $start,
+                'end' => CarbonImmutable::parse($start)->addHour()->toDateTimeString(),
+                'status' => $status,
+            ]);
+            $today = $appointment('Today assigned repair', '2026-11-19 10:00:00');
+            $tomorrow = $appointment('Tomorrow assigned repair', '2026-11-20 10:00:00');
+            $cancelled = $appointment('Cancelled assigned repair', '2026-11-19 11:00:00', Calendar::STATUS_CANCELLED);
+            $otherMechanicToday = $appointment('Other mechanic repair', '2026-11-19 12:00:00');
+
+            JobCard::create([
+                'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id, 'calendar_id' => $today->id,
+                'description' => 'Today brake service', 'status' => JobCard::OPEN,
+                'assigned_mechanic_id' => $mechanic->id,
+            ]);
+            JobCard::create([
+                'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id, 'calendar_id' => $tomorrow->id,
+                'description' => 'Tomorrow service', 'status' => JobCard::IN_PROGRESS,
+                'assigned_mechanic_id' => $mechanic->id,
+            ]);
+            JobCard::create([
+                'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id, 'calendar_id' => $cancelled->id,
+                'description' => 'Cancelled service', 'status' => JobCard::OPEN,
+                'assigned_mechanic_id' => $mechanic->id,
+            ]);
+            JobCard::create([
+                'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+                'description' => 'Completed service', 'status' => JobCard::COMPLETED,
+                'assigned_mechanic_id' => $mechanic->id,
+            ]);
+            JobCard::create([
+                'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id, 'calendar_id' => $otherMechanicToday->id,
+                'description' => 'Another mechanic service', 'status' => JobCard::OPEN,
+                'assigned_mechanic_id' => $otherMechanic->id,
+            ]);
+        });
+
+        $this->actingAs($mechanic)->get(route('dashboard'))
+            ->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertSeeText('My dashboard')
+            ->assertViewHas('todayJobCount', 1)
+            ->assertViewHas('assignedJobCount', 3)
+            ->assertSeeText('Thu, 19 Nov 2026')
+            ->assertSeeText('Today assigned repair')
+            ->assertSeeText('Today brake service')
+            ->assertDontSeeText('Tomorrow assigned repair')
+            ->assertDontSeeText('Cancelled assigned repair')
+            ->assertDontSeeText('Another mechanic service')
+            ->assertSee(route('my-jobs.index'))
+            ->assertDontSee(route('users.index'))
+            ->assertDontSee(route('admin.settings'));
+        $this->get(route('users.index'))->assertForbidden();
+        $this->get(route('admin.settings'))->assertForbidden();
+
+        $this->actingAs($admin)->get(route('dashboard'))->assertOk()
+            ->assertDontSeeText('My dashboard')
+            ->assertSeeText('Workshop dashboard');
     }
 
     public function test_workshop_admin_can_create_list_and_print_invoice_with_exact_totals(): void
@@ -1113,6 +1185,7 @@ class InvoiceTest extends TestCase
     private function createCustomerAndVehicle(): array
     {
         $customer = Customer::create(['name' => 'Sample Customer', 'email' => 'sample@example.test']);
+
         return [$customer, Vehicle::create($this->vehicleDetails($customer))];
     }
 

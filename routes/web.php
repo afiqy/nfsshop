@@ -182,14 +182,14 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             });
         });
 
-        // 📌 User Management
-        Route::resource('users', UserController::class);
+        Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
+            Route::resource('users', UserController::class);
 
-        // 📌 Admin & Role Settings
-        Route::prefix('admin')->name('admin.')->group(function () {
-            Route::get('/', [AdminController::class, 'index'])->name('settings');
-            Route::prefix('/roles')->name('roles.')->group(function () {
-                Route::get('/', [RoleController::class, 'index'])->name('index');
+            Route::prefix('admin')->name('admin.')->group(function () {
+                Route::get('/', [AdminController::class, 'index'])->name('settings');
+                Route::prefix('/roles')->name('roles.')->group(function () {
+                    Route::get('/', [RoleController::class, 'index'])->name('index');
+                });
             });
         });
 
