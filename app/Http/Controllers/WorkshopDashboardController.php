@@ -47,6 +47,8 @@ class WorkshopDashboardController extends Controller
                 ->leftJoinSub($payments, 'payments', 'payments.invoice_id', '=', 'invoices.id')
                 ->whereRaw("$balance > 0")
                 ->selectRaw("COUNT(*) AS invoice_count, COALESCE(SUM($balance), 0) AS balance_sen")
+                ->selectRaw('COUNT(CASE WHEN invoices.due_date < ? THEN 1 END) AS overdue_count', [$today->toDateString()])
+                ->selectRaw("COALESCE(SUM(CASE WHEN invoices.due_date < ? THEN $balance ELSE 0 END), 0) AS overdue_sen", [$today->toDateString()])
                 ->first();
 
             $data += [
@@ -55,6 +57,8 @@ class WorkshopDashboardController extends Controller
                 'openJobCount' => JobCard::whereIn('status', [JobCard::OPEN, JobCard::IN_PROGRESS])->count(),
                 'outstandingCount' => (int) $outstanding->invoice_count,
                 'outstandingSen' => (int) $outstanding->balance_sen,
+                'overdueCount' => (int) $outstanding->overdue_count,
+                'overdueSen' => (int) $outstanding->overdue_sen,
             ];
         }
 

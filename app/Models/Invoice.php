@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Stancl\Tenancy\Database\Concerns\TenantConnection;
@@ -19,6 +20,7 @@ class Invoice extends Model
         'customer_name',
         'customer_address',
         'vehicle_plate',
+        'due_date',
         'items',
         'total_sen',
     ];
@@ -27,11 +29,26 @@ class Invoice extends Model
         'items' => 'array',
         'total_sen' => 'integer',
         'paid_sen' => 'integer',
+        'due_date' => 'immutable_date',
     ];
 
     public function payments(): HasMany
     {
         return $this->hasMany(InvoicePayment::class);
+    }
+
+    public function scopeOverdue(Builder $query, string $today): Builder
+    {
+        return $query->where('due_date', '<', $today)
+            ->where('total_sen', '>', InvoicePayment::query()
+                ->selectRaw('COALESCE(SUM(amount_sen), 0)')
+                ->whereColumn('invoice_payments.invoice_id', 'invoices.id'));
+    }
+
+    public function isOverdue(int $paid, string $today): bool
+    {
+        return $this->due_date !== null && $this->due_date->toDateString() < $today
+            && $paid < $this->total_sen;
     }
 
     public function paymentStatus(int $paid): string

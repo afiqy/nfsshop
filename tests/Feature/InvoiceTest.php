@@ -26,6 +26,49 @@ class InvoiceTest extends TestCase
 
     private array $workshops = [];
 
+    public function test_invoice_due_dates_follow_malaysia_time_and_only_unpaid_balances_are_overdue(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 15:59:00', 'UTC'));
+        [$admin, $workshop] = $this->createWorkshop();
+        $customer = $workshop->run(fn () => Customer::create(['name' => 'Sample Customer', 'email' => 'sample@example.test']));
+        $invoiceDetails = [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '100.00']],
+        ];
+        $this->actingAs($admin);
+        foreach (['2026-11-17', '2026-11-31'] as $date) {
+            $this->from(route('invoices.create'))->post(route('invoices.store'), $invoiceDetails + ['due_date' => $date])
+                ->assertRedirect(route('invoices.create'))->assertSessionHasErrors('due_date');
+        }
+
+        $filtered = route('invoices.index', ['status' => 'overdue']);
+        $this->post(route('invoices.store'), $invoiceDetails + ['due_date' => '2026-11-18'])
+            ->assertRedirect(route('invoices.show', 1));
+        $this->post(route('invoices.store'), $invoiceDetails + ['due_date' => '2026-11-19'])
+            ->assertRedirect(route('invoices.show', 2));
+        $this->post(route('invoices.store'), $invoiceDetails)
+            ->assertRedirect(route('invoices.show', 3));
+        $this->post(route('invoices.payments.store', 1), ['amount' => '25.50'])->assertRedirect();
+        $this->get(route('invoices.show', 1))->assertOk()->assertSeeText('Payment due:')
+            ->assertSeeText('18 Nov 2026')->assertDontSeeText('Overdue');
+        $this->get($filtered)->assertOk()->assertSeeText('No overdue invoices.');
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 16:00:00', 'UTC'));
+        $this->get(route('invoices.show', 1))->assertOk()->assertSeeText('Overdue');
+        $this->get($filtered)->assertOk()
+            ->assertSeeText('INV-000001')->assertSeeText('RM 74.50')
+            ->assertDontSeeText('INV-000002')->assertDontSeeText('INV-000003');
+        $this->get(route('dashboard'))->assertOk()
+            ->assertViewHas('outstandingSen', 27450)
+            ->assertViewHas('overdueCount', 1)
+            ->assertViewHas('overdueSen', 7450)
+            ->assertSee($filtered);
+
+        $this->post(route('invoices.payments.store', 1), ['amount' => '74.50'])->assertRedirect();
+        $this->get($filtered)->assertOk()->assertSeeText('No overdue invoices.');
+        $this->get(route('dashboard'))->assertOk()->assertViewHas('overdueSen', 0);
+    }
+
     public function test_workshop_dashboard_shows_todays_appointments_jobs_and_outstanding_balances(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-18 17:00:00', 'UTC'));

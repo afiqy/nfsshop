@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Vehicle;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,10 +16,18 @@ use Illuminate\View\View;
 
 class InvoiceController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $filters = $request->validate(['status' => ['nullable', 'in:overdue']]);
+        $overdueOnly = ($filters['status'] ?? null) === 'overdue';
+        $today = CarbonImmutable::today(Calendar::TIMEZONE)->toDateString();
+
         return view('invoices.index', [
-            'invoices' => Invoice::withSum('payments as paid_sen', 'amount_sen')->latest('id')->paginate(15),
+            'invoices' => Invoice::withSum('payments as paid_sen', 'amount_sen')
+                ->when($overdueOnly, fn ($query) => $query->overdue($today)->orderBy('due_date'))
+                ->latest('id')->paginate(15)->appends($overdueOnly ? ['status' => 'overdue'] : []),
+            'overdueOnly' => $overdueOnly,
+            'today' => $today,
         ]);
     }
 
@@ -26,6 +36,7 @@ class InvoiceController extends Controller
         return view('invoices.create', [
             'customers' => Customer::query()->orderBy('name')->get(['id', 'name', 'email']),
             'vehicles' => Vehicle::query()->orderBy('plate_number')->get(['id', 'customer_id', 'plate_number']),
+            'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
         ]);
     }
 
@@ -34,6 +45,7 @@ class InvoiceController extends Controller
         $validated = $request->validate([
             'customer_id' => ['required', 'integer', 'min:1'],
             'vehicle_id' => ['nullable', 'integer', 'min:1'],
+            'due_date' => ['bail', 'nullable', 'date_format:Y-m-d', 'after_or_equal:'.CarbonImmutable::today(Calendar::TIMEZONE)->toDateString()],
             'items' => ['required', 'array', 'min:1', 'max:'.Invoice::MAX_ITEMS],
             'items.*' => ['required', 'array:description,quantity,unit_price'],
             'items.*.description' => ['required', 'string', 'max:255'],
@@ -77,6 +89,7 @@ class InvoiceController extends Controller
                 'customer_name' => $customer->name,
                 'customer_address' => $customer->address,
                 'vehicle_plate' => $vehicle?->plate_number,
+                'due_date' => $validated['due_date'] ?? null,
                 'items' => $items,
                 'total_sen' => array_sum(array_column($items, 'total_sen')),
             ]);
@@ -92,6 +105,7 @@ class InvoiceController extends Controller
         return view('invoices.show', [
             'invoice' => $invoice,
             'payments' => $invoice->payments()->latest('id')->paginate(15),
+            'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
         ]);
     }
 

@@ -52,6 +52,14 @@
                 </div>
             </div>
 
+            <div class="form-group">
+                <label for="due_date">Payment due date (optional)</label>
+                <input class="form-control" type="date" id="due_date" name="due_date" min="{{ $today }}"
+                    max="9999-12-31" aria-describedby="due-date-help"
+                    value="{{ is_string(old('due_date')) ? old('due_date') : '' }}">
+                <small class="form-text text-muted" id="due-date-help">Use Malaysia time. Leave blank if no payment deadline applies.</small>
+            </div>
+
             <h2 class="h5">Line items</h2>
             <div id="invoice-items" data-max-items="{{ $maxItems }}">
                 @foreach ($rows as $item)

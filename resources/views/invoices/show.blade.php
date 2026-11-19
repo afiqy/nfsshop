@@ -32,7 +32,11 @@
     <main>
         <h1>Invoice {{ $invoice->number() }}</h1>
         <p><strong>From:</strong> {{ $invoice->workshop_name }}<br>
-            <strong>Date:</strong> {{ $invoice->created_at->format('d M Y') }}</p>
+            <strong>Date:</strong> {{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }}
+            @if ($invoice->due_date)
+                <br><strong>Payment due:</strong> {{ $invoice->due_date->format('d M Y') }}
+            @endif
+        </p>
         <p><strong>Bill to:</strong> {{ $invoice->customer_name }}
             @if ($invoice->customer_address)
                 <br><span class="address">{{ $invoice->customer_address }}</span>
@@ -74,7 +78,11 @@
                 $balance = $invoice->total_sen - $paid;
             @endphp
             <h2 id="payments-heading">Payments</h2>
-            <p><strong>{{ $invoice->paymentStatus($paid) }}</strong><br>
+            <p><strong>{{ $invoice->paymentStatus($paid) }}</strong>
+                @if ($invoice->isOverdue($paid, $today))
+                    &middot; <strong>Overdue</strong>
+                @endif
+                <br>
                 Recorded: {{ \App\Models\Invoice::formatAmount($paid) }}<br>
                 Outstanding: {{ \App\Models\Invoice::formatAmount($balance) }}</p>
             @if ($errors->any())

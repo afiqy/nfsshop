@@ -51,6 +51,9 @@
                         <p class="h4">{{ \App\Models\Invoice::formatAmount($outstandingSen) }}</p>
                         <a href="{{ route('invoices.index') }}">View invoices</a>
                         <span class="d-block">{{ $outstandingCount }} {{ \Illuminate\Support\Str::plural('invoice', $outstandingCount) }} with a balance</span>
+                        <a class="d-block mt-2" href="{{ route('invoices.index', ['status' => 'overdue']) }}">
+                            Overdue: {{ \App\Models\Invoice::formatAmount($overdueSen) }} ({{ $overdueCount }} {{ \Illuminate\Support\Str::plural('invoice', $overdueCount) }})
+                        </a>
                     </div>
                 </section>
             </div>
