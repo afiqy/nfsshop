@@ -25,11 +25,14 @@ class Invoice extends Model
         'total_sen',
     ];
 
+    protected $hidden = ['myinvois_buyer'];
+
     protected $casts = [
         'items' => 'array',
         'total_sen' => 'integer',
         'paid_sen' => 'integer',
         'due_date' => 'immutable_date',
+        'myinvois_buyer' => 'encrypted:array',
     ];
 
     public function payments(): HasMany

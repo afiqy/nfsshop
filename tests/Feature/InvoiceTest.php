@@ -26,6 +26,70 @@ class InvoiceTest extends TestCase
 
     private array $workshops = [];
 
+    public function test_myinvois_preparation_saves_encrypted_tax_details_without_changing_the_invoice(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $customer = $workshop->run(fn () => Customer::create(['name' => 'Sample Customer', 'email' => 'sample@example.test']));
+        $sellerUrl = route('myinvois.seller.edit');
+        $buyerUrl = route('myinvois.buyer.edit', 1);
+        $buyer = [
+            'legal_name' => 'Sample Buyer', 'tin' => 'C876543210', 'id_type' => 'BRN', 'id_number' => 'TESTBRN987',
+            'address_line' => '1 Example Road', 'postcode' => '01000', 'city' => 'Kangar',
+            'state' => '09', 'phone' => '+60123456789',
+        ];
+        $seller = array_replace($buyer, ['legal_name' => 'Sample Supplier', 'tin' => 'C123456780'])
+            + ['msic' => '45201', 'business_activity' => 'Motor vehicle repairs'];
+        $this->actingAs($admin)->get($sellerUrl)->assertOk()->assertHeader('Referrer-Policy', 'no-referrer');
+        $this->put(route('myinvois.seller.update'), array_replace($seller, ['msic' => 'invalid']))
+            ->assertRedirect($sellerUrl)->assertSessionHasErrors('msic')->assertSessionMissing('_old_input');
+        $this->put(route('myinvois.seller.update'), $seller)->assertRedirect($sellerUrl);
+        $this->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '10.00']],
+        ])->assertRedirect(route('invoices.show', 1));
+        $this->get($buyerUrl)->assertOk()->assertSeeText('Buyer details: Missing');
+        $this->put(route('myinvois.buyer.update', 1), $buyer)->assertRedirect($buyerUrl);
+        $this->get($buyerUrl)->assertOk()->assertSeeText('Buyer details: Saved')->assertSee($buyer['tin']);
+
+        $workshop->run(function () use ($seller, $buyer) {
+            $profile = \App\Models\WorkshopTaxProfile::sole();
+            $invoice = Invoice::sole();
+            $this->assertSame($seller['tin'], $profile->details['tin']);
+            $this->assertStringNotContainsString($seller['tin'], $profile->getRawOriginal('details'));
+            $this->assertSame($buyer['id_number'], $invoice->myinvois_buyer['id_number']);
+            $this->assertStringNotContainsString($buyer['id_number'], $invoice->getRawOriginal('myinvois_buyer'));
+            $this->assertArrayNotHasKey('myinvois_buyer', $invoice->toArray());
+            $this->assertSame(1000, $invoice->total_sen);
+            $this->assertSame('Sample Customer', $invoice->customer_name);
+        });
+        $this->get(route('invoices.show', 1))->assertOk()->assertDontSee($buyer['tin'])->assertDontSee($buyer['id_number']);
+        $this->delete(route('myinvois.buyer.clear', 1))->assertRedirect($buyerUrl);
+        $this->get($buyerUrl)->assertOk()->assertSeeText('Buyer details: Missing')->assertDontSee($buyer['id_number']);
+    }
+
+    public function test_myinvois_preparation_is_restricted_to_active_admins_in_their_workshop(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $mechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $suspended = User::factory()->create([
+            'role' => User::ROLE_ADMIN, 'tenant_id' => $workshop->id, 'status' => User::STATUS_SUSPENDED,
+        ]);
+        $customer = $workshop->run(fn () => Customer::create(['name' => 'Sample Customer', 'email' => 'sample@example.test']));
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '10.00']],
+        ])->assertRedirect(route('invoices.show', 1));
+
+        $this->actingAs($mechanic)->get(route('myinvois.seller.edit'))->assertForbidden();
+        $this->put(route('myinvois.buyer.update', 1))->assertForbidden();
+        $this->actingAs($suspended)->get(route('myinvois.buyer.edit', 1))->assertForbidden();
+        $this->actingAs($otherAdmin)->get(route('myinvois.buyer.edit', 1))->assertNotFound();
+        $this->delete(route('myinvois.buyer.clear', 1))->assertNotFound();
+        AccountSubscription::query()->where('user_id', $admin->id)->update(['current_period_ends_at' => now()->subDay()]);
+        $this->actingAs($admin)->get(route('myinvois.seller.edit'))->assertRedirect(route('workshop.subscription'));
+    }
+
     public function test_admin_can_assign_reassign_and_clear_jobs_for_active_mechanics_in_the_same_workshop(): void
     {
         [$admin, $workshop] = $this->createWorkshop();

@@ -14,6 +14,7 @@
         <a class="btn {{ $overdueOnly ? 'btn-danger' : 'btn-outline-danger' }}" href="{{ route('invoices.index', ['status' => 'overdue']) }}"
             @if ($overdueOnly) aria-current="page" @endif>Overdue only</a>
     </nav>
+    <p><a href="{{ route('myinvois.seller.edit') }}">MyInvois workshop tax profile</a></p>
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table mb-0">

@@ -24,6 +24,7 @@
 <body>
     <nav>
         <a href="{{ route('invoices.index') }}">Back to invoices</a>
+        <a href="{{ route('myinvois.buyer.edit', $invoice) }}">MyInvois preparation</a>
         <button type="button" onclick="window.print()">Print / Save as PDF</button>
     </nav>
     @if (session('success'))
