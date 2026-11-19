@@ -132,6 +132,13 @@
                     </a>
                 </li>
             @endif
+        @elseif ($user?->role === \App\Models\User::ROLE_MECHANIC && $user->status === \App\Models\User::STATUS_ACTIVE)
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('my-jobs.index') }}">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>My jobs</span>
+                </a>
+            </li>
         @endif
 
         <li class="nav-item">

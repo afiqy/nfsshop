@@ -26,6 +26,56 @@ class InvoiceTest extends TestCase
 
     private array $workshops = [];
 
+    public function test_admin_can_assign_reassign_and_clear_jobs_for_active_mechanics_in_the_same_workshop(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [, $otherWorkshop] = $this->createWorkshop();
+        $staff = ['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id];
+        $first = User::factory()->create($staff + ['name' => 'First Mechanic']);
+        $second = User::factory()->create($staff + ['name' => 'Second Mechanic']);
+        $suspended = User::factory()->create($staff + ['name' => 'Suspended Mechanic', 'status' => User::STATUS_SUSPENDED]);
+        $outsider = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $otherWorkshop->id, 'name' => 'Outside Mechanic']);
+        [$job, $unassigned] = $workshop->run(function () {
+            [$customer, $vehicle] = $this->createCustomerAndVehicle();
+            $details = ['customer_id' => $customer->id, 'vehicle_id' => $vehicle->id, 'status' => JobCard::OPEN];
+
+            return [
+                JobCard::create($details + ['description' => 'Check the brakes']),
+                JobCard::create($details + ['description' => 'Check the steering']),
+            ];
+        });
+
+        $show = route('job-cards.show', $job);
+        $assign = route('job-cards.assign', $job);
+        $myJob = route('my-jobs.show', $job);
+        $advance = route('my-jobs.advance', $job);
+
+        $this->actingAs($admin)->get($show)->assertOk()
+            ->assertSeeText('First Mechanic')->assertSeeText('Second Mechanic')
+            ->assertDontSeeText('Outside Mechanic')->assertDontSeeText('Suspended Mechanic');
+        foreach ([$admin, $outsider, $suspended] as $ineligible) {
+            $this->patch($assign, ['assigned_mechanic_id' => $ineligible->id])->assertSessionHasErrors('assigned_mechanic_id');
+        }
+        $this->patch($assign, ['assigned_mechanic_id' => $first->id])->assertRedirect($show);
+        $this->get(route('job-cards.index'))->assertOk()->assertSeeText('First Mechanic');
+
+        $this->actingAs($first)->get(route('my-jobs.index'))->assertOk()
+            ->assertSee('href="'.$myJob.'"', false)->assertDontSee(route('my-jobs.show', $unassigned));
+        $this->get($myJob)->assertOk()->assertSeeText('Check the brakes')->assertDontSeeText('Change assignment');
+        $this->get(route('my-jobs.show', $unassigned))->assertNotFound();
+        $this->patch($assign, ['assigned_mechanic_id' => null])->assertForbidden();
+        $this->patch($advance, ['status' => JobCard::IN_PROGRESS])->assertRedirect($myJob);
+        $this->actingAs($outsider)->get($myJob)->assertNotFound();
+
+        $this->actingAs($admin)->patch($assign, ['assigned_mechanic_id' => null])->assertRedirect($show);
+        $this->actingAs($first)->get(route('my-jobs.index'))->assertOk()->assertSeeText('No jobs assigned to you.');
+        $this->actingAs($admin)->patch($assign, ['assigned_mechanic_id' => $second->id])->assertRedirect($show);
+        $this->actingAs($first)->patch($advance, ['status' => JobCard::COMPLETED])->assertNotFound();
+        $this->actingAs($second)->patch($advance, ['status' => JobCard::COMPLETED])->assertRedirect($myJob);
+        $this->get($myJob)->assertOk()->assertSeeText('Completed');
+        $this->actingAs($admin)->patch($assign, ['assigned_mechanic_id' => null])->assertSessionHasErrors('assigned_mechanic_id');
+    }
+
     public function test_invoice_due_dates_follow_malaysia_time_and_only_unpaid_balances_are_overdue(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-18 15:59:00', 'UTC'));

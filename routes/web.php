@@ -131,6 +131,13 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
         ->middleware('subscription.active')->name('dashboard');
 
     Route::middleware('subscription.active')->group(function () {
+        Route::middleware(['role:mechanic', EnsureWorkshopContext::class])
+            ->prefix('my-jobs')->name('my-jobs.')->group(function () {
+                Route::get('/', [JobCardController::class, 'index'])->name('index');
+                Route::get('{job_card}', [JobCardController::class, 'show'])->name('show');
+                Route::patch('{job_card}/status', [JobCardController::class, 'advance'])->name('advance');
+            });
+
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
             Route::resource('customers', CustomerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
             Route::resource('vehicles', VehicleController::class)->only(['index', 'create', 'store', 'edit', 'update']);
@@ -154,6 +161,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 ->middleware('throttle:12,1')->name('billplz-sandbox.result');
             Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);
             Route::patch('job-cards/{job_card}/status', [JobCardController::class, 'advance'])->name('job-cards.advance');
+            Route::patch('job-cards/{job_card}/assignment', [JobCardController::class, 'assign'])->name('job-cards.assign');
             Route::middleware(EnsureInventoryAccess::class)->group(function () {
                 Route::resource('inventory', InventoryController::class)->except(['destroy']);
                 Route::post('inventory/{inventory}/movements', [InventoryController::class, 'move'])->name('inventory.move');

@@ -4,8 +4,10 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3 mb-0">Job cards</h1>
-        <a href="{{ route('job-cards.create') }}" class="btn btn-primary">Open job card</a>
+        <h1 class="h3 mb-0">{{ $staffView ? 'My jobs' : 'Job cards' }}</h1>
+        @unless ($staffView)
+            <a href="{{ route('job-cards.create') }}" class="btn btn-primary">Open job card</a>
+        @endunless
     </div>
     <div class="card shadow-sm">
         <div class="table-responsive">
@@ -16,18 +18,24 @@
                         <th scope="col">Customer</th>
                         <th scope="col">Vehicle</th>
                         <th scope="col">Status</th>
+                        @unless ($staffView)
+                            <th scope="col">Assigned mechanic</th>
+                        @endunless
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($jobs as $job)
                         <tr>
-                            <td><a href="{{ route('job-cards.show', $job) }}">Job #{{ $job->id }}</a></td>
+                            <td><a href="{{ route($staffView ? 'my-jobs.show' : 'job-cards.show', $job) }}">Job #{{ $job->id }}</a></td>
                             <td>{{ $job->customer?->name ?? 'Unavailable' }}</td>
                             <td>{{ $job->vehicle?->plate_number ?? 'Unavailable' }}</td>
                             <td>{{ \App\Models\JobCard::LABELS[$job->status] }}</td>
+                            @unless ($staffView)
+                                <td>{{ $job->assigned_mechanic_id ? ($assigneeNames[$job->assigned_mechanic_id] ?? 'Unavailable') : 'Unassigned' }}</td>
+                            @endunless
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center">No job cards yet.</td></tr>
+                        <tr><td colspan="{{ $staffView ? 4 : 5 }}" class="text-center">{{ $staffView ? 'No jobs assigned to you.' : 'No job cards yet.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

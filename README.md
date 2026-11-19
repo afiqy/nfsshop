@@ -93,7 +93,7 @@ To run `InvoiceTest`, configure PHPUnit with a disposable MySQL database and cre
 
 Under **Calendar**, book a service for an existing vehicle, change its time, and cancel it. The weekly calendar uses Malaysia time. Overlapping bookings for the same vehicle are blocked, while different vehicles can be booked in parallel. Cancellations stay visible and release the slot. There are no customer notifications or self-service bookings yet.
 
-Open a **Job card** for an existing vehicle, or use **Open job card** on a scheduled appointment (one card per appointment). Start work, then mark the job completed. Mechanic assignment and automatic invoicing are not part of this pilot.
+Open a **Job card** for an existing vehicle, or use **Open job card** on a scheduled appointment (one card per appointment). On the card, use **Change assignment** to assign an active mechanic from the same workshop or leave it unassigned. Mechanics can open **My jobs** to view and advance only jobs assigned to them. Admins can change or clear the assignment until the job is completed. Existing jobs start unassigned. Assignment does not send notifications or generate invoices. Back up the database and apply the tenant migrations before deploying.
 
 Under **Inventory**, eligible Pro and Enterprise workshop admins and active trial workshops can add an item, record its opening balance as stock in, and record later stock in/out with a reason. Check that the movement history shows the resulting balance and that the item is marked low stock at or below its threshold. Suppliers, purchase orders, and automatic stock changes from invoices or jobs are not included.
 

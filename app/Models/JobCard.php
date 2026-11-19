@@ -10,7 +10,9 @@ class JobCard extends Model
     use TenantConnection;
 
     public const OPEN = 'open';
+
     public const IN_PROGRESS = 'in_progress';
+
     public const COMPLETED = 'completed';
 
     public const LABELS = [
@@ -19,9 +21,9 @@ class JobCard extends Model
         self::COMPLETED => 'Completed',
     ];
 
-    protected $fillable = ['customer_id', 'vehicle_id', 'calendar_id', 'description', 'status', 'completed_at'];
+    protected $fillable = ['customer_id', 'vehicle_id', 'calendar_id', 'description', 'status', 'completed_at', 'assigned_mechanic_id'];
 
-    protected $casts = ['completed_at' => 'datetime'];
+    protected $casts = ['completed_at' => 'datetime', 'assigned_mechanic_id' => 'integer'];
 
     public function customer()
     {
