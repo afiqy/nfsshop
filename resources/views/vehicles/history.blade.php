@@ -30,6 +30,19 @@
                 <li class="list-group-item">
                     <a href="{{ route('job-cards.show', $job) }}">Job #{{ $job->id }}: {{ \Illuminate\Support\Str::limit($job->description, 100) }}</a>
                     <span class="d-block text-muted">{{ $job->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} &middot; {{ \App\Models\JobCard::LABELS[$job->status] }}</span>
+                    @foreach ($job->updates as $update)
+                        <span class="d-block ml-3">
+                            {{ $update->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} MYT
+                            &middot; {{ $update->actor_name }}
+                            @if ($update->type === \App\Models\JobCardUpdate::TYPE_NOTE)
+                                &middot; {!! nl2br(e($update->note)) !!}
+                            @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_STATUS)
+                                &middot; Status: {{ \App\Models\JobCard::LABELS[$update->status] ?? 'Updated' }}
+                            @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_OPENED)
+                                &middot; Job opened
+                            @endif
+                        </span>
+                    @endforeach
                 </li>
             @empty
                 <li class="list-group-item">No job cards for this vehicle.</li>

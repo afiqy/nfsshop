@@ -14,6 +14,9 @@
     @error('assigned_mechanic_id')
         <div class="alert alert-danger" role="alert">{{ $message }}</div>
     @enderror
+    @error('note')
+        <div class="alert alert-danger" role="alert">{{ $message }}</div>
+    @enderror
     <div class="card shadow-sm p-3">
         <dl>
             <dt>Status</dt>
@@ -70,4 +73,44 @@
             </form>
         @endif
     </div>
+
+    <section class="card shadow-sm p-3 mt-3" aria-labelledby="job-updates">
+        <h2 class="h5" id="job-updates">Progress and service notes</h2>
+        @if ($job->updates->isEmpty())
+            <p>No progress history recorded for this job yet.</p>
+        @else
+            <ol class="list-group list-group-flush mb-3">
+                @foreach ($job->updates as $update)
+                    <li class="list-group-item">
+                        <strong>
+                            @if ($update->type === \App\Models\JobCardUpdate::TYPE_OPENED)
+                                Job opened
+                            @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_STATUS)
+                                Status changed to {{ \App\Models\JobCard::LABELS[$update->status] ?? 'Updated' }}
+                            @else
+                                Service note
+                            @endif
+                        </strong>
+                        <span class="d-block text-muted">
+                            {{ $update->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} MYT
+                            &middot; {{ $update->actor_name }}
+                        </span>
+                        @if ($update->type === \App\Models\JobCardUpdate::TYPE_NOTE)
+                            <div>{!! nl2br(e($update->note)) !!}</div>
+                        @endif
+                    </li>
+                @endforeach
+            </ol>
+        @endif
+
+        <form method="POST" action="{{ route($staffView ? 'my-jobs.notes.store' : 'job-cards.notes.store', $job) }}">
+            @csrf
+            <div class="form-group">
+                <label for="note">Add a service note</label>
+                <textarea class="form-control" id="note" name="note" rows="4" maxlength="4000" required>{{ is_string(old('note')) ? old('note') : '' }}</textarea>
+                <small class="form-text text-muted">Notes are permanent and visible to workshop admins and mechanics assigned to this job. Do not include passwords or payment-card details.</small>
+            </div>
+            <button type="submit" class="btn btn-outline-primary">Add note</button>
+        </form>
+    </section>
 @endsection

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Calendar;
 use App\Models\JobCard;
+use App\Models\JobCardUpdate;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Database\Eloquent\Builder;
@@ -62,7 +63,8 @@ class JobCardController extends Controller
             'description' => ['required', 'string', 'max:4000'],
         ]);
 
-        $job = DB::connection('tenant')->transaction(function () use ($validated) {
+        $actor = $request->user();
+        $job = DB::connection('tenant')->transaction(function () use ($validated, $actor) {
             $vehicle = Vehicle::query()->lockForUpdate()->find($validated['vehicle_id']);
             if (! $vehicle) {
                 throw ValidationException::withMessages(['vehicle_id' => 'Select a vehicle from this workshop.']);
@@ -78,13 +80,22 @@ class JobCardController extends Controller
                 }
             }
 
-            return JobCard::create([
+            $job = JobCard::create([
                 'vehicle_id' => $vehicle->id,
                 'customer_id' => $vehicle->customer_id,
                 'calendar_id' => $appointment?->id,
                 'description' => $validated['description'],
                 'status' => JobCard::OPEN,
             ]);
+
+            $job->updates()->create([
+                'actor_user_id' => $actor->id,
+                'actor_name' => $actor->name,
+                'type' => JobCardUpdate::TYPE_OPENED,
+                'status' => JobCard::OPEN,
+            ]);
+
+            return $job;
         }, 3);
 
         return redirect()->route('job-cards.show', $job)->with('success', 'Job card opened.');
@@ -92,7 +103,13 @@ class JobCardController extends Controller
 
     public function show(Request $request, string $jobCard): View
     {
-        $job = $this->visibleJobs($request)->with(['customer', 'vehicle', 'appointment'])->findOrFail($jobCard);
+        $job = $this->visibleJobs($request)
+            ->with([
+                'customer',
+                'vehicle',
+                'appointment',
+                'updates' => fn ($query) => $query->orderBy('created_at')->orderBy('id'),
+            ])->findOrFail($jobCard);
         $staffView = $this->isMechanic($request);
 
         return view('job-cards.show', [
@@ -105,6 +122,24 @@ class JobCardController extends Controller
                 ? $this->mechanics($request)->whereKey($job->assigned_mechanic_id)->value('name')
                 : null,
         ]);
+    }
+
+    public function addNote(Request $request, string $jobCard): RedirectResponse
+    {
+        $validated = $request->validate(['note' => ['required', 'string', 'max:4000']]);
+
+        DB::connection('tenant')->transaction(function () use ($request, $jobCard, $validated) {
+            $job = $this->visibleJobs($request)->lockForUpdate()->findOrFail($jobCard);
+            $job->updates()->create([
+                'actor_user_id' => $request->user()->id,
+                'actor_name' => $request->user()->name,
+                'type' => JobCardUpdate::TYPE_NOTE,
+                'note' => $validated['note'],
+            ]);
+        }, 3);
+
+        return redirect()->route($this->isMechanic($request) ? 'my-jobs.show' : 'job-cards.show', $jobCard)
+            ->with('success', 'Service note added.');
     }
 
     public function assign(Request $request, string $jobCard): RedirectResponse
@@ -133,17 +168,27 @@ class JobCardController extends Controller
 
     public function advance(Request $request, string $jobCard): RedirectResponse
     {
-        $query = $this->visibleJobs($request);
-        $job = (clone $query)->findOrFail($jobCard);
         $validated = $request->validate(['status' => ['required', Rule::in([JobCard::IN_PROGRESS, JobCard::COMPLETED])]]);
         $status = $validated['status'];
-        $updated = $status === $job->nextStatus() && $query
-            ->whereKey($job->id)->where('status', $job->status)
-            ->update(['status' => $status, 'completed_at' => $status === JobCard::COMPLETED ? now() : null]);
+        $job = DB::connection('tenant')->transaction(function () use ($request, $jobCard, $status) {
+            $job = $this->visibleJobs($request)->lockForUpdate()->findOrFail($jobCard);
+            if ($status !== $job->nextStatus()) {
+                throw ValidationException::withMessages(['status' => 'The job status changed or the requested step is not available.']);
+            }
 
-        if (! $updated) {
-            throw ValidationException::withMessages(['status' => 'The job status changed or the requested step is not available.']);
-        }
+            $job->update([
+                'status' => $status,
+                'completed_at' => $status === JobCard::COMPLETED ? now() : null,
+            ]);
+            $job->updates()->create([
+                'actor_user_id' => $request->user()->id,
+                'actor_name' => $request->user()->name,
+                'type' => JobCardUpdate::TYPE_STATUS,
+                'status' => $status,
+            ]);
+
+            return $job;
+        }, 3);
 
         return redirect()->route($this->isMechanic($request) ? 'my-jobs.show' : 'job-cards.show', $job)
             ->with('success', 'Job status updated.');

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Stancl\Tenancy\Database\Concerns\TenantConnection;
 
 class JobCard extends Model
@@ -38,6 +39,11 @@ class JobCard extends Model
     public function appointment()
     {
         return $this->belongsTo(Calendar::class, 'calendar_id');
+    }
+
+    public function updates(): HasMany
+    {
+        return $this->hasMany(JobCardUpdate::class);
     }
 
     public function nextStatus(): ?string

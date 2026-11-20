@@ -20,7 +20,7 @@ class VehicleController extends Controller
 
     public function create(): View
     {
-        return $this->form(new Vehicle());
+        return $this->form(new Vehicle);
     }
 
     public function store(Request $request): RedirectResponse
@@ -43,7 +43,9 @@ class VehicleController extends Controller
             'vehicle' => $vehicle,
             'appointments' => $vehicle->appointments()->latest('start')->latest('id')
                 ->paginate(10, ['*'], 'appointments_page')->withQueryString(),
-            'jobs' => $vehicle->jobCards()->latest('id')
+            'jobs' => $vehicle->jobCards()->with([
+                'updates' => fn ($query) => $query->orderBy('created_at')->orderBy('id'),
+            ])->latest('id')
                 ->paginate(10, ['*'], 'jobs_page')->withQueryString(),
             'invoices' => $vehicle->invoices()->latest('id')
                 ->paginate(10, ['*'], 'invoices_page')->withQueryString(),

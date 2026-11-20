@@ -17,7 +17,8 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Job cards: create from a vehicle or appointment, track open/in-progress/completed states.
 - [x] Job assignment: assign/reassign active same-workshop mechanics; mechanics can access and advance only their assigned jobs.
 - [x] Mechanic personal dashboard: today's assigned appointments/jobs and assigned open-job count.
-- [ ] Job service notes, richer progress history, deadlines and parts-used recording.
+- [x] Job service notes (encrypted) and append-only progress history for job opening and status changes (recorded from deployment onward).
+- [ ] Job deadlines and parts-used recording, including inventory integration.
 - [ ] Mechanic vehicle updates: mileage/condition and service notes linked to vehicle history.
 - [x] Inventory beta: items, stock movements and low-stock threshold, subject to plan entitlement.
 - [ ] Inventory suppliers, purchase orders, stock usage linked to jobs/invoices and alerts.
@@ -84,8 +85,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 ## Recently completed
 
 - [x] Mechanic dashboard for today's assigned jobs and pending assigned-job count.
+- [x] Encrypted job service notes and progress history; notes appear in vehicle service history (pre-deployment history is not backfilled).
 
 ## Next recommended module
 
-- [ ] Job service notes and progress history, with mechanic entries scoped to their assigned jobs and the workshop service history.
+- [ ] Job deadlines and parts-used recording on job cards, with stock movements linked to inventory.
 

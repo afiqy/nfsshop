@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\JobCard;
+use App\Models\JobCardUpdate;
 use App\Models\PaymentPreference;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
@@ -138,6 +139,76 @@ class InvoiceTest extends TestCase
         $this->actingAs($second)->patch($advance, ['status' => JobCard::COMPLETED])->assertRedirect($myJob);
         $this->get($myJob)->assertOk()->assertSeeText('Completed');
         $this->actingAs($admin)->patch($assign, ['assigned_mechanic_id' => null])->assertSessionHasErrors('assigned_mechanic_id');
+    }
+
+    public function test_mechanics_and_admins_can_append_authorized_job_notes_and_view_progress_history(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin, $otherWorkshop] = $this->createWorkshop();
+        $mechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $anotherMechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $outsideMechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $otherWorkshop->id]);
+        [$customer, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+
+        $this->actingAs($admin)->post(route('job-cards.store'), [
+            'vehicle_id' => $vehicle->id,
+            'description' => 'Inspect the brakes',
+        ])->assertRedirect();
+        $job = JobCard::query()->sole();
+        $adminJob = route('job-cards.show', $job);
+        $mechanicJob = route('my-jobs.show', $job);
+        $adminNotes = route('job-cards.notes.store', $job);
+        $mechanicNotes = route('my-jobs.notes.store', $job);
+        $this->assertSame(JobCardUpdate::TYPE_OPENED, $job->updates()->sole()->type);
+
+        $this->actingAs($admin)->patch(route('job-cards.assign', $job), [
+            'assigned_mechanic_id' => $mechanic->id,
+        ])->assertRedirect($adminJob);
+        $this->actingAs($anotherMechanic)->post($mechanicNotes, ['note' => 'Not assigned'])
+            ->assertNotFound();
+        $this->actingAs($outsideMechanic)->post($mechanicNotes, ['note' => 'Cross workshop'])
+            ->assertNotFound();
+        $workshop->run(fn () => $this->assertSame(1, $job->updates()->count()));
+
+        $note = "Brake pads checked\n<script>alert('x')</script>";
+        $this->actingAs($mechanic)->post($mechanicNotes, ['note' => $note])->assertRedirect($mechanicJob);
+        $this->post($mechanicNotes, ['note' => str_repeat('x', 4001)])->assertSessionHasErrors('note');
+        $this->actingAs($mechanic)->patch(route('my-jobs.advance', $job), ['status' => JobCard::IN_PROGRESS])
+            ->assertRedirect($mechanicJob);
+        $this->post($mechanicNotes, ['note' => ''])->assertSessionHasErrors('note');
+
+        $this->actingAs($admin)->post($adminNotes, ['note' => 'Workshop follow-up recorded'])
+            ->assertRedirect($adminJob);
+        $this->get($adminJob)->assertOk()
+            ->assertSeeText('Job opened')
+            ->assertSeeText('Status changed to In progress')
+            ->assertSeeText('Brake pads checked')
+            ->assertSeeText('Workshop follow-up recorded')
+            ->assertSee('&lt;script&gt;alert(&#039;x&#039;)&lt;/script&gt;', false)
+            ->assertDontSee("<script>alert('x')</script>", false);
+        $workshop->run(function () use ($job, $note) {
+            $saved = $job->updates()->where('type', JobCardUpdate::TYPE_NOTE)->firstOrFail();
+            $this->assertSame($note, $saved->note);
+            $this->assertStringNotContainsString('Brake pads checked', $saved->getRawOriginal('note'));
+        });
+
+        $this->actingAs($admin)->patch(route('job-cards.advance', $job), ['status' => JobCard::COMPLETED])
+            ->assertRedirect($adminJob);
+        $this->get(route('vehicles.history', $vehicle))
+            ->assertOk()->assertSeeText('Brake pads checked')
+            ->assertSeeText('Workshop follow-up recorded')
+            ->assertSeeText('Status: Completed');
+        $this->actingAs($mechanic)->get($mechanicJob)->assertOk()->assertSeeText('Status changed to Completed');
+
+        $this->actingAs($admin)->get(route('job-cards.show', $job))->assertOk();
+        $this->actingAs($otherAdmin)->post($adminNotes, ['note' => 'Cross tenant'])
+            ->assertNotFound();
+        $workshop->run(function () use ($job) {
+            $this->assertSame(5, $job->updates()->count());
+            $this->assertSame(2, $job->updates()->where('type', JobCardUpdate::TYPE_NOTE)->count());
+            $this->assertSame(2, $job->updates()->where('type', JobCardUpdate::TYPE_STATUS)->count());
+            $this->assertSame(1, $job->updates()->where('type', JobCardUpdate::TYPE_OPENED)->count());
+        });
     }
 
     public function test_invoice_due_dates_follow_malaysia_time_and_only_unpaid_balances_are_overdue(): void

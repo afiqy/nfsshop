@@ -136,6 +136,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             ->prefix('my-jobs')->name('my-jobs.')->group(function () {
                 Route::get('/', [JobCardController::class, 'index'])->name('index');
                 Route::get('{job_card}', [JobCardController::class, 'show'])->name('show');
+                Route::post('{job_card}/notes', [JobCardController::class, 'addNote'])->name('notes.store');
                 Route::patch('{job_card}/status', [JobCardController::class, 'advance'])->name('advance');
             });
 
@@ -166,6 +167,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::get('payment-preferences/billplz-sandbox/result', [BillplzSandboxController::class, 'result'])
                 ->middleware('throttle:12,1')->name('billplz-sandbox.result');
             Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);
+            Route::post('job-cards/{job_card}/notes', [JobCardController::class, 'addNote'])->name('job-cards.notes.store');
             Route::patch('job-cards/{job_card}/status', [JobCardController::class, 'advance'])->name('job-cards.advance');
             Route::patch('job-cards/{job_card}/assignment', [JobCardController::class, 'assign'])->name('job-cards.assign');
             Route::middleware(EnsureInventoryAccess::class)->group(function () {
