@@ -59,6 +59,8 @@ class WorkshopDashboardController extends Controller
                 'appointmentCount' => $appointments->count(),
                 'appointments' => $appointments->with(['vehicle:id,plate_number'])->limit(10)->get(),
                 'openJobCount' => JobCard::whereIn('status', [JobCard::OPEN, JobCard::IN_PROGRESS])->count(),
+                'overdueJobCount' => JobCard::whereIn('status', [JobCard::OPEN, JobCard::IN_PROGRESS])
+                    ->whereNotNull('due_date')->where('due_date', '<', $today->toDateString())->count(),
                 'outstandingCount' => (int) $outstanding->invoice_count,
                 'outstandingSen' => (int) $outstanding->balance_sen,
                 'overdueCount' => (int) $outstanding->overdue_count,
@@ -75,6 +77,8 @@ class WorkshopDashboardController extends Controller
 
             $data += [
                 'assignedJobCount' => (clone $assignedJobs)->count(),
+                'overdueJobCount' => (clone $assignedJobs)->whereNotNull('due_date')
+                    ->where('due_date', '<', $today->toDateString())->count(),
                 'todayJobCount' => (clone $todayJobsQuery)->count(),
                 'todayJobs' => $todayJobsQuery->with(['customer', 'vehicle', 'appointment'])
                     ->orderByRaw('(SELECT start FROM calendars WHERE calendars.id = job_cards.calendar_id)')

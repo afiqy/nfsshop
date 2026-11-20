@@ -43,6 +43,12 @@
                 <label for="description">Work requested</label>
                 <textarea id="description" name="description" class="form-control" rows="5" maxlength="4000" required>{{ is_string($description) ? $description : '' }}</textarea>
             </div>
+            <div class="form-group">
+                <label for="due_date">Target completion date (optional)</label>
+                <input id="due_date" name="due_date" type="date" min="{{ $today }}" max="9999-12-31"
+                    class="form-control" value="{{ is_string(old('due_date')) ? old('due_date') : '' }}">
+                <small class="form-text text-muted">The job is overdue from the day after this date if it is still open.</small>
+            </div>
             <div><button type="submit" class="btn btn-primary">Open job card</button></div>
         </form>
     @endif

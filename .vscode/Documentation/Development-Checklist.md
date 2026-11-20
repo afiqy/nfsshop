@@ -18,17 +18,17 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Job assignment: assign/reassign active same-workshop mechanics; mechanics can access and advance only their assigned jobs.
 - [x] Mechanic personal dashboard: today's assigned appointments/jobs and assigned open-job count.
 - [x] Job service notes (encrypted) and append-only progress history for job opening and status changes (recorded from deployment onward).
-- [ ] Job deadlines and parts-used recording, including inventory integration.
+- [x] Optional job deadlines with Malaysia-time overdue detection and filtering; job parts usage/returns with linked inventory stock movements and mechanic/admin authorization.
 - [ ] Mechanic vehicle updates: mileage/condition and service notes linked to vehicle history.
 - [x] Inventory beta: items, stock movements and low-stock threshold, subject to plan entitlement.
-- [ ] Inventory suppliers, purchase orders, stock usage linked to jobs/invoices and alerts.
+- [ ] Inventory suppliers, purchase orders, automatic stock usage linked to invoices and alerts.
 - [x] Invoices: create, view, print/save as PDF, MYR line-item totals, optional vehicle.
 - [x] Invoice payment tracking: manual partial/final payments, balance and payment status; no payment processing or reversal.
 - [x] Printable acknowledgments for recorded payments; not MyInvois-validated receipts.
 - [x] Optional invoice due date, Malaysia-time overdue detection for unpaid balances, overdue filter/dashboard total.
 - [ ] Invoice editing/voids, refunds/credit notes, sending/emailing and payment reminders.
 - [x] Vehicle service history: linked appointments, job cards and invoices.
-- [x] Workshop dashboard: workshop/plan, today's appointments, open jobs, balances, overdue balances and quick actions.
+- [x] Workshop dashboard: workshop/plan, today's appointments, open and overdue jobs, balances, overdue balances and quick actions.
 - [x] Per-admin payment preferences: up to two gateways plus offline methods.
 - [x] Stripe, toyyibPay and Billplz hosted sandbox demos. Mocked provider tests pass; live sandbox browser/webhook tests remain outstanding.
 - [ ] Live payment processing, settlement/reconciliation and production gateway webhooks.
@@ -86,8 +86,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 
 - [x] Mechanic dashboard for today's assigned jobs and pending assigned-job count.
 - [x] Encrypted job service notes and progress history; notes appear in vehicle service history (pre-deployment history is not backfilled).
+- [x] Optional job deadlines with Malaysia-time overdue detection/filtering, and inventory-linked parts usage/returns with append-only stock movements.
 
 ## Next recommended module
 
-- [ ] Job deadlines and parts-used recording on job cards, with stock movements linked to inventory.
+- [ ] Mechanic vehicle updates: record mileage/condition and service notes linked to vehicle history.
 

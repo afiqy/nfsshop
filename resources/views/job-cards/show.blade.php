@@ -17,6 +17,12 @@
     @error('note')
         <div class="alert alert-danger" role="alert">{{ $message }}</div>
     @enderror
+    @error('quantity')
+        <div class="alert alert-danger" role="alert">{{ $message }}</div>
+    @enderror
+    @error('inventory_item_id')
+        <div class="alert alert-danger" role="alert">{{ $message }}</div>
+    @enderror
     <div class="card shadow-sm p-3">
         <dl>
             <dt>Status</dt>
@@ -44,6 +50,13 @@
                 <dt>Completed at</dt>
                 <dd>{{ $job->completed_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} MYT</dd>
             @endif
+            <dt>Target completion date</dt>
+            <dd>
+                {{ $job->due_date?->format('d M Y') ?? 'Not set' }}
+                @if ($job->isOverdue($today))
+                    <span class="badge badge-danger">Overdue</span>
+                @endif
+            </dd>
             <dt>Work requested</dt>
             <dd>{!! nl2br(e($job->description)) !!}</dd>
         </dl>
@@ -87,6 +100,10 @@
                                 Job opened
                             @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_STATUS)
                                 Status changed to {{ \App\Models\JobCard::LABELS[$update->status] ?? 'Updated' }}
+                            @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_PART_USED)
+                                Part used
+                            @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_PART_RETURNED)
+                                Unused part returned
                             @else
                                 Service note
                             @endif
@@ -95,7 +112,11 @@
                             {{ $update->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} MYT
                             &middot; {{ $update->actor_name }}
                         </span>
-                        @if ($update->type === \App\Models\JobCardUpdate::TYPE_NOTE)
+                        @if (in_array($update->type, [
+                            \App\Models\JobCardUpdate::TYPE_NOTE,
+                            \App\Models\JobCardUpdate::TYPE_PART_USED,
+                            \App\Models\JobCardUpdate::TYPE_PART_RETURNED,
+                        ], true))
                             <div>{!! nl2br(e($update->note)) !!}</div>
                         @endif
                     </li>
@@ -113,4 +134,77 @@
             <button type="submit" class="btn btn-outline-primary">Add note</button>
         </form>
     </section>
+
+    @if ($canManageInventory)
+        <section class="card shadow-sm p-3 mt-3" aria-labelledby="job-parts">
+            <h2 class="h5" id="job-parts">Parts used</h2>
+            @if ($job->parts->isEmpty())
+                <p>No inventory parts recorded for this job.</p>
+            @else
+                <ul class="list-group mb-3">
+                    @foreach ($job->parts as $part)
+                        @php
+                            $returned = $part->returns->sum('quantity');
+                            $remaining = $part->quantity - $returned;
+                        @endphp
+                        <li class="list-group-item">
+                            {{ $part->item_sku }} &middot; {{ $part->item_name }}:
+                            {{ $part->quantity }} used,
+                            {{ $returned }} returned,
+                            {{ $remaining }} net used
+                            <span class="d-block text-muted">
+                                Recorded {{ $part->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} MYT
+                                &middot; User #{{ $part->recorded_by_user_id }}
+                            </span>
+                            @if ($remaining > 0 && $job->nextStatus())
+                                <form class="form-inline mt-2" method="POST"
+                                    action="{{ route($staffView ? 'my-jobs.parts.return' : 'job-cards.parts.return', [$job, $part]) }}">
+                                    @csrf
+                                    <label class="sr-only" for="return-quantity-{{ $part->id }}">Quantity to return</label>
+                                    <input class="form-control mr-2" id="return-quantity-{{ $part->id }}" name="quantity"
+                                        type="number" min="1" max="{{ $remaining }}" value="1" required>
+                                    <button class="btn btn-outline-secondary" type="submit">Return unused stock</button>
+                                </form>
+                            @endif
+                            @foreach ($part->returns as $return)
+                                <span class="d-block text-muted">
+                                    Returned {{ $return->quantity }} on {{ $return->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} MYT
+                                    &middot; User #{{ $return->recorded_by_user_id }}
+                                </span>
+                            @endforeach
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+            @if ($job->nextStatus())
+                @if ($inventoryItems->isEmpty())
+                    <p>No in-stock items are available. Add stock through Inventory before recording parts used.</p>
+                @else
+                    <form method="POST" action="{{ route($staffView ? 'my-jobs.parts.store' : 'job-cards.parts.store', $job) }}">
+                        @csrf
+                        <div class="form-row">
+                            <div class="form-group col-md-8">
+                                <label for="inventory_item_id">Inventory item</label>
+                                <select class="form-control" id="inventory_item_id" name="inventory_item_id" required>
+                                    <option value="">Select an in-stock item</option>
+                                    @foreach ($inventoryItems as $item)
+                                        <option value="{{ $item->id }}" @selected((string) old('inventory_item_id') === (string) $item->id)>
+                                            {{ $item->sku }} &middot; {{ $item->name }} ({{ $item->quantity }} on hand)
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="part-quantity">Quantity used</label>
+                                <input class="form-control" id="part-quantity" name="quantity" type="number" min="1"
+                                    max="{{ \App\Models\InventoryItem::MAX_QUANTITY }}"
+                                    value="{{ is_scalar(old('quantity')) ? old('quantity') : '' }}" required>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Record parts used and deduct stock</button>
+                    </form>
+                @endif
+            @endif
+        </section>
+    @endif
 @endsection

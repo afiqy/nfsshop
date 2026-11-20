@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Calendar;
+use App\Models\InventoryItem;
 use App\Models\JobCard;
+use App\Models\JobCardPart;
 use App\Models\JobCardUpdate;
 use App\Models\User;
 use App\Models\Vehicle;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +23,15 @@ class JobCardController extends Controller
     public function index(Request $request): View
     {
         $staffView = $this->isMechanic($request);
-        $jobs = $this->visibleJobs($request)->with(['customer', 'vehicle'])->latest('id')->paginate(15);
+        $validated = $request->validate(['filter' => ['nullable', Rule::in(['overdue'])]]);
+        $overdueOnly = ($validated['filter'] ?? null) === 'overdue';
+        $today = CarbonImmutable::today(Calendar::TIMEZONE)->toDateString();
+        $jobsQuery = $this->visibleJobs($request)->with(['customer', 'vehicle']);
+        if ($overdueOnly) {
+            $jobsQuery->whereIn('status', [JobCard::OPEN, JobCard::IN_PROGRESS])
+                ->whereNotNull('due_date')->where('due_date', '<', $today);
+        }
+        $jobs = $jobsQuery->latest('id')->paginate(15)->withQueryString();
         $assigneeNames = $staffView ? collect() : $this->mechanics($request)
             ->whereIn('id', $jobs->pluck('assigned_mechanic_id')->filter()->unique()->all())->pluck('name', 'id');
 
@@ -28,6 +39,8 @@ class JobCardController extends Controller
             'jobs' => $jobs,
             'staffView' => $staffView,
             'assigneeNames' => $assigneeNames,
+            'overdueOnly' => $overdueOnly,
+            'today' => $today,
         ]);
     }
 
@@ -52,6 +65,7 @@ class JobCardController extends Controller
         return view('job-cards.create', [
             'appointment' => $appointment,
             'vehicles' => $appointment ? collect() : Vehicle::with('customer')->orderBy('plate_number')->get(),
+            'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
         ]);
     }
 
@@ -60,6 +74,7 @@ class JobCardController extends Controller
         $validated = $request->validate([
             'vehicle_id' => ['required', 'integer', 'min:1'],
             'calendar_id' => ['nullable', 'integer', 'min:1'],
+            'due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:'.CarbonImmutable::today(Calendar::TIMEZONE)->toDateString()],
             'description' => ['required', 'string', 'max:4000'],
         ]);
 
@@ -86,6 +101,7 @@ class JobCardController extends Controller
                 'calendar_id' => $appointment?->id,
                 'description' => $validated['description'],
                 'status' => JobCard::OPEN,
+                'due_date' => $validated['due_date'] ?? null,
             ]);
 
             $job->updates()->create([
@@ -109,12 +125,19 @@ class JobCardController extends Controller
                 'vehicle',
                 'appointment',
                 'updates' => fn ($query) => $query->orderBy('created_at')->orderBy('id'),
+                'parts' => fn ($query) => $query->whereNull('return_for_id')->with('returns')->orderBy('id'),
             ])->findOrFail($jobCard);
         $staffView = $this->isMechanic($request);
+        $canManageInventory = $request->attributes->get('account_subscription')?->canManageInventory() ?? false;
 
         return view('job-cards.show', [
             'job' => $job,
             'staffView' => $staffView,
+            'canManageInventory' => $canManageInventory,
+            'inventoryItems' => $canManageInventory && $job->nextStatus()
+                ? InventoryItem::where('quantity', '>', 0)->orderBy('sku')->get(['id', 'sku', 'name', 'quantity'])
+                : collect(),
+            'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
             'mechanics' => ! $staffView && $job->nextStatus()
                 ? $this->mechanics($request)->where('status', User::STATUS_ACTIVE)->orderBy('name')->orderBy('id')->get(['id', 'name'])
                 : collect(),
@@ -140,6 +163,117 @@ class JobCardController extends Controller
 
         return redirect()->route($this->isMechanic($request) ? 'my-jobs.show' : 'job-cards.show', $jobCard)
             ->with('success', 'Service note added.');
+    }
+
+    public function usePart(Request $request, string $jobCard): RedirectResponse
+    {
+        $validated = $request->validate([
+            'inventory_item_id' => ['required', 'integer', 'min:1'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.InventoryItem::MAX_QUANTITY],
+        ]);
+        $actor = $request->user();
+        $job = DB::connection('tenant')->transaction(function () use ($request, $jobCard, $validated, $actor) {
+            $job = $this->visibleJobs($request)->lockForUpdate()->findOrFail($jobCard);
+            if (! $job->nextStatus()) {
+                throw ValidationException::withMessages(['quantity' => 'Parts can only be recorded on an open or in-progress job.']);
+            }
+
+            $item = InventoryItem::query()->lockForUpdate()->find($validated['inventory_item_id']);
+            if (! $item) {
+                throw ValidationException::withMessages(['inventory_item_id' => 'Select an item from this workshop.']);
+            }
+
+            $quantity = (int) $validated['quantity'];
+            if ($quantity > $item->quantity) {
+                throw ValidationException::withMessages(['quantity' => 'There is not enough stock for this job.']);
+            }
+
+            $item->quantity -= $quantity;
+            $item->save();
+            $movement = $item->movements()->create([
+                'quantity_change' => -$quantity,
+                'balance_after' => $item->quantity,
+                'recorded_by_user_id' => $actor->id,
+                'note' => "Used for job #{$job->id}",
+            ]);
+            $part = $job->parts()->create([
+                'inventory_item_id' => $item->id,
+                'inventory_movement_id' => $movement->id,
+                'recorded_by_user_id' => $actor->id,
+                'type' => JobCardPart::TYPE_USED,
+                'item_sku' => $item->sku,
+                'item_name' => $item->name,
+                'quantity' => $quantity,
+            ]);
+            $job->updates()->create([
+                'actor_user_id' => $actor->id,
+                'actor_name' => $actor->name,
+                'type' => JobCardUpdate::TYPE_PART_USED,
+                'note' => "Used {$quantity} x {$part->item_sku} {$part->item_name}",
+            ]);
+
+            return $job;
+        }, 3);
+
+        return redirect()->route($this->isMechanic($request) ? 'my-jobs.show' : 'job-cards.show', $job)
+            ->with('success', 'Part usage recorded and stock updated.');
+    }
+
+    public function returnPart(Request $request, string $jobCard, string $part): RedirectResponse
+    {
+        $validated = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.InventoryItem::MAX_QUANTITY],
+        ]);
+        $actor = $request->user();
+        $job = DB::connection('tenant')->transaction(function () use ($request, $jobCard, $part, $validated, $actor) {
+            $job = $this->visibleJobs($request)->lockForUpdate()->findOrFail($jobCard);
+            if (! $job->nextStatus()) {
+                throw ValidationException::withMessages(['quantity' => 'Parts can only be returned on an open or in-progress job.']);
+            }
+
+            $usage = $job->parts()->whereNull('return_for_id')
+                ->where('type', JobCardPart::TYPE_USED)->lockForUpdate()->findOrFail($part);
+            $returned = (int) $usage->returns()->sum('quantity');
+            $quantity = (int) $validated['quantity'];
+            if ($quantity > $usage->quantity - $returned) {
+                throw ValidationException::withMessages(['quantity' => 'The return exceeds the unused quantity for this job.']);
+            }
+
+            $item = InventoryItem::query()->lockForUpdate()->findOrFail($usage->inventory_item_id);
+            if ($item->quantity + $quantity > InventoryItem::MAX_QUANTITY) {
+                throw ValidationException::withMessages(['quantity' => 'Returning this quantity would exceed the stock limit.']);
+            }
+
+            $item->quantity += $quantity;
+            $item->save();
+            $movement = $item->movements()->create([
+                'quantity_change' => $quantity,
+                'balance_after' => $item->quantity,
+                'recorded_by_user_id' => $actor->id,
+                'note' => "Returned for job #{$job->id}",
+            ]);
+            $job->parts()->create([
+                'inventory_item_id' => $item->id,
+                'inventory_movement_id' => $movement->id,
+                'return_for_id' => $usage->id,
+                'recorded_by_user_id' => $actor->id,
+                'type' => JobCardPart::TYPE_RETURNED,
+                'item_sku' => $usage->item_sku,
+                'item_name' => $usage->item_name,
+                'quantity' => $quantity,
+            ]);
+            $job->updates()->create([
+                'actor_user_id' => $actor->id,
+                'actor_name' => $actor->name,
+                'type' => JobCardUpdate::TYPE_PART_RETURNED,
+                'note' => "Returned {$quantity} x {$usage->item_sku} {$usage->item_name}",
+            ]);
+
+            return $job;
+        }, 3);
+
+        return redirect()->route($this->isMechanic($request) ? 'my-jobs.show' : 'job-cards.show', $job)
+            ->with('success', 'Unused part returned to stock.');
     }
 
     public function assign(Request $request, string $jobCard): RedirectResponse

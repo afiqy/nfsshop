@@ -15,6 +15,10 @@ class JobCardUpdate extends Model
 
     public const TYPE_NOTE = 'note';
 
+    public const TYPE_PART_USED = 'part_used';
+
+    public const TYPE_PART_RETURNED = 'part_returned';
+
     protected $fillable = ['actor_user_id', 'actor_name', 'type', 'status', 'note'];
 
     protected $casts = ['note' => 'encrypted'];

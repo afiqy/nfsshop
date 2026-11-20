@@ -34,6 +34,9 @@
                         <h2 class="h6">Pending assigned jobs</h2>
                         <p class="h4">{{ $assignedJobCount }}</p>
                         <a href="{{ route('my-jobs.index') }}">View all my jobs</a>
+                        <a class="d-block mt-2" href="{{ route('my-jobs.index', ['filter' => 'overdue']) }}">
+                            Overdue jobs: {{ $overdueJobCount }}
+                        </a>
                     </div>
                 </section>
             </div>
@@ -87,6 +90,9 @@
                         <h2 class="h6">Open or in-progress jobs</h2>
                         <p class="h4">{{ $openJobCount }}</p>
                         <a href="{{ route('job-cards.index') }}">View job cards</a>
+                        <a class="d-block mt-2" href="{{ route('job-cards.index', ['filter' => 'overdue']) }}">
+                            Overdue jobs: {{ $overdueJobCount }}
+                        </a>
                     </div>
                 </section>
             </div>

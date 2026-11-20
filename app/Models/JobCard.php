@@ -22,9 +22,22 @@ class JobCard extends Model
         self::COMPLETED => 'Completed',
     ];
 
-    protected $fillable = ['customer_id', 'vehicle_id', 'calendar_id', 'description', 'status', 'completed_at', 'assigned_mechanic_id'];
+    protected $fillable = [
+        'customer_id',
+        'vehicle_id',
+        'calendar_id',
+        'description',
+        'status',
+        'completed_at',
+        'assigned_mechanic_id',
+        'due_date',
+    ];
 
-    protected $casts = ['completed_at' => 'datetime', 'assigned_mechanic_id' => 'integer'];
+    protected $casts = [
+        'completed_at' => 'datetime',
+        'assigned_mechanic_id' => 'integer',
+        'due_date' => 'immutable_date',
+    ];
 
     public function customer()
     {
@@ -44,6 +57,18 @@ class JobCard extends Model
     public function updates(): HasMany
     {
         return $this->hasMany(JobCardUpdate::class);
+    }
+
+    public function parts(): HasMany
+    {
+        return $this->hasMany(JobCardPart::class);
+    }
+
+    public function isOverdue(string $today): bool
+    {
+        return in_array($this->status, [self::OPEN, self::IN_PROGRESS], true)
+            && $this->due_date !== null
+            && $this->due_date->toDateString() < $today;
     }
 
     public function nextStatus(): ?string

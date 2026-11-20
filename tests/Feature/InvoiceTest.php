@@ -6,8 +6,10 @@ use App\Models\AccountSubscription;
 use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\InventoryItem;
+use App\Models\InventoryMovement;
 use App\Models\Invoice;
 use App\Models\JobCard;
+use App\Models\JobCardPart;
 use App\Models\JobCardUpdate;
 use App\Models\PaymentPreference;
 use App\Models\SubscriptionPlan;
@@ -254,6 +256,57 @@ class InvoiceTest extends TestCase
         $this->get(route('dashboard'))->assertOk()->assertViewHas('overdueSen', 0);
     }
 
+    public function test_job_deadlines_are_optional_and_become_overdue_after_the_due_date_in_malaysia_time(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 15:59:00', 'UTC'));
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        [, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $this->actingAs($admin);
+
+        foreach (['2026-11-17', '2026-11-31'] as $date) {
+            $this->from(route('job-cards.create'))->post(route('job-cards.store'), [
+                'vehicle_id' => $vehicle->id,
+                'description' => 'Invalid deadline',
+                'due_date' => $date,
+            ])->assertRedirect(route('job-cards.create'))->assertSessionHasErrors('due_date');
+        }
+
+        $this->post(route('job-cards.store'), [
+            'vehicle_id' => $vehicle->id,
+            'description' => 'Due today',
+            'due_date' => '2026-11-18',
+        ])->assertRedirect();
+        $this->post(route('job-cards.store'), [
+            'vehicle_id' => $vehicle->id,
+            'description' => 'Due tomorrow',
+            'due_date' => '2026-11-19',
+        ])->assertRedirect();
+        $this->post(route('job-cards.store'), [
+            'vehicle_id' => $vehicle->id,
+            'description' => 'No deadline',
+        ])->assertRedirect();
+
+        $jobs = $workshop->run(fn () => JobCard::query()->orderBy('id')->get());
+        $this->assertSame(['2026-11-18', '2026-11-19', null], $jobs->map(
+            fn (JobCard $job) => $job->due_date?->toDateString()
+        )->all());
+        $overdue = route('job-cards.index', ['filter' => 'overdue']);
+        $this->get($overdue)->assertOk()->assertSeeText('No overdue jobs.');
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-18 16:00:00', 'UTC'));
+        $this->get(route('job-cards.index'))->assertOk()->assertSeeText('Overdue');
+        $this->get($overdue)->assertOk()->assertSeeText('Job #1')
+            ->assertDontSeeText('Job #2')->assertDontSeeText('Job #3');
+        $this->get(route('dashboard'))->assertOk()->assertViewHas('overdueJobCount', 1)
+            ->assertSee(route('job-cards.index', ['filter' => 'overdue']));
+
+        $workshop->run(fn () => $jobs[0]->update(['status' => JobCard::COMPLETED]));
+        $this->get($overdue)->assertOk()->assertSeeText('No overdue jobs.');
+        $this->get(route('dashboard'))->assertOk()->assertViewHas('overdueJobCount', 0);
+        $this->actingAs($otherAdmin)->get($overdue)->assertOk()->assertSeeText('No overdue jobs.');
+    }
+
     public function test_workshop_dashboard_shows_todays_appointments_jobs_and_outstanding_balances(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-18 17:00:00', 'UTC'));
@@ -348,7 +401,7 @@ class InvoiceTest extends TestCase
             JobCard::create([
                 'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id, 'calendar_id' => $today->id,
                 'description' => 'Today brake service', 'status' => JobCard::OPEN,
-                'assigned_mechanic_id' => $mechanic->id,
+                'assigned_mechanic_id' => $mechanic->id, 'due_date' => '2026-11-18',
             ]);
             JobCard::create([
                 'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id, 'calendar_id' => $tomorrow->id,
@@ -377,15 +430,19 @@ class InvoiceTest extends TestCase
             ->assertSeeText('My dashboard')
             ->assertViewHas('todayJobCount', 1)
             ->assertViewHas('assignedJobCount', 3)
+            ->assertViewHas('overdueJobCount', 1)
             ->assertSeeText('Thu, 19 Nov 2026')
             ->assertSeeText('Today assigned repair')
             ->assertSeeText('Today brake service')
+            ->assertSeeText('Overdue jobs: 1')
             ->assertDontSeeText('Tomorrow assigned repair')
             ->assertDontSeeText('Cancelled assigned repair')
             ->assertDontSeeText('Another mechanic service')
             ->assertSee(route('my-jobs.index'))
             ->assertDontSee(route('users.index'))
             ->assertDontSee(route('admin.settings'));
+        $this->get(route('my-jobs.index', ['filter' => 'overdue']))
+            ->assertOk()->assertSeeText('Job #1')->assertDontSeeText('Job #2');
         $this->get(route('users.index'))->assertForbidden();
         $this->get(route('admin.settings'))->assertForbidden();
 
@@ -691,6 +748,85 @@ class InvoiceTest extends TestCase
         $this->get(route('inventory.edit', $item))->assertOk()->assertSee('FILTER-01');
         $this->put(route('inventory.update', $item), array_replace($details, ['low_stock_threshold' => 2]))->assertRedirect($show);
         $this->get(route('inventory.index'))->assertOk()->assertSee('In stock');
+    }
+
+    public function test_job_part_usage_and_returns_update_stock_and_ledger_atomically(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $mechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        [, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $this->actingAs($admin)->post(route('job-cards.store'), [
+            'vehicle_id' => $vehicle->id,
+            'description' => 'Replace the filter',
+        ])->assertRedirect();
+        $job = JobCard::query()->sole();
+        $this->patch(route('job-cards.assign', $job), ['assigned_mechanic_id' => $mechanic->id])
+            ->assertRedirect();
+        $this->post(route('inventory.store'), [
+            'sku' => 'JOB-FILTER',
+            'name' => 'Oil filter',
+            'low_stock_threshold' => 1,
+        ])->assertRedirect();
+        $item = InventoryItem::query()->sole();
+        $this->post(route('inventory.move', $item), [
+            'direction' => 'in',
+            'quantity' => 10,
+            'note' => 'Opening stock',
+        ])->assertRedirect();
+
+        $jobUrl = route('job-cards.show', $job);
+        $usePart = route('my-jobs.parts.store', $job);
+        $this->actingAs($mechanic)->post($usePart, ['inventory_item_id' => $item->id, 'quantity' => 4])
+            ->assertRedirect(route('my-jobs.show', $job));
+
+        $workshop->run(function () use ($mechanic, $item, $job) {
+            $item->refresh();
+            $this->assertSame(6, $item->quantity);
+            $usage = $job->parts()->whereNull('return_for_id')->sole();
+            $this->assertSame(JobCardPart::TYPE_USED, $usage->type);
+            $this->assertSame(4, $usage->quantity);
+            $this->assertSame('JOB-FILTER', $usage->item_sku);
+            $movement = InventoryMovement::findOrFail($usage->inventory_movement_id);
+            $this->assertSame(-4, $movement->quantity_change);
+            $this->assertSame(6, $movement->balance_after);
+            $this->assertSame($mechanic->id, $usage->recorded_by_user_id);
+        });
+
+        $usage = $workshop->run(fn () => $job->parts()->whereNull('return_for_id')->sole());
+        $returnPart = route('my-jobs.parts.return', [$job, $usage]);
+        $this->post($returnPart, ['quantity' => 1])->assertRedirect(route('my-jobs.show', $job));
+        $this->from($jobUrl)->post($returnPart, ['quantity' => 4])->assertRedirect($jobUrl)
+            ->assertSessionHasErrors('quantity');
+        $this->post($returnPart, ['quantity' => 1])->assertRedirect(route('my-jobs.show', $job));
+
+        $workshop->run(function () use ($item, $job, $usage) {
+            $item->refresh();
+            $this->assertSame(8, $item->quantity);
+            $this->assertSame([1, 1], $usage->returns()->orderBy('id')->pluck('quantity')->all());
+            $this->assertSame(4, InventoryMovement::where('inventory_item_id', $item->id)->count());
+            $this->assertSame(3, $job->parts()->count());
+            $this->assertSame(3, $job->updates()->whereIn('type', [
+                JobCardUpdate::TYPE_PART_USED,
+                JobCardUpdate::TYPE_PART_RETURNED,
+            ])->count());
+            $this->assertSame(0, Invoice::query()->count());
+            $this->assertSame(0, \App\Models\InvoicePayment::query()->count());
+        });
+
+        $this->actingAs($mechanic)->post($usePart, ['inventory_item_id' => $item->id, 'quantity' => 11])
+            ->assertSessionHasErrors('quantity');
+        $adminUsePart = route('job-cards.parts.store', $job);
+        $adminReturnPart = route('job-cards.parts.return', [$job, $usage]);
+        $this->actingAs($admin)->patch(route('job-cards.advance', $job), ['status' => JobCard::IN_PROGRESS])
+            ->assertRedirect($jobUrl);
+        $this->patch(route('job-cards.advance', $job), ['status' => JobCard::COMPLETED])->assertRedirect($jobUrl);
+        $this->post($adminUsePart, ['inventory_item_id' => $item->id, 'quantity' => 1])->assertSessionHasErrors('quantity');
+        $this->post($adminReturnPart, ['quantity' => 1])->assertSessionHasErrors('quantity');
+        $workshop->run(fn () => $this->assertSame(8, $item->fresh()->quantity));
+
+        $this->actingAs($otherAdmin)->post($adminUsePart, ['inventory_item_id' => $item->id, 'quantity' => 1])
+            ->assertNotFound();
     }
 
     public function test_inventory_is_limited_to_eligible_workshop_admins_and_their_own_items(): void

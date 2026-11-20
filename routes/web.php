@@ -137,6 +137,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 Route::get('/', [JobCardController::class, 'index'])->name('index');
                 Route::get('{job_card}', [JobCardController::class, 'show'])->name('show');
                 Route::post('{job_card}/notes', [JobCardController::class, 'addNote'])->name('notes.store');
+                Route::post('{job_card}/parts', [JobCardController::class, 'usePart'])
+                    ->middleware(EnsureInventoryAccess::class)->name('parts.store');
+                Route::post('{job_card}/parts/{part}/returns', [JobCardController::class, 'returnPart'])
+                    ->middleware(EnsureInventoryAccess::class)->name('parts.return');
                 Route::patch('{job_card}/status', [JobCardController::class, 'advance'])->name('advance');
             });
 
@@ -168,6 +172,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 ->middleware('throttle:12,1')->name('billplz-sandbox.result');
             Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);
             Route::post('job-cards/{job_card}/notes', [JobCardController::class, 'addNote'])->name('job-cards.notes.store');
+            Route::post('job-cards/{job_card}/parts', [JobCardController::class, 'usePart'])
+                ->middleware(EnsureInventoryAccess::class)->name('job-cards.parts.store');
+            Route::post('job-cards/{job_card}/parts/{part}/returns', [JobCardController::class, 'returnPart'])
+                ->middleware(EnsureInventoryAccess::class)->name('job-cards.parts.return');
             Route::patch('job-cards/{job_card}/status', [JobCardController::class, 'advance'])->name('job-cards.advance');
             Route::patch('job-cards/{job_card}/assignment', [JobCardController::class, 'assign'])->name('job-cards.assign');
             Route::middleware(EnsureInventoryAccess::class)->group(function () {

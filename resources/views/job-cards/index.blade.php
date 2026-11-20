@@ -9,6 +9,14 @@
             <a href="{{ route('job-cards.create') }}" class="btn btn-primary">Open job card</a>
         @endunless
     </div>
+    <nav class="mb-3" aria-label="Filter job cards">
+        <a class="btn {{ $overdueOnly ? 'btn-outline-secondary' : 'btn-secondary' }}"
+            href="{{ route($staffView ? 'my-jobs.index' : 'job-cards.index') }}"
+            @if (! $overdueOnly) aria-current="page" @endif>All jobs</a>
+        <a class="btn {{ $overdueOnly ? 'btn-danger' : 'btn-outline-danger' }}"
+            href="{{ route($staffView ? 'my-jobs.index' : 'job-cards.index', ['filter' => 'overdue']) }}"
+            @if ($overdueOnly) aria-current="page" @endif>Overdue only</a>
+    </nav>
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table mb-0">
@@ -18,6 +26,7 @@
                         <th scope="col">Customer</th>
                         <th scope="col">Vehicle</th>
                         <th scope="col">Status</th>
+                        <th scope="col">Target date</th>
                         @unless ($staffView)
                             <th scope="col">Assigned mechanic</th>
                         @endunless
@@ -30,12 +39,20 @@
                             <td>{{ $job->customer?->name ?? 'Unavailable' }}</td>
                             <td>{{ $job->vehicle?->plate_number ?? 'Unavailable' }}</td>
                             <td>{{ \App\Models\JobCard::LABELS[$job->status] }}</td>
+                            <td>
+                                {{ $job->due_date?->format('d M Y') ?? '—' }}
+                                @if ($job->isOverdue($today))
+                                    <span class="badge badge-danger">Overdue</span>
+                                @endif
+                            </td>
                             @unless ($staffView)
                                 <td>{{ $job->assigned_mechanic_id ? ($assigneeNames[$job->assigned_mechanic_id] ?? 'Unavailable') : 'Unassigned' }}</td>
                             @endunless
                         </tr>
                     @empty
-                        <tr><td colspan="{{ $staffView ? 4 : 5 }}" class="text-center">{{ $staffView ? 'No jobs assigned to you.' : 'No job cards yet.' }}</td></tr>
+                        <tr><td colspan="{{ $staffView ? 5 : 6 }}" class="text-center">
+                            {{ $overdueOnly ? 'No overdue jobs.' : ($staffView ? 'No jobs assigned to you.' : 'No job cards yet.') }}
+                        </td></tr>
                     @endforelse
                 </tbody>
             </table>
