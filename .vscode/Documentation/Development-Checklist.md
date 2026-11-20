@@ -19,7 +19,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Mechanic personal dashboard: today's assigned appointments/jobs and assigned open-job count.
 - [x] Job service notes (encrypted) and append-only progress history for job opening and status changes (recorded from deployment onward).
 - [x] Optional job deadlines with Malaysia-time overdue detection and filtering; job parts usage/returns with linked inventory stock movements and mechanic/admin authorization.
-- [ ] Mechanic vehicle updates: mileage/condition and service notes linked to vehicle history.
+- [x] Assigned mechanics can append mileage, vehicle condition and service notes to an active job; updates appear in vehicle service history.
 - [x] Inventory beta: items, stock movements and low-stock threshold, subject to plan entitlement.
 - [ ] Inventory suppliers, purchase orders, automatic stock usage linked to invoices and alerts.
 - [x] Invoices: create, view, print/save as PDF, MYR line-item totals, optional vehicle.
@@ -87,8 +87,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Mechanic dashboard for today's assigned jobs and pending assigned-job count.
 - [x] Encrypted job service notes and progress history; notes appear in vehicle service history (pre-deployment history is not backfilled).
 - [x] Optional job deadlines with Malaysia-time overdue detection/filtering, and inventory-linked parts usage/returns with append-only stock movements.
+- [x] Assigned mechanic vehicle updates for mileage, condition and service notes; sensitive text is encrypted and entries appear in vehicle history.
 
 ## Next recommended module
 
-- [ ] Mechanic vehicle updates: record mileage/condition and service notes linked to vehicle history.
+- [ ] Inventory suppliers, purchase orders, automatic stock usage linked to invoices and alerts.
 

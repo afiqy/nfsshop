@@ -213,6 +213,82 @@ class InvoiceTest extends TestCase
         });
     }
 
+    public function test_assigned_mechanics_can_record_vehicle_updates_in_job_and_vehicle_history(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin, $otherWorkshop] = $this->createWorkshop();
+        $mechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $anotherMechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $outsideMechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $otherWorkshop->id]);
+        [, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+
+        $this->actingAs($admin)->post(route('job-cards.store'), [
+            'vehicle_id' => $vehicle->id,
+            'description' => 'Inspect the engine',
+        ])->assertRedirect();
+        $job = JobCard::query()->sole();
+        $jobUrl = route('my-jobs.show', $job);
+        $updateUrl = route('my-jobs.vehicle-updates.store', $job);
+        $this->patch(route('job-cards.assign', $job), ['assigned_mechanic_id' => $mechanic->id])->assertRedirect();
+
+        $this->actingAs($mechanic)->get($jobUrl)->assertOk()
+            ->assertSee('Add vehicle update')->assertSee($updateUrl);
+        $this->from($jobUrl)->post($updateUrl, [
+            'mileage_km' => '',
+            'vehicle_condition' => '',
+            'note' => '',
+        ])->assertRedirect($jobUrl)->assertSessionHasErrors('vehicle_update');
+        $this->from($jobUrl)->post($updateUrl, [
+            'mileage_km' => -1,
+            'vehicle_condition' => str_repeat('x', 1001),
+            'note' => str_repeat('x', 4001),
+        ])->assertRedirect($jobUrl)->assertSessionHasErrors(['mileage_km', 'vehicle_condition', 'note']);
+
+        $condition = "Good overall\n<script>alert('unsafe')</script>";
+        $note = "Odometer checked\n<script>alert('unsafe')</script>";
+        $this->post($updateUrl, [
+            'mileage_km' => 123456,
+            'vehicle_condition' => $condition,
+            'note' => $note,
+        ])->assertRedirect($jobUrl);
+
+        $workshop->run(function () use ($job, $condition, $note, $mechanic) {
+            $update = $job->updates()->where('type', JobCardUpdate::TYPE_VEHICLE_UPDATE)->sole();
+            $this->assertSame(123456, $update->mileage_km);
+            $this->assertSame($condition, $update->vehicle_condition);
+            $this->assertSame($note, $update->note);
+            $this->assertSame($mechanic->id, $update->actor_user_id);
+            $this->assertStringNotContainsString('Good overall', $update->getRawOriginal('vehicle_condition'));
+            $this->assertStringNotContainsString('Odometer checked', $update->getRawOriginal('note'));
+        });
+
+        $this->get($jobUrl)->assertOk()->assertSeeText('123,456 km')
+            ->assertSee('&lt;script&gt;alert(&#039;unsafe&#039;)&lt;/script&gt;', false)
+            ->assertDontSee("<script>alert('unsafe')</script>", false);
+        $this->actingAs($anotherMechanic)->post($updateUrl, ['mileage_km' => 123457])->assertNotFound();
+        $this->actingAs($outsideMechanic)->post($updateUrl, ['mileage_km' => 123457])->assertNotFound();
+
+        $history = route('vehicles.history', $vehicle);
+        $this->actingAs($admin)->get($history)->assertOk()
+            ->assertSeeText('Vehicle update')->assertSeeText('123,456 km')
+            ->assertSeeText('Good overall')->assertSeeText('Odometer checked')
+            ->assertDontSee("<script>alert('unsafe')</script>", false);
+
+        $this->actingAs($mechanic)->patch(route('my-jobs.advance', $job), ['status' => JobCard::IN_PROGRESS])
+            ->assertRedirect($jobUrl);
+        $this->patch(route('my-jobs.advance', $job), ['status' => JobCard::COMPLETED])
+            ->assertRedirect($jobUrl);
+        $this->get($jobUrl)->assertOk()->assertDontSee('name="mileage_km"', false);
+        $this->post($updateUrl, ['mileage_km' => 123457])->assertRedirect($jobUrl)
+            ->assertSessionHasErrors('vehicle_update');
+        $workshop->run(fn () => $this->assertSame(1, $job->updates()->where(
+            'type',
+            JobCardUpdate::TYPE_VEHICLE_UPDATE
+        )->count()));
+
+        $this->actingAs($otherAdmin)->get($history)->assertNotFound();
+    }
+
     public function test_invoice_due_dates_follow_malaysia_time_and_only_unpaid_balances_are_overdue(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-18 15:59:00', 'UTC'));

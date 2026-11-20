@@ -19,7 +19,21 @@ class JobCardUpdate extends Model
 
     public const TYPE_PART_RETURNED = 'part_returned';
 
-    protected $fillable = ['actor_user_id', 'actor_name', 'type', 'status', 'note'];
+    public const TYPE_VEHICLE_UPDATE = 'vehicle_update';
 
-    protected $casts = ['note' => 'encrypted'];
+    protected $fillable = [
+        'actor_user_id',
+        'actor_name',
+        'type',
+        'status',
+        'note',
+        'mileage_km',
+        'vehicle_condition',
+    ];
+
+    protected $casts = [
+        'note' => 'encrypted',
+        'mileage_km' => 'integer',
+        'vehicle_condition' => 'encrypted',
+    ];
 }

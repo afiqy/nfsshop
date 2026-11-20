@@ -165,6 +165,44 @@ class JobCardController extends Controller
             ->with('success', 'Service note added.');
     }
 
+    public function addVehicleUpdate(Request $request, string $jobCard): RedirectResponse
+    {
+        $validated = $request->validate([
+            'mileage_km' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'vehicle_condition' => ['nullable', 'string', 'max:1000'],
+            'note' => ['nullable', 'string', 'max:4000'],
+        ]);
+        if (blank($validated['mileage_km'] ?? null)
+            && blank($validated['vehicle_condition'] ?? null)
+            && blank($validated['note'] ?? null)) {
+            throw ValidationException::withMessages([
+                'vehicle_update' => 'Enter mileage, vehicle condition, or a service note.',
+            ]);
+        }
+
+        $job = DB::connection('tenant')->transaction(function () use ($request, $jobCard, $validated) {
+            $job = $this->visibleJobs($request)->lockForUpdate()->findOrFail($jobCard);
+            if (! $job->nextStatus() || ! $job->vehicle_id) {
+                throw ValidationException::withMessages([
+                    'vehicle_update' => 'Vehicle updates can only be recorded on an active job with a linked vehicle.',
+                ]);
+            }
+
+            $job->updates()->create([
+                'actor_user_id' => $request->user()->id,
+                'actor_name' => $request->user()->name,
+                'type' => JobCardUpdate::TYPE_VEHICLE_UPDATE,
+                'mileage_km' => $validated['mileage_km'] ?? null,
+                'vehicle_condition' => $validated['vehicle_condition'] ?? null,
+                'note' => $validated['note'] ?? null,
+            ]);
+
+            return $job;
+        }, 3);
+
+        return redirect()->route('my-jobs.show', $job)->with('success', 'Vehicle update added to its service history.');
+    }
+
     public function usePart(Request $request, string $jobCard): RedirectResponse
     {
         $validated = $request->validate([

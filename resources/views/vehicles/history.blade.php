@@ -40,6 +40,17 @@
                                 &middot; Status: {{ \App\Models\JobCard::LABELS[$update->status] ?? 'Updated' }}
                             @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_OPENED)
                                 &middot; Job opened
+                            @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_VEHICLE_UPDATE)
+                                &middot; Vehicle update
+                                @if ($update->mileage_km !== null)
+                                    &middot; Mileage: {{ number_format($update->mileage_km) }} km
+                                @endif
+                                @if ($update->vehicle_condition)
+                                    &middot; Condition: {!! nl2br(e($update->vehicle_condition)) !!}
+                                @endif
+                                @if ($update->note)
+                                    &middot; {!! nl2br(e($update->note)) !!}
+                                @endif
                             @endif
                         </span>
                     @endforeach

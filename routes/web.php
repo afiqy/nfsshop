@@ -137,6 +137,8 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 Route::get('/', [JobCardController::class, 'index'])->name('index');
                 Route::get('{job_card}', [JobCardController::class, 'show'])->name('show');
                 Route::post('{job_card}/notes', [JobCardController::class, 'addNote'])->name('notes.store');
+                Route::post('{job_card}/vehicle-updates', [JobCardController::class, 'addVehicleUpdate'])
+                    ->name('vehicle-updates.store');
                 Route::post('{job_card}/parts', [JobCardController::class, 'usePart'])
                     ->middleware(EnsureInventoryAccess::class)->name('parts.store');
                 Route::post('{job_card}/parts/{part}/returns', [JobCardController::class, 'returnPart'])

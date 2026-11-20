@@ -17,6 +17,15 @@
     @error('note')
         <div class="alert alert-danger" role="alert">{{ $message }}</div>
     @enderror
+    @error('vehicle_update')
+        <div class="alert alert-danger" role="alert">{{ $message }}</div>
+    @enderror
+    @error('mileage_km')
+        <div class="alert alert-danger" role="alert">{{ $message }}</div>
+    @enderror
+    @error('vehicle_condition')
+        <div class="alert alert-danger" role="alert">{{ $message }}</div>
+    @enderror
     @error('quantity')
         <div class="alert alert-danger" role="alert">{{ $message }}</div>
     @enderror
@@ -104,6 +113,8 @@
                                 Part used
                             @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_PART_RETURNED)
                                 Unused part returned
+                            @elseif ($update->type === \App\Models\JobCardUpdate::TYPE_VEHICLE_UPDATE)
+                                Vehicle update
                             @else
                                 Service note
                             @endif
@@ -112,7 +123,17 @@
                             {{ $update->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} MYT
                             &middot; {{ $update->actor_name }}
                         </span>
-                        @if (in_array($update->type, [
+                        @if ($update->type === \App\Models\JobCardUpdate::TYPE_VEHICLE_UPDATE)
+                            @if ($update->mileage_km !== null)
+                                <span class="d-block">Mileage: {{ number_format($update->mileage_km) }} km</span>
+                            @endif
+                            @if ($update->vehicle_condition)
+                                <div>Condition: {!! nl2br(e($update->vehicle_condition)) !!}</div>
+                            @endif
+                            @if ($update->note)
+                                <div>{!! nl2br(e($update->note)) !!}</div>
+                            @endif
+                        @elseif (in_array($update->type, [
                             \App\Models\JobCardUpdate::TYPE_NOTE,
                             \App\Models\JobCardUpdate::TYPE_PART_USED,
                             \App\Models\JobCardUpdate::TYPE_PART_RETURNED,
@@ -134,6 +155,32 @@
             <button type="submit" class="btn btn-outline-primary">Add note</button>
         </form>
     </section>
+
+    @if ($staffView && $job->nextStatus())
+        <section class="card shadow-sm p-3 mt-3" aria-labelledby="vehicle-update">
+            <h2 class="h5" id="vehicle-update">Vehicle update</h2>
+            <p>Record the current mileage, condition, or a service note. Updates are permanent and appear in vehicle service history.</p>
+            <form method="POST" action="{{ route('my-jobs.vehicle-updates.store', $job) }}">
+                @csrf
+                <div class="form-group">
+                    <label for="mileage_km">Odometer (km, optional)</label>
+                    <input class="form-control" id="mileage_km" name="mileage_km" type="number" min="0"
+                        max="4294967295" value="{{ old('mileage_km') }}">
+                </div>
+                <div class="form-group">
+                    <label for="vehicle_condition">Vehicle condition (optional)</label>
+                    <textarea class="form-control" id="vehicle_condition" name="vehicle_condition" rows="3"
+                        maxlength="1000">{{ old('vehicle_condition') }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="vehicle-update-note">Service note (optional)</label>
+                    <textarea class="form-control" id="vehicle-update-note" name="note" rows="3"
+                        maxlength="4000">{{ old('note') }}</textarea>
+                </div>
+                <button class="btn btn-outline-primary" type="submit">Add vehicle update</button>
+            </form>
+        </section>
+    @endif
 
     @if ($canManageInventory)
         <section class="card shadow-sm p-3 mt-3" aria-labelledby="job-parts">
