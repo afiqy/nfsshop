@@ -29,7 +29,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Printable acknowledgments for recorded payments; not MyInvois-validated receipts.
 - [x] Optional invoice due date, Malaysia-time overdue detection for unpaid balances, overdue filter/dashboard total.
 - [x] Edit or void unpaid invoices with reason tracking and atomic inventory stock reconciliation; invoices with payments cannot be changed or voided.
-- [ ] Refunds and credit notes for invoices with recorded payments.
+- [x] Partial/full refunds and credit notes for invoices with recorded payments; immutable records preserve original payments/invoices and track customer credit.
 - [ ] Email invoice sending with configured delivery and retry/audit behavior.
 - [ ] Payment reminder policy, scheduling and delivery tracking.
 - [x] Vehicle service history: linked appointments, job cards and invoices.
@@ -96,10 +96,11 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Supplier management and purchase orders with partial/complete receiving recorded in linked inventory movements.
 - [x] Invoice-linked stock deductions and inventory-entitled workshop dashboard low-stock alerts.
 - [x] Registered customer portal with admin-confirmed customer linking, a five-vehicle self-service limit, approved additional-vehicle requests and private service history.
-- [x] Unpaid invoice editing and voiding with inventory reconciliation; paid invoices remain immutable pending refund/credit-note support.
+- [x] Unpaid invoice editing and voiding with inventory reconciliation; invoices with payments remain immutable and use separate adjustment records.
 - [x] Workshop QR payment setup and payment-proof workflow; customer proofs reserve invoice balance and require admin approval, while admin-uploaded proofs record received payments immediately.
+- [x] Partial/full refunds and credit notes for recorded payments, with external-transfer recording, printable documents and customer-credit balance tracking.
 
 ## Next recommended module
 
-- [ ] Refund and credit-note recording for invoices with recorded payments.
+- [ ] Invoice email delivery with configured transport, retries and audit history.
 

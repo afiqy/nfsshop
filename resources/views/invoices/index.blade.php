@@ -36,6 +36,11 @@
                 </thead>
                 <tbody>
                     @forelse ($invoices as $invoice)
+                        @php
+                            $paid = $invoice->paid_sen ?? 0;
+                            $refunded = $invoice->refunded_sen ?? 0;
+                            $credited = $invoice->credited_sen ?? 0;
+                        @endphp
                         <tr>
                             <td><a href="{{ route('invoices.show', $invoice) }}">{{ $invoice->number() }}</a></td>
                             <td>{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }}</td>
@@ -43,10 +48,10 @@
                             <td>{{ $invoice->customer_name }}</td>
                             <td>{{ $invoice->vehicle_plate ?? '—' }}</td>
                             <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}</td>
-                            <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->balanceDue($invoice->paid_sen ?? 0)) }}</td>
+                            <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->balanceDue($paid, $refunded, $credited)) }}</td>
                             <td>
-                                {{ $invoice->paymentStatus($invoice->paid_sen ?? 0) }}
-                                @if ($invoice->isOverdue($invoice->paid_sen ?? 0, $today))
+                                {{ $invoice->paymentStatus($paid, $refunded, $credited) }}
+                                @if ($invoice->isOverdue($paid, $today, $refunded, $credited))
                                     <span class="badge badge-danger">Overdue</span>
                                 @endif
                             </td>

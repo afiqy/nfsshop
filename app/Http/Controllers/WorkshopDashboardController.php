@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Calendar;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
+use App\Models\InvoiceCreditNote;
 use App\Models\InvoicePayment;
+use App\Models\InvoiceRefund;
 use App\Models\JobCard;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -47,9 +49,18 @@ class WorkshopDashboardController extends Controller
             $payments = InvoicePayment::query()
                 ->selectRaw('invoice_id, SUM(amount_sen) AS paid_sen')
                 ->groupBy('invoice_id');
-            $balance = 'invoices.total_sen - COALESCE(payments.paid_sen, 0)';
+            $refunds = InvoiceRefund::query()
+                ->join('invoice_payments as refunded_payments', 'refunded_payments.id', '=', 'invoice_refunds.invoice_payment_id')
+                ->selectRaw('refunded_payments.invoice_id, SUM(invoice_refunds.amount_sen) AS refunded_sen')
+                ->groupBy('refunded_payments.invoice_id');
+            $credits = InvoiceCreditNote::query()
+                ->selectRaw('invoice_id, SUM(amount_sen) AS credited_sen')
+                ->groupBy('invoice_id');
+            $balance = 'invoices.total_sen - COALESCE(credits.credited_sen, 0) - COALESCE(payments.paid_sen, 0) + COALESCE(refunds.refunded_sen, 0)';
             $outstanding = Invoice::query()
                 ->leftJoinSub($payments, 'payments', 'payments.invoice_id', '=', 'invoices.id')
+                ->leftJoinSub($refunds, 'refunds', 'refunds.invoice_id', '=', 'invoices.id')
+                ->leftJoinSub($credits, 'credits', 'credits.invoice_id', '=', 'invoices.id')
                 ->where('invoices.status', Invoice::STATUS_ISSUED)
                 ->whereRaw("$balance > 0")
                 ->selectRaw("COUNT(*) AS invoice_count, COALESCE(SUM($balance), 0) AS balance_sen")

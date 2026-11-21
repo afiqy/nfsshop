@@ -87,7 +87,10 @@
         </table>
         @php
             $paid = $invoice->paid_sen ?? 0;
-            $balance = $invoice->balanceDue($paid);
+            $refunded = $invoice->refunded_sen ?? 0;
+            $credited = $invoice->credited_sen ?? 0;
+            $balance = $invoice->balanceDue($paid, $refunded, $credited);
+            $customerCredit = $invoice->customerCredit($paid, $refunded, $credited);
         @endphp
         @if ($balance > 0 && ! $invoice->isVoided() && $paymentQrs->isNotEmpty())
             <section aria-labelledby="invoice-payment-qrs">
@@ -107,13 +110,16 @@
         <p>Beta test document — not submitted to MyInvois.</p>
         <section id="payments" aria-labelledby="payments-heading">
             <h2 id="payments-heading">Payments</h2>
-            <p><strong>{{ $invoice->paymentStatus($paid) }}</strong>
-                @if ($invoice->isOverdue($paid, $today))
+            <p><strong>{{ $invoice->paymentStatus($paid, $refunded, $credited) }}</strong>
+                @if ($invoice->isOverdue($paid, $today, $refunded, $credited))
                     &middot; <strong>Overdue</strong>
                 @endif
                 <br>
-                Recorded: {{ \App\Models\Invoice::formatAmount($paid) }}<br>
-                Outstanding: {{ \App\Models\Invoice::formatAmount($balance) }}</p>
+                Payments received: {{ \App\Models\Invoice::formatAmount($paid) }}<br>
+                Refunds: {{ \App\Models\Invoice::formatAmount($refunded) }}<br>
+                Credits: {{ \App\Models\Invoice::formatAmount($credited) }}<br>
+                Outstanding: {{ \App\Models\Invoice::formatAmount($balance) }}<br>
+                Customer credit: {{ \App\Models\Invoice::formatAmount($customerCredit) }}</p>
             @if ($errors->any())
                 <ul role="alert">
                     @foreach ($errors->all() as $error)
@@ -172,23 +178,99 @@
             <h3>Payment history</h3>
             <table>
                 <thead>
-                    <tr><th scope="col">Recorded (MYT)</th><th scope="col">Reference</th><th scope="col">Recorded by</th><th scope="col" class="amount">Amount</th><th scope="col">Receipt</th></tr>
+                    <tr><th scope="col">Recorded (MYT)</th><th scope="col">Reference</th><th scope="col">Recorded by</th><th scope="col" class="amount">Amount</th><th scope="col" class="amount">Refunded</th><th scope="col">Receipt</th><th scope="col">Refund</th></tr>
                 </thead>
                 <tbody>
                     @forelse ($payments as $payment)
+                        @php
+                            $remainingRefundable = $payment->amount_sen - ($payment->refunded_sen ?? 0);
+                            if ($credited > 0) {
+                                $remainingRefundable = min($remainingRefundable, $customerCredit);
+                            }
+                        @endphp
                         <tr>
                             <td>{{ $payment->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</td>
                             <td class="description">{{ $payment->reference ?? '—' }}</td>
                             <td>User #{{ $payment->recorded_by_user_id }}</td>
                             <td class="amount">{{ \App\Models\Invoice::formatAmount($payment->amount_sen) }}</td>
+                            <td class="amount">{{ \App\Models\Invoice::formatAmount($payment->refunded_sen ?? 0) }}</td>
                             <td><a href="{{ route('invoices.payments.receipt', [$invoice, $payment]) }}">View receipt</a></td>
+                            <td>
+                                @if ($canRefund && $remainingRefundable > 0)
+                                    <form action="{{ route('invoices.payments.refunds.store', [$invoice, $payment]) }}" method="POST">
+                                        @csrf
+                                        <span>Up to {{ \App\Models\Invoice::formatAmount($remainingRefundable) }}</span>
+                                        <label for="refund-amount-{{ $payment->id }}">Amount (RM)</label>
+                                        <input id="refund-amount-{{ $payment->id }}" name="amount" type="text" inputmode="decimal"
+                                            pattern="[0-9]{1,13}(\.[0-9]{1,2})?" maxlength="16" required>
+                                        <label for="refund-reason-{{ $payment->id }}">Reason</label>
+                                        <input id="refund-reason-{{ $payment->id }}" name="reason" maxlength="1000" required>
+                                        <label for="refund-reference-{{ $payment->id }}">External reference (optional)</label>
+                                        <input id="refund-reference-{{ $payment->id }}" name="reference" maxlength="255">
+                                        <button type="submit">Record external refund</button>
+                                    </form>
+                                @else
+                                    —
+                                @endif
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5">No payments recorded.</td></tr>
+                        <tr><td colspan="7">No payments recorded.</td></tr>
                     @endforelse
                 </tbody>
             </table>
             {{ $payments->links() }}
+
+            <h3>Credit notes</h3>
+            @if ($canIssueCreditNote)
+                <p>Remaining amount available for credit: {{ \App\Models\Invoice::formatAmount($invoice->total_sen - $credited) }}. A credit note reduces the invoice amount; any resulting customer credit is shown above and is not automatically refunded.</p>
+                <form action="{{ route('invoices.credit-notes.store', $invoice) }}" method="POST">
+                    @csrf
+                    <label for="credit-amount">Credit amount (RM)</label>
+                    <input id="credit-amount" name="amount" type="text" inputmode="decimal"
+                        pattern="[0-9]{1,13}(\.[0-9]{1,2})?" maxlength="16" required>
+                    <label for="credit-reason">Reason</label>
+                    <input id="credit-reason" name="reason" maxlength="1000" required>
+                    <button type="submit">Issue credit note</button>
+                </form>
+            @endif
+            <table>
+                <thead><tr><th scope="col">Credit note</th><th scope="col">Issued (MYT)</th><th scope="col">Reason</th><th scope="col" class="amount">Amount</th><th scope="col">Document</th></tr></thead>
+                <tbody>
+                    @forelse ($creditNotes as $creditNote)
+                        <tr>
+                            <td>{{ $creditNote->number() }}</td>
+                            <td>{{ $creditNote->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</td>
+                            <td>{{ $creditNote->reason }}</td>
+                            <td class="amount">{{ \App\Models\Invoice::formatAmount($creditNote->amount_sen) }}</td>
+                            <td><a href="{{ route('invoices.credit-notes.show', [$invoice, $creditNote]) }}">Print / view</a></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5">No credit notes issued.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+            {{ $creditNotes->links() }}
+
+            <h3>Refund history</h3>
+            <table>
+                <thead><tr><th scope="col">Refund</th><th scope="col">Payment</th><th scope="col">Recorded (MYT)</th><th scope="col">Reason</th><th scope="col" class="amount">Amount</th><th scope="col">Document</th></tr></thead>
+                <tbody>
+                    @forelse ($refunds as $refund)
+                        <tr>
+                            <td>{{ $refund->number() }}</td>
+                            <td>PAY-{{ sprintf('%06d', $refund->payment->id) }}</td>
+                            <td>{{ $refund->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</td>
+                            <td>{{ $refund->reason }}</td>
+                            <td class="amount">{{ \App\Models\Invoice::formatAmount($refund->amount_sen) }}</td>
+                            <td><a href="{{ route('invoices.refunds.show', [$invoice, $refund]) }}">Print / view</a></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6">No refunds recorded.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+            {{ $refunds->links() }}
 
             <h3>Payment proof submissions</h3>
             <table>

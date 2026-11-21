@@ -9,6 +9,7 @@ use App\Models\CustomerVehicleRequest;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Invoice;
+use App\Models\InvoiceCreditNote;
 use App\Models\InvoicePaymentSubmission;
 use App\Models\JobCard;
 use App\Models\JobCardPart;
@@ -1579,6 +1580,134 @@ class InvoiceTest extends TestCase
         $this->get(route('invoices.index'))->assertOk()->assertSee('Paid')->assertDontSee('Partially paid');
         $this->post($record, ['amount' => '0.01'])->assertSessionHasErrors('amount');
         $this->assertSame([1005, 1505], $invoice->payments()->orderBy('id')->pluck('amount_sen')->all());
+    }
+
+    public function test_admin_can_record_partial_refunds_against_a_payment_without_deleting_it(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-22 12:00:00', 'UTC'));
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.10']],
+        ])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $invoice->forceFill(['due_date' => CarbonImmutable::today(Calendar::TIMEZONE)->subDay()->toDateString()])->save();
+        $this->post(route('invoices.payments.store', $invoice), ['amount' => '20.00'])->assertRedirect();
+        $payment = $invoice->payments()->sole();
+
+        $refundUrl = route('invoices.payments.refunds.store', [$invoice, $payment]);
+        $this->post($refundUrl, [
+            'amount' => '5.00',
+            'reason' => 'Customer returned an unused part.',
+            'reference' => 'EXT-REFUND-01',
+        ])->assertRedirect();
+        $refund = $payment->refunds()->sole();
+        $this->assertSame(500, $refund->amount_sen);
+        $this->assertSame(2000, $payment->fresh()->amount_sen);
+        $this->assertSame(1010, $invoice->fresh()->balanceDue(
+            (int) $invoice->payments()->sum('amount_sen'),
+            (int) $invoice->refunds()->sum('amount_sen')
+        ));
+        $this->get(route('invoices.refunds.show', [$invoice, $refund]))->assertOk()
+            ->assertSeeText($refund->number())
+            ->assertSeeText('EXT-REFUND-01')
+            ->assertSeeText('money was returned outside this app');
+        $this->get(route('invoices.index', ['status' => 'overdue']))->assertOk()
+            ->assertSeeText($invoice->number())->assertSeeText('RM 10.10');
+        $this->get(route('dashboard'))->assertOk()
+            ->assertViewHas('outstandingSen', 1010)->assertViewHas('overdueSen', 1010);
+
+        $this->from(route('invoices.show', $invoice))->post($refundUrl, [
+            'amount' => '15.01',
+            'reason' => 'Exceeds the unrefunded payment.',
+        ])->assertRedirect(route('invoices.show', $invoice))->assertSessionHasErrors('amount');
+        $this->assertSame(1, $payment->refunds()->count());
+        $this->post(route('invoices.credit-notes.store', $invoice), [
+            'amount' => '2.00',
+            'reason' => 'Reduce the remaining service charge.',
+        ])->assertRedirect();
+        $this->assertSame(810, $invoice->fresh()->balanceDue(
+            (int) $invoice->payments()->sum('amount_sen'),
+            (int) $invoice->refunds()->sum('amount_sen'),
+            (int) $invoice->creditNotes()->sum('amount_sen')
+        ));
+        $this->get(route('invoices.index', ['status' => 'overdue']))->assertOk()->assertSeeText('RM 8.10');
+        $this->get(route('dashboard'))->assertOk()
+            ->assertViewHas('outstandingSen', 810)->assertViewHas('overdueSen', 810);
+        $this->actingAs($otherAdmin)->post($refundUrl, [
+            'amount' => '1.00',
+            'reason' => 'Wrong workshop.',
+        ])->assertNotFound();
+    }
+
+    public function test_credit_notes_reduce_invoice_balance_and_refunds_consume_customer_credit(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'tenant_id' => $workshop->id,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $workshop->run(fn () => $customer->update(['portal_user_id' => $client->id]));
+
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '100.00']],
+        ])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $this->post(route('invoices.credit-notes.store', $invoice), [
+            'amount' => '1.00',
+            'reason' => 'No payment yet.',
+        ])->assertSessionHasErrors('amount');
+        $this->post(route('invoices.payments.store', $invoice), ['amount' => '100.00'])->assertRedirect();
+        $payment = $invoice->payments()->sole();
+
+        $creditUrl = route('invoices.credit-notes.store', $invoice);
+        $this->post($creditUrl, ['amount' => '70.00', 'reason' => 'Service adjustment.'])->assertRedirect();
+        $creditNote = InvoiceCreditNote::query()->sole();
+        $this->assertSame('Customer credit', $invoice->fresh()->paymentStatus(10000, 0, 7000));
+        $this->assertSame(7000, $invoice->fresh()->customerCredit(10000, 0, 7000));
+        $this->get(route('invoices.credit-notes.show', [$invoice, $creditNote]))->assertOk()
+            ->assertSeeText($creditNote->number())->assertSeeText('not submitted to LHDN MyInvois');
+
+        $refundUrl = route('invoices.payments.refunds.store', [$invoice, $payment]);
+        $this->post($refundUrl, ['amount' => '50.00', 'reason' => 'Returning excess credit.'])->assertRedirect();
+        $this->assertSame(2000, $invoice->fresh()->customerCredit(10000, 5000, 7000));
+        $this->from(route('invoices.show', $invoice))->post($creditUrl, [
+            'amount' => '31.00',
+            'reason' => 'Exceeds remaining invoice value.',
+        ])->assertRedirect(route('invoices.show', $invoice))->assertSessionHasErrors('amount');
+        $this->from(route('invoices.show', $invoice))->post($refundUrl, [
+            'amount' => '21.00',
+            'reason' => 'Exceeds available customer credit.',
+        ])->assertRedirect(route('invoices.show', $invoice))->assertSessionHasErrors('amount');
+        $this->post($refundUrl, ['amount' => '20.00', 'reason' => 'Returning remaining credit.'])->assertRedirect();
+        $this->from(route('invoices.show', $invoice))->post($refundUrl, [
+            'amount' => '0.01',
+            'reason' => 'Refund without remaining customer credit.',
+        ])->assertRedirect(route('invoices.show', $invoice))->assertSessionHasErrors('amount');
+
+        $this->post($creditUrl, ['amount' => '30.00', 'reason' => 'Final service adjustment.'])->assertRedirect();
+        $this->assertSame(3000, $invoice->fresh()->customerCredit(10000, 7000, 10000));
+        $this->post($refundUrl, ['amount' => '30.00', 'reason' => 'Returning remaining customer credit.'])->assertRedirect();
+        $this->assertSame(0, $invoice->fresh()->customerCredit(10000, 10000, 10000));
+        $this->assertSame('Credited', $invoice->fresh()->paymentStatus(10000, 10000, 10000));
+        $this->assertSame(10000, (int) $invoice->payments()->sum('amount_sen'));
+        $this->assertSame(10000, (int) $invoice->refunds()->sum('amount_sen'));
+        $this->assertSame(10000, (int) $invoice->creditNotes()->sum('amount_sen'));
+        $this->assertSame(10000, $invoice->fresh()->total_sen);
+        $this->get(route('invoices.edit', $invoice))->assertStatus(409);
+        $this->patch(route('invoices.void', $invoice), ['reason' => 'Paid and adjusted'])->assertStatus(409);
+        $this->actingAs($admin)->get(route('dashboard'))->assertOk()
+            ->assertViewHas('outstandingCount', 0)->assertViewHas('outstandingSen', 0);
+
+        $this->actingAs($client)->get(route('client.invoices.show', $invoice))->assertOk()
+            ->assertSeeText('Credited')->assertSeeText('CN-')->assertSeeText('REF-')
+            ->assertSeeText('Customer credit: RM 0.00');
     }
 
     public function test_customer_payment_proofs_need_admin_approval_and_admin_can_record_proof_directly(): void

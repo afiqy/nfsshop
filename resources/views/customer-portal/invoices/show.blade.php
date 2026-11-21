@@ -26,14 +26,20 @@
 
     @php
         $paid = $invoice->paid_sen ?? 0;
-        $balance = $invoice->balanceDue($paid);
+        $refunded = $invoice->refunded_sen ?? 0;
+        $credited = $invoice->credited_sen ?? 0;
+        $balance = $invoice->balanceDue($paid, $refunded, $credited);
+        $customerCredit = $invoice->customerCredit($paid, $refunded, $credited);
     @endphp
     <section class="card shadow-sm p-3 mb-4" aria-labelledby="invoice-summary">
         <h2 class="h5" id="invoice-summary">Invoice summary</h2>
-        <p><strong>Status:</strong> {{ $invoice->paymentStatus($paid) }}<br>
+        <p><strong>Status:</strong> {{ $invoice->paymentStatus($paid, $refunded, $credited) }}<br>
             <strong>Total:</strong> {{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}<br>
-            <strong>Paid:</strong> {{ \App\Models\Invoice::formatAmount($paid) }}<br>
-            <strong>Balance:</strong> {{ \App\Models\Invoice::formatAmount($balance) }}</p>
+            <strong>Payments received:</strong> {{ \App\Models\Invoice::formatAmount($paid) }}<br>
+            <strong>Refunded:</strong> {{ \App\Models\Invoice::formatAmount($refunded) }}<br>
+            <strong>Credits:</strong> {{ \App\Models\Invoice::formatAmount($credited) }}<br>
+            <strong>Outstanding:</strong> {{ \App\Models\Invoice::formatAmount($balance) }}<br>
+            <strong>Customer credit:</strong> {{ \App\Models\Invoice::formatAmount($customerCredit) }}</p>
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead><tr><th scope="col">Description</th><th scope="col" class="text-right">Quantity</th><th scope="col" class="text-right">Amount</th></tr></thead>
@@ -98,6 +104,20 @@
                     <button class="btn btn-primary" type="submit" @disabled($pendingAmount >= $balance)>Submit payment proof</button>
                 </form>
             @endif
+        </section>
+    @endif
+
+    @if ($creditNotes->isNotEmpty() || $refunds->isNotEmpty())
+        <section class="card shadow-sm p-3 mb-4" aria-labelledby="adjustment-history">
+            <h2 class="h5" id="adjustment-history">Credit and refund history</h2>
+            <ul class="mb-0">
+                @foreach ($creditNotes as $creditNote)
+                    <li>{{ $creditNote->number() }} · Credit {{ \App\Models\Invoice::formatAmount($creditNote->amount_sen) }} · {{ $creditNote->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} · {{ $creditNote->reason }}</li>
+                @endforeach
+                @foreach ($refunds as $refund)
+                    <li>{{ $refund->number() }} · Refund {{ \App\Models\Invoice::formatAmount($refund->amount_sen) }} · {{ $refund->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} · {{ $refund->reason }}</li>
+                @endforeach
+            </ul>
         </section>
     @endif
 

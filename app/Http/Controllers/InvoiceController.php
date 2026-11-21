@@ -30,6 +30,8 @@ class InvoiceController extends Controller
 
         return view('invoices.index', [
             'invoices' => Invoice::withSum('payments as paid_sen', 'amount_sen')
+                ->withSum('refunds as refunded_sen', 'amount_sen')
+                ->withSum('creditNotes as credited_sen', 'amount_sen')
                 ->when($overdueOnly, fn ($query) => $query->overdue($today)->orderBy('due_date'))
                 ->latest('id')->paginate(15)->appends($overdueOnly ? ['status' => 'overdue'] : []),
             'overdueOnly' => $overdueOnly,
@@ -87,17 +89,27 @@ class InvoiceController extends Controller
 
     public function show(string $invoice): View
     {
-        $invoice = Invoice::withSum('payments as paid_sen', 'amount_sen')->findOrFail($invoice);
+        $invoice = Invoice::withSum('payments as paid_sen', 'amount_sen')
+            ->withSum('refunds as refunded_sen', 'amount_sen')
+            ->withSum('creditNotes as credited_sen', 'amount_sen')
+            ->findOrFail($invoice);
 
         return view('invoices.show', [
             'invoice' => $invoice,
-            'payments' => $invoice->payments()->latest('id')->paginate(15),
+            'payments' => $invoice->payments()->withSum('refunds as refunded_sen', 'amount_sen')
+                ->latest('id')->paginate(15),
+            'refunds' => $invoice->refunds()->with('payment')->latest('id')->paginate(10, ['*'], 'refunds_page'),
+            'creditNotes' => $invoice->creditNotes()->latest('id')->paginate(10, ['*'], 'credit_notes_page'),
             'paymentSubmissions' => $invoice->paymentSubmissions()->latest('id')->paginate(10, ['*'], 'submissions_page'),
             'paymentQrs' => WorkshopPaymentQr::query()->where('is_active', true)
                 ->orderBy('category')->orderBy('label')->get(),
             'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
             'canEdit' => $invoice->status === Invoice::STATUS_ISSUED
                 && ! $invoice->payments()->exists(),
+            'canRefund' => $invoice->status === Invoice::STATUS_ISSUED,
+            'canIssueCreditNote' => $invoice->status === Invoice::STATUS_ISSUED
+                && $invoice->payments()->exists()
+                && (int) $invoice->credited_sen < $invoice->total_sen,
         ]);
     }
 
@@ -129,7 +141,9 @@ class InvoiceController extends Controller
             }
 
             $paid = (int) $record->payments()->sum('amount_sen');
-            if ($amount > $record->balanceDue($paid)) {
+            $refunded = (int) $record->refunds()->sum('amount_sen');
+            $credited = (int) $record->creditNotes()->sum('amount_sen');
+            if ($amount > $record->balanceDue($paid, $refunded, $credited)) {
                 throw ValidationException::withMessages(['amount' => 'The payment exceeds the outstanding balance.']);
             }
 

@@ -29,7 +29,10 @@ class InvoicePaymentSubmissionController extends Controller
 
         return response()->view('customer-portal.invoices.index', [
             'invoices' => Invoice::query()->where('customer_id', $customer->id)
-                ->withSum('payments as paid_sen', 'amount_sen')->latest('id')->paginate(15),
+                ->withSum('payments as paid_sen', 'amount_sen')
+                ->withSum('refunds as refunded_sen', 'amount_sen')
+                ->withSum('creditNotes as credited_sen', 'amount_sen')
+                ->latest('id')->paginate(15),
         ])->header('Cache-Control', 'private, no-store');
     }
 
@@ -37,13 +40,18 @@ class InvoicePaymentSubmissionController extends Controller
     {
         $customer = $this->activeCustomer($request);
         $invoice = Invoice::query()->where('customer_id', $customer->id)
-            ->withSum('payments as paid_sen', 'amount_sen')->findOrFail($invoice);
+            ->withSum('payments as paid_sen', 'amount_sen')
+            ->withSum('refunds as refunded_sen', 'amount_sen')
+            ->withSum('creditNotes as credited_sen', 'amount_sen')
+            ->findOrFail($invoice);
 
         return response()->view('customer-portal.invoices.show', [
             'invoice' => $invoice,
             'paymentQrs' => WorkshopPaymentQr::query()->where('is_active', true)
                 ->orderBy('category')->orderBy('label')->get(),
             'submissions' => $invoice->paymentSubmissions()->latest('id')->limit(20)->get(),
+            'refunds' => $invoice->refunds()->with('payment')->latest('id')->get(),
+            'creditNotes' => $invoice->creditNotes()->latest('id')->get(),
             'pendingAmount' => (int) $invoice->paymentSubmissions()
                 ->where('status', InvoicePaymentSubmission::STATUS_PENDING)->sum('amount_sen'),
         ])->header('Cache-Control', 'private, no-store');

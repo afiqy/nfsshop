@@ -159,7 +159,9 @@ class InvoicePaymentSubmissionService
     private function assertWithinBalance(Invoice $invoice, int $amount, int $reserved = 0): void
     {
         $paid = (int) $invoice->payments()->sum('amount_sen');
-        if ($amount > $invoice->balanceDue($paid) - $reserved) {
+        $refunded = (int) $invoice->refunds()->sum('amount_sen');
+        $credited = (int) $invoice->creditNotes()->sum('amount_sen');
+        if ($amount > $invoice->balanceDue($paid, $refunded, $credited) - $reserved) {
             throw ValidationException::withMessages([
                 'amount' => 'The payment exceeds the available invoice balance.',
             ]);

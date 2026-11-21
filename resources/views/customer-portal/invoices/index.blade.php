@@ -14,13 +14,15 @@
                 <tbody>
                     @forelse ($invoices as $invoice)
                         @php($paid = $invoice->paid_sen ?? 0)
+                        @php($refunded = $invoice->refunded_sen ?? 0)
+                        @php($credited = $invoice->credited_sen ?? 0)
                         <tr>
                             <td><a href="{{ route('client.invoices.show', $invoice) }}">{{ $invoice->number() }}</a></td>
                             <td>{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }}</td>
                             <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}</td>
                             <td class="text-right">{{ \App\Models\Invoice::formatAmount($paid) }}</td>
-                            <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->balanceDue($paid)) }}</td>
-                            <td>{{ $invoice->paymentStatus($paid) }}</td>
+                            <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->balanceDue($paid, $refunded, $credited)) }}</td>
+                            <td>{{ $invoice->paymentStatus($paid, $refunded, $credited) }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="6" class="text-center">No invoices are linked to your account.</td></tr>

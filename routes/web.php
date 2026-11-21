@@ -9,6 +9,7 @@ use App\Http\Controllers\CustomerAccountController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\InvoiceAdjustmentController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InvoicePaymentSubmissionController;
 use App\Http\Controllers\JobCardController;
@@ -173,6 +174,14 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::delete('invoices/{invoice}/myinvois', [MyInvoisPreparationController::class, 'clearBuyer'])->name('myinvois.buyer.clear');
             Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
             Route::get('invoices/{invoice}/payments/{payment}/receipt', [InvoiceController::class, 'receipt'])->name('invoices.payments.receipt');
+            Route::post('invoices/{invoice}/payments/{payment}/refunds', [InvoiceAdjustmentController::class, 'storeRefund'])
+                ->name('invoices.payments.refunds.store');
+            Route::get('invoices/{invoice}/refunds/{refund}', [InvoiceAdjustmentController::class, 'showRefund'])
+                ->name('invoices.refunds.show');
+            Route::post('invoices/{invoice}/credit-notes', [InvoiceAdjustmentController::class, 'storeCreditNote'])
+                ->name('invoices.credit-notes.store');
+            Route::get('invoices/{invoice}/credit-notes/{creditNote}', [InvoiceAdjustmentController::class, 'showCreditNote'])
+                ->name('invoices.credit-notes.show');
             Route::post('invoices/{invoice}/payment-submissions', [InvoicePaymentSubmissionController::class, 'adminRecord'])
                 ->name('invoices.payment-submissions.store');
             Route::post('invoices/{invoice}/payment-submissions/{submission}/approve', [InvoicePaymentSubmissionController::class, 'approve'])
