@@ -12,6 +12,7 @@
         .amount { text-align: right; white-space: nowrap; }
         .address { white-space: pre-line; }
         .description { overflow-wrap: anywhere; }
+        .void-stamp { border: 3px solid #a00; color: #a00; display: inline-block; font-size: 1.5rem; font-weight: bold; padding: .25rem .75rem; transform: rotate(-4deg); }
         @media print {
             nav, [role="status"], #payments { display: none; }
             body { margin: 0; max-width: none; }
@@ -24,6 +25,9 @@
 <body>
     <nav>
         <a href="{{ route('invoices.index') }}">Back to invoices</a>
+        @if ($canEdit)
+            <a href="{{ route('invoices.edit', $invoice) }}">Edit invoice</a>
+        @endif
         <a href="{{ route('myinvois.buyer.edit', $invoice) }}">MyInvois preparation</a>
         <button type="button" onclick="window.print()">Print / Save as PDF</button>
     </nav>
@@ -32,6 +36,10 @@
     @endif
     <main>
         <h1>Invoice {{ $invoice->number() }}</h1>
+        @if ($invoice->isVoided())
+            <p class="void-stamp">VOIDED</p>
+            <p>Reason: {{ $invoice->void_reason }}</p>
+        @endif
         <p><strong>From:</strong> {{ $invoice->workshop_name }}<br>
             <strong>Date:</strong> {{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }}
             @if ($invoice->due_date)
@@ -81,7 +89,7 @@
         <section id="payments" aria-labelledby="payments-heading">
             @php
                 $paid = $invoice->paid_sen ?? 0;
-                $balance = $invoice->total_sen - $paid;
+                $balance = $invoice->balanceDue($paid);
             @endphp
             <h2 id="payments-heading">Payments</h2>
             <p><strong>{{ $invoice->paymentStatus($paid) }}</strong>
@@ -108,6 +116,15 @@
                     <p><label for="reference">Reference (optional)</label><br>
                         <input type="text" name="reference" id="reference" maxlength="255" value="{{ is_string(old('reference')) ? old('reference') : '' }}"></p>
                     <button type="submit">Record payment</button>
+                </form>
+            @endif
+            @if ($canEdit)
+                <form action="{{ route('invoices.void', $invoice) }}" method="POST">
+                    @csrf
+                    @method('PATCH')
+                    <p><label for="void-reason">Reason for voiding</label><br>
+                        <textarea id="void-reason" name="reason" maxlength="1000" rows="2" required>{{ old('reason') }}</textarea></p>
+                    <button type="submit">Void unpaid invoice</button>
                 </form>
             @endif
             <h3>Payment history</h3>

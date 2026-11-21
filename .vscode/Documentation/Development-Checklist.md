@@ -27,7 +27,10 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Invoice payment tracking: manual partial/final payments, balance and payment status; no payment processing or reversal.
 - [x] Printable acknowledgments for recorded payments; not MyInvois-validated receipts.
 - [x] Optional invoice due date, Malaysia-time overdue detection for unpaid balances, overdue filter/dashboard total.
-- [ ] Invoice editing/voids, refunds/credit notes, sending/emailing and payment reminders.
+- [x] Edit or void unpaid invoices with reason tracking and atomic inventory stock reconciliation; invoices with payments cannot be changed or voided.
+- [ ] Refunds and credit notes for invoices with recorded payments.
+- [ ] Email invoice sending with configured delivery and retry/audit behavior.
+- [ ] Payment reminder policy, scheduling and delivery tracking.
 - [x] Vehicle service history: linked appointments, job cards and invoices.
 - [x] Workshop dashboard: workshop/plan, today's appointments, open and overdue jobs, balances, overdue balances and quick actions.
 - [x] Per-admin payment preferences: up to two gateways plus offline methods.
@@ -92,8 +95,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Supplier management and purchase orders with partial/complete receiving recorded in linked inventory movements.
 - [x] Invoice-linked stock deductions and inventory-entitled workshop dashboard low-stock alerts.
 - [x] Registered customer portal with admin-confirmed customer linking, a five-vehicle self-service limit, approved additional-vehicle requests and private service history.
+- [x] Unpaid invoice editing and voiding with inventory reconciliation; paid invoices remain immutable pending refund/credit-note support.
 
 ## Next recommended module
 
-- [ ] Invoice editing/voids, refunds/credit notes, sending/emailing and payment reminders.
+- [ ] Refund and credit-note recording for invoices with recorded payments.
 

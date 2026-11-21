@@ -1,11 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'New invoice')
+@section('title', $invoice->exists ? 'Edit invoice' : 'New invoice')
 
 @section('content')
     <a href="{{ route('invoices.index') }}">Back to invoices</a>
-    <h1 class="h3 mt-2 mb-3">New invoice</h1>
-    <p>Beta only. Use test data. These invoices are not submitted to MyInvois.</p>
+    <h1 class="h3 mt-2 mb-3">{{ $invoice->exists ? 'Edit invoice '.$invoice->number() : 'New invoice' }}</h1>
+    @unless ($invoice->exists)
+        <p>Beta only. Use test data. These invoices are not submitted to MyInvois.</p>
+    @endunless
 
     @if ($customers->isEmpty())
         <div class="alert alert-warning">
@@ -25,19 +27,22 @@
 
         @php
             $maxItems = \App\Models\Invoice::MAX_ITEMS;
-            $oldItems = old('items');
+            $oldItems = old('items', $initialItems);
             $rows = is_array($oldItems) && $oldItems ? array_slice(array_values($oldItems), 0, $maxItems) : [[]];
         @endphp
 
-        <form action="{{ route('invoices.store') }}" method="POST" class="card shadow-sm p-3">
+        <form action="{{ $invoice->exists ? route('invoices.update', $invoice) : route('invoices.store') }}" method="POST" class="card shadow-sm p-3">
             @csrf
+            @if ($invoice->exists)
+                @method('PUT')
+            @endif
             <div class="form-row">
                 <div class="form-group col-md-6">
                     <label for="customer_id">Customer</label>
                     <select class="form-control" id="customer_id" name="customer_id" required>
                         <option value="">Select a customer</option>
                         @foreach ($customers as $customer)
-                            <option value="{{ $customer->id }}" @selected(in_array(old('customer_id'), [$customer->id, (string) $customer->id], true))>{{ $customer->name }} ({{ $customer->email }})</option>
+                            <option value="{{ $customer->id }}" @selected(in_array(old('customer_id', $invoice->customer_id), [$customer->id, (string) $customer->id], true))>{{ $customer->name }} ({{ $customer->email }})</option>
                         @endforeach
                     </select>
                 </div>
@@ -46,7 +51,7 @@
                     <select class="form-control" id="vehicle_id" name="vehicle_id">
                         <option value="">No vehicle</option>
                         @foreach ($vehicles as $vehicle)
-                            <option value="{{ $vehicle->id }}" data-customer="{{ $vehicle->customer_id }}" @selected(in_array(old('vehicle_id'), [$vehicle->id, (string) $vehicle->id], true))>{{ $vehicle->plate_number }}</option>
+                            <option value="{{ $vehicle->id }}" data-customer="{{ $vehicle->customer_id }}" @selected(in_array(old('vehicle_id', $invoice->vehicle_id), [$vehicle->id, (string) $vehicle->id], true))>{{ $vehicle->plate_number }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -54,9 +59,9 @@
 
             <div class="form-group">
                 <label for="due_date">Payment due date (optional)</label>
-                <input class="form-control" type="date" id="due_date" name="due_date" min="{{ $today }}"
+                <input class="form-control" type="date" id="due_date" name="due_date" min="{{ $invoice->exists ? '' : $today }}"
                     max="9999-12-31" aria-describedby="due-date-help"
-                    value="{{ is_string(old('due_date')) ? old('due_date') : '' }}">
+                    value="{{ is_string(old('due_date', $invoice->due_date?->format('Y-m-d'))) ? old('due_date', $invoice->due_date?->format('Y-m-d')) : '' }}">
                 <small class="form-text text-muted" id="due-date-help">Use Malaysia time. Leave blank if no payment deadline applies.</small>
             </div>
 
@@ -81,7 +86,7 @@
             </template>
             <div class="mt-2">
                 <button type="button" class="btn btn-outline-secondary" id="add-item" hidden>Add line item</button>
-                <button type="submit" class="btn btn-primary">Create invoice</button>
+                <button type="submit" class="btn btn-primary">{{ $invoice->exists ? 'Save invoice changes' : 'Create invoice' }}</button>
             </div>
         </form>
 

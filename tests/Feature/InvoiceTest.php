@@ -619,6 +619,143 @@ class InvoiceTest extends TestCase
             ->assertSee('RM 24.90');
     }
 
+    public function test_unpaid_invoice_edits_reconcile_linked_inventory_atomically(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $this->actingAs($admin)->post(route('inventory.store'), [
+            'sku' => 'INV-EDIT',
+            'name' => 'Editable item',
+            'low_stock_threshold' => 1,
+        ])->assertRedirect();
+        $item = InventoryItem::query()->sole();
+        $this->post(route('inventory.move', $item), [
+            'direction' => 'in',
+            'quantity' => 10,
+            'note' => 'Opening stock',
+        ])->assertRedirect();
+
+        $this->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [[
+                'description' => 'Original part',
+                'quantity' => 2,
+                'unit_price' => '10.00',
+                'inventory_item_id' => $item->id,
+            ]],
+        ])->assertRedirect(route('invoices.show', 1));
+        $invoice = Invoice::query()->sole();
+        $edit = route('invoices.edit', $invoice);
+        $update = route('invoices.update', $invoice);
+        $this->get($edit)->assertOk()->assertSee('Edit invoice')->assertSee('Original part');
+
+        $editedItems = [[
+            'description' => 'Updated part',
+            'quantity' => 5,
+            'unit_price' => '15.00',
+            'inventory_item_id' => $item->id,
+        ]];
+        $this->put($update, ['customer_id' => $customer->id, 'items' => $editedItems])
+            ->assertRedirect(route('invoices.show', $invoice));
+        $this->assertSame(7500, $invoice->fresh()->total_sen);
+        $this->assertSame(5, $item->fresh()->quantity);
+        $this->assertSame('Updated part', $invoice->fresh()->items[0]['description']);
+
+        $this->from($edit)->put($update, [
+            'customer_id' => $customer->id,
+            'items' => [[
+                'description' => 'Too many parts',
+                'quantity' => 11,
+                'unit_price' => '15.00',
+                'inventory_item_id' => $item->id,
+            ]],
+        ])->assertRedirect($edit)->assertSessionHasErrors('items');
+        $this->assertSame(7500, $invoice->fresh()->total_sen);
+        $this->assertSame(5, $item->fresh()->quantity);
+
+        $this->put($update, [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Labour', 'quantity' => 1, 'unit_price' => '20.00']],
+        ])->assertRedirect(route('invoices.show', $invoice));
+        $this->assertSame(10, $item->fresh()->quantity);
+        $this->assertSame([-2, -3, 5], InventoryMovement::where('invoice_id', $invoice->id)
+            ->orderBy('id')->pluck('quantity_change')->all());
+    }
+
+    public function test_voiding_an_unpaid_invoice_restores_stock_and_preserves_a_void_record(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $this->actingAs($admin)->post(route('inventory.store'), [
+            'sku' => 'INV-VOID',
+            'name' => 'Voidable item',
+            'low_stock_threshold' => 1,
+        ])->assertRedirect();
+        $item = InventoryItem::query()->sole();
+        $this->post(route('inventory.move', $item), [
+            'direction' => 'in',
+            'quantity' => 6,
+            'note' => 'Opening stock',
+        ])->assertRedirect();
+        $this->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'due_date' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
+            'items' => [[
+                'description' => 'Voidable service',
+                'quantity' => 2,
+                'unit_price' => '25.00',
+                'inventory_item_id' => $item->id,
+            ]],
+        ])->assertRedirect(route('invoices.show', 1));
+        $invoice = Invoice::query()->sole();
+        $invoice->forceFill(['due_date' => CarbonImmutable::today(Calendar::TIMEZONE)->subDay()->toDateString()])->save();
+        $void = route('invoices.void', $invoice);
+
+        $this->patch($void, ['reason' => 'Duplicate invoice'])->assertRedirect(route('invoices.show', $invoice));
+        $invoice->refresh();
+        $this->assertSame(Invoice::STATUS_VOIDED, $invoice->status);
+        $this->assertSame('Duplicate invoice', $invoice->void_reason);
+        $this->assertSame($admin->id, (int) $invoice->voided_by_user_id);
+        $this->assertNotNull($invoice->voided_at);
+        $this->assertSame(6, $item->fresh()->quantity);
+        $this->assertSame([-2, 2], InventoryMovement::where('invoice_id', $invoice->id)
+            ->orderBy('id')->pluck('quantity_change')->all());
+
+        $show = route('invoices.show', $invoice);
+        $this->get($show)->assertOk()->assertSeeText('VOIDED')->assertSeeText('Duplicate invoice')
+            ->assertSeeText('Voided')->assertDontSee('Edit invoice')->assertDontSee('Void unpaid invoice')
+            ->assertDontSee('Record payment');
+        $this->get(route('invoices.index'))->assertOk()->assertSeeText('Voided')->assertSeeText('RM 0.00');
+        $this->get(route('invoices.index', ['status' => 'overdue']))->assertOk()->assertSeeText('No overdue invoices.');
+        $this->get(route('dashboard'))->assertOk()
+            ->assertViewHas('outstandingCount', 0)
+            ->assertViewHas('overdueCount', 0);
+        $this->post(route('invoices.payments.store', $invoice), ['amount' => '1.00'])
+            ->assertSessionHasErrors('amount');
+        $this->get(route('invoices.edit', $invoice))->assertStatus(409);
+        $this->patch($void, ['reason' => 'Duplicate attempt'])->assertStatus(409);
+        $this->assertSame(1, Invoice::query()->count());
+    }
+
+    public function test_paid_invoices_cannot_be_edited_or_voided(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.00']],
+        ])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $this->post(route('invoices.payments.store', $invoice), ['amount' => '10.00'])->assertRedirect();
+
+        $this->get(route('invoices.edit', $invoice))->assertStatus(409);
+        $this->put(route('invoices.update', $invoice))->assertStatus(409);
+        $this->patch(route('invoices.void', $invoice), ['reason' => 'Paid invoice'])->assertStatus(409);
+        $this->assertSame(Invoice::STATUS_ISSUED, $invoice->fresh()->status);
+        $this->assertSame(2500, $invoice->fresh()->total_sen);
+        $this->assertSame(1, $invoice->payments()->count());
+    }
+
     public function test_invoice_creation_deducts_linked_inventory_once_and_records_the_invoice_movement(): void
     {
         [$admin, $workshop] = $this->createWorkshop();

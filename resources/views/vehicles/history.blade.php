@@ -68,7 +68,7 @@
             @forelse ($invoices as $invoice)
                 <li class="list-group-item">
                     <a href="{{ route('invoices.show', $invoice) }}">{{ $invoice->number() }}</a>
-                    <span class="d-block text-muted">{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} &middot; {{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}</span>
+                    <span class="d-block text-muted">{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} &middot; {{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}{{ $invoice->isVoided() ? ' · Voided' : '' }}</span>
                 </li>
             @empty
                 <li class="list-group-item">No invoices for this vehicle.</li>

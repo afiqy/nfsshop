@@ -50,6 +50,7 @@ class WorkshopDashboardController extends Controller
             $balance = 'invoices.total_sen - COALESCE(payments.paid_sen, 0)';
             $outstanding = Invoice::query()
                 ->leftJoinSub($payments, 'payments', 'payments.invoice_id', '=', 'invoices.id')
+                ->where('invoices.status', Invoice::STATUS_ISSUED)
                 ->whereRaw("$balance > 0")
                 ->selectRaw("COUNT(*) AS invoice_count, COALESCE(SUM($balance), 0) AS balance_sen")
                 ->selectRaw('COUNT(CASE WHEN invoices.due_date < ? THEN 1 END) AS overdue_count', [$today->toDateString()])

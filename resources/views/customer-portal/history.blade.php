@@ -43,7 +43,7 @@
             @forelse ($invoices as $invoice)
                 <li class="list-group-item">
                     {{ $invoice->number() }}
-                    <span class="d-block text-muted">{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} · {{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}</span>
+                    <span class="d-block text-muted">{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} · {{ $invoice->isVoided() ? 'Voided' : \App\Models\Invoice::formatAmount($invoice->total_sen) }}</span>
                 </li>
             @empty
                 <li class="list-group-item">No invoices for this vehicle.</li>

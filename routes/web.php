@@ -162,7 +162,8 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 ->name('client-vehicle-requests.approve');
             Route::patch('client-vehicle-requests/{vehicleRequest}/reject', [CustomerAccountController::class, 'rejectVehicleRequest'])
                 ->name('client-vehicle-requests.reject');
-            Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
+            Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update']);
+            Route::patch('invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
             Route::get('myinvois/workshop-profile', [MyInvoisPreparationController::class, 'editSeller'])->name('myinvois.seller.edit');
             Route::put('myinvois/workshop-profile', [MyInvoisPreparationController::class, 'updateSeller'])->name('myinvois.seller.update');
             Route::get('invoices/{invoice}/myinvois', [MyInvoisPreparationController::class, 'editBuyer'])->name('myinvois.buyer.edit');

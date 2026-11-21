@@ -39,7 +39,7 @@
                             <td>{{ $invoice->customer_name }}</td>
                             <td>{{ $invoice->vehicle_plate ?? '—' }}</td>
                             <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}</td>
-                            <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->total_sen - ($invoice->paid_sen ?? 0)) }}</td>
+                            <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->balanceDue($invoice->paid_sen ?? 0)) }}</td>
                             <td>
                                 {{ $invoice->paymentStatus($invoice->paid_sen ?? 0) }}
                                 @if ($invoice->isOverdue($invoice->paid_sen ?? 0, $today))
