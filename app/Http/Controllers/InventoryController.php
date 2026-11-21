@@ -19,7 +19,7 @@ class InventoryController extends Controller
 
     public function create(): View
     {
-        return view('inventory.form', ['item' => new InventoryItem()]);
+        return view('inventory.form', ['item' => new InventoryItem]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -33,7 +33,10 @@ class InventoryController extends Controller
     {
         $item = InventoryItem::findOrFail($inventory);
 
-        return view('inventory.show', ['item' => $item, 'movements' => $item->movements()->latest('id')->paginate(15)]);
+        return view('inventory.show', [
+            'item' => $item,
+            'movements' => $item->movements()->with('purchaseOrderItem.purchaseOrder')->latest('id')->paginate(15),
+        ]);
     }
 
     public function edit(string $inventory): View

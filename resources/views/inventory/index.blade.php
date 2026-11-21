@@ -5,7 +5,11 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Inventory</h1>
-        <a href="{{ route('inventory.create') }}" class="btn btn-primary">Add item</a>
+        <div>
+            <a href="{{ route('suppliers.index') }}" class="btn btn-outline-secondary">Suppliers</a>
+            <a href="{{ route('purchase-orders.index') }}" class="btn btn-outline-secondary">Purchase orders</a>
+            <a href="{{ route('inventory.create') }}" class="btn btn-primary">Add item</a>
+        </div>
     </div>
     <div class="card shadow-sm">
         <div class="table-responsive">

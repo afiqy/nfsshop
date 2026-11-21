@@ -60,7 +60,16 @@
                         <td>{{ sprintf('%+d', $movement->quantity_change) }}</td>
                         <td>{{ $movement->balance_after }}</td>
                         <td>User #{{ $movement->recorded_by_user_id }}</td>
-                        <td>{{ $movement->note }}</td>
+                        <td>
+                            {{ $movement->note }}
+                            @if ($movement->purchaseOrderItem)
+                                <span class="d-block">
+                                    <a href="{{ route('purchase-orders.show', $movement->purchaseOrderItem->purchase_order_id) }}">
+                                        PO-{{ str_pad((string) $movement->purchaseOrderItem->purchase_order_id, 6, '0', STR_PAD_LEFT) }}
+                                    </a>
+                                </span>
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr><td colspan="5" class="text-center">No stock movements yet.</td></tr>

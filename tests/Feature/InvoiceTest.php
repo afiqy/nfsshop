@@ -12,7 +12,9 @@ use App\Models\JobCard;
 use App\Models\JobCardPart;
 use App\Models\JobCardUpdate;
 use App\Models\PaymentPreference;
+use App\Models\PurchaseOrder;
 use App\Models\SubscriptionPlan;
+use App\Models\Supplier;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -824,6 +826,151 @@ class InvoiceTest extends TestCase
         $this->get(route('inventory.edit', $item))->assertOk()->assertSee('FILTER-01');
         $this->put(route('inventory.update', $item), array_replace($details, ['low_stock_threshold' => 2]))->assertRedirect($show);
         $this->get(route('inventory.index'))->assertOk()->assertSee('In stock');
+    }
+
+    public function test_suppliers_are_workshop_scoped_and_inactive_suppliers_cannot_be_ordered(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        $this->actingAs($admin)->post(route('suppliers.store'), [
+            'name' => 'Reliable Parts',
+            'contact_name' => 'Alex Tan',
+            'email' => 'parts@example.test',
+            'phone' => '+60123456789',
+            'address' => 'Kuala Lumpur',
+            'is_active' => 1,
+        ])->assertRedirect(route('suppliers.index'));
+        $supplier = Supplier::query()->sole();
+        $this->get(route('suppliers.index'))->assertOk()
+            ->assertSeeText('Reliable Parts')->assertSeeText('Alex Tan')
+            ->assertSeeText('Active')->assertSeeText('0');
+        $this->put(route('suppliers.update', $supplier), [
+            'name' => 'Reliable Parts',
+            'contact_name' => 'Alex Tan',
+            'email' => 'parts@example.test',
+            'phone' => '+60123456789',
+            'address' => 'Kuala Lumpur',
+            'is_active' => 0,
+        ])->assertRedirect(route('suppliers.index'));
+        $this->get(route('purchase-orders.create'))->assertOk()->assertSeeText('Add an active supplier first.');
+        $this->post(route('purchase-orders.store'), [
+            'supplier_id' => $supplier->id,
+            'items' => [['inventory_item_id' => 1, 'quantity' => 1]],
+        ])->assertSessionHasErrors('supplier_id');
+
+        $this->actingAs($otherAdmin)->get(route('suppliers.index'))->assertOk()->assertDontSeeText('Reliable Parts');
+        $this->get(route('suppliers.edit', $supplier))->assertNotFound();
+        $this->actingAs($client)->get(route('suppliers.index'))->assertForbidden();
+    }
+
+    public function test_purchase_orders_update_stock_only_when_partially_or_fully_received(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $supplier = $workshop->run(fn () => Supplier::create(['name' => 'Parts Supplier', 'is_active' => true]));
+        $this->actingAs($admin);
+        foreach ([
+            ['sku' => 'PO-FILTER', 'name' => 'Oil filter', 'stock' => 2],
+            ['sku' => 'PO-PLUG', 'name' => 'Spark plug', 'stock' => 1],
+        ] as $details) {
+            $this->post(route('inventory.store'), [
+                'sku' => $details['sku'],
+                'name' => $details['name'],
+                'low_stock_threshold' => 0,
+            ])->assertRedirect();
+            $item = InventoryItem::query()->where('sku', $details['sku'])->firstOrFail();
+            $this->post(route('inventory.move', $item), [
+                'direction' => 'in',
+                'quantity' => $details['stock'],
+                'note' => 'Opening stock',
+            ])->assertRedirect();
+        }
+        $filter = InventoryItem::query()->where('sku', 'PO-FILTER')->firstOrFail();
+        $plug = InventoryItem::query()->where('sku', 'PO-PLUG')->firstOrFail();
+        $this->post(route('purchase-orders.store'), [
+            'supplier_id' => $supplier->id,
+            'notes' => 'Weekly stock replenishment',
+            'items' => [
+                ['inventory_item_id' => $filter->id, 'quantity' => 5],
+                ['inventory_item_id' => $plug->id, 'quantity' => 3],
+            ],
+        ])->assertRedirect();
+        $order = PurchaseOrder::query()->with('items')->sole();
+        $this->actingAs($otherAdmin)->get(route('purchase-orders.show', $order))->assertNotFound();
+        $this->actingAs($admin);
+        $this->get(route('purchase-orders.show', $order))->assertOk()
+            ->assertSeeText('Weekly stock replenishment')->assertSeeText('Receive stock');
+        $this->assertSame(2, $filter->fresh()->quantity);
+        $this->assertSame(1, $plug->fresh()->quantity);
+
+        $lines = $order->items->keyBy('inventory_item_id');
+        $receive = route('purchase-orders.receive', $order);
+        $this->from(route('purchase-orders.show', $order))->post($receive, [
+            'quantities' => [$lines[$filter->id]->id => 6, $lines[$plug->id]->id => 0],
+        ])->assertRedirect(route('purchase-orders.show', $order))->assertSessionHasErrors();
+        $this->post($receive, [
+            'quantities' => [$lines[$filter->id]->id => 2, $lines[$plug->id]->id => 0],
+        ])->assertRedirect(route('purchase-orders.show', $order));
+        $order->refresh();
+        $this->assertSame(PurchaseOrder::STATUS_PARTIALLY_RECEIVED, $order->status);
+        $this->assertNull($order->received_at);
+        $this->assertSame(4, $filter->fresh()->quantity);
+        $this->assertSame(1, $plug->fresh()->quantity);
+        $this->assertSame(2, $lines[$filter->id]->movements()->sole()->quantity_change);
+
+        $this->post($receive, [
+            'quantities' => [$lines[$filter->id]->id => 3, $lines[$plug->id]->id => 3],
+        ])->assertRedirect(route('purchase-orders.show', $order));
+        $order->refresh();
+        $this->assertSame(PurchaseOrder::STATUS_RECEIVED, $order->status);
+        $this->assertNotNull($order->received_at);
+        $this->assertSame(7, $filter->fresh()->quantity);
+        $this->assertSame(4, $plug->fresh()->quantity);
+        $this->assertSame([2, 3], $lines[$filter->id]->movements()->orderBy('id')->pluck('quantity_change')->all());
+        $this->assertSame([3], $lines[$plug->id]->movements()->pluck('quantity_change')->all());
+        $this->get(route('inventory.show', $filter))->assertOk()
+            ->assertSee(route('purchase-orders.show', $order))->assertSee('PO-000001');
+        $this->get(route('purchase-orders.show', $order))->assertOk()
+            ->assertSeeText('Received 2 on')->assertSeeText('Received 3 on');
+        $this->post($receive, [
+            'quantities' => [$lines[$filter->id]->id => 0, $lines[$plug->id]->id => 0],
+        ])->assertSessionHasErrors('status');
+    }
+
+    public function test_purchase_order_cancellation_and_stock_limit_fail_without_receipt_side_effects(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $supplier = $workshop->run(fn () => Supplier::create(['name' => 'Parts Supplier', 'is_active' => true]));
+        $item = $workshop->run(fn () => InventoryItem::create([
+            'sku' => 'PO-LIMIT',
+            'name' => 'Limited stock',
+            'low_stock_threshold' => 0,
+        ]));
+        $this->actingAs($admin)->post(route('purchase-orders.store'), [
+            'supplier_id' => $supplier->id,
+            'items' => [['inventory_item_id' => $item->id, 'quantity' => 2]],
+        ])->assertRedirect();
+        $order = PurchaseOrder::query()->with('items')->sole();
+        $line = $order->items->sole();
+        $receive = route('purchase-orders.receive', $order);
+        $workshop->run(function () use ($item) {
+            $item->forceFill(['quantity' => InventoryItem::MAX_QUANTITY])->save();
+        });
+
+        $this->from(route('purchase-orders.show', $order))->post($receive, [
+            'quantities' => [$line->id => 1],
+        ])->assertRedirect(route('purchase-orders.show', $order))->assertSessionHasErrors();
+        $workshop->run(function () use ($item, $order, $line) {
+            $this->assertSame(InventoryItem::MAX_QUANTITY, $item->fresh()->quantity);
+            $this->assertSame(PurchaseOrder::STATUS_ORDERED, $order->fresh()->status);
+            $this->assertSame(0, $line->fresh()->received_quantity);
+            $this->assertSame(0, InventoryMovement::where('purchase_order_item_id', $line->id)->count());
+        });
+
+        $this->patch(route('purchase-orders.cancel', $order))->assertRedirect(route('purchase-orders.show', $order));
+        $this->assertSame(PurchaseOrder::STATUS_CANCELLED, $order->fresh()->status);
+        $this->post($receive, ['quantities' => [$line->id => 1]])->assertSessionHasErrors('status');
     }
 
     public function test_job_part_usage_and_returns_update_stock_and_ledger_atomically(): void

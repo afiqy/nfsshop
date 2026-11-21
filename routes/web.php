@@ -15,6 +15,8 @@ use App\Http\Controllers\BillplzSandboxController;
 use App\Http\Controllers\StripeSandboxController;
 use App\Http\Controllers\ToyyibPaySandboxController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\JobCardController;
 use App\Http\Controllers\AdminController;
@@ -183,6 +185,12 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::middleware(EnsureInventoryAccess::class)->group(function () {
                 Route::resource('inventory', InventoryController::class)->except(['destroy']);
                 Route::post('inventory/{inventory}/movements', [InventoryController::class, 'move'])->name('inventory.move');
+                Route::resource('suppliers', SupplierController::class)->except(['show', 'destroy']);
+                Route::resource('purchase-orders', PurchaseOrderController::class)->only(['index', 'create', 'store', 'show']);
+                Route::post('purchase-orders/{purchase_order}/receipts', [PurchaseOrderController::class, 'receive'])
+                    ->name('purchase-orders.receive');
+                Route::patch('purchase-orders/{purchase_order}/cancel', [PurchaseOrderController::class, 'cancel'])
+                    ->name('purchase-orders.cancel');
             });
             Route::prefix('calendar')->name('calendar.')->group(function () {
                 Route::get('/', [CalendarController::class, 'index'])->name('index');
