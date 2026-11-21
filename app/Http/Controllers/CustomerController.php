@@ -10,16 +10,30 @@ use Illuminate\View\View;
 
 class CustomerController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+        $search = trim($filters['search'] ?? '');
+
         return view('customers.index', [
-            'customers' => Customer::query()->orderBy('name')->orderBy('id')->paginate(15),
+            'customers' => Customer::query()
+                ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search) {
+                    $like = '%'.$search.'%';
+                    $query->where('name', 'like', $like)
+                        ->orWhere('short_name', 'like', $like)
+                        ->orWhere('email', 'like', $like)
+                        ->orWhere('phone', 'like', $like);
+                }))
+                ->orderBy('name')->orderBy('id')->paginate(15)->withQueryString(),
+            'search' => $search,
         ]);
     }
 
     public function create(): View
     {
-        return view('customers.form', ['customer' => new Customer()]);
+        return view('customers.form', ['customer' => new Customer]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -51,6 +65,7 @@ class CustomerController extends Controller
 
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'short_name' => ['nullable', 'string', 'max:100'],
             'email' => ['required', 'string', 'email', 'max:255', $uniqueEmail],
             'phone' => ['nullable', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:1000'],

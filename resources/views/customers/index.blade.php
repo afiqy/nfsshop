@@ -8,6 +8,13 @@
         <a href="{{ route('customers.create') }}" class="btn btn-primary">Add customer</a>
     </div>
 
+    <form method="GET" action="{{ route('customers.index') }}" class="form-inline mb-3">
+        <label for="customer-search" class="sr-only">Search customers</label>
+        <input id="customer-search" type="search" name="search" value="{{ $search }}" class="form-control mr-2"
+            maxlength="100" placeholder="Search name, short name, email or phone">
+        <button type="submit" class="btn btn-outline-primary">Search</button>
+    </form>
+
     @if (session('success'))
         <div class="alert alert-success" role="status">{{ session('success') }}</div>
     @endif
@@ -18,6 +25,7 @@
                 <thead>
                     <tr>
                         <th scope="col">Name</th>
+                        <th scope="col">Short name</th>
                         <th scope="col">Email</th>
                         <th scope="col">Phone</th>
                         <th scope="col">Actions</th>
@@ -27,12 +35,17 @@
                     @forelse ($customers as $customer)
                         <tr>
                             <td>{{ $customer->name }}</td>
+                            <td>{{ $customer->short_name ?? '—' }}</td>
                             <td>{{ $customer->email }}</td>
                             <td>{{ $customer->phone ?? 'Not provided' }}</td>
                             <td><a href="{{ route('customers.edit', $customer) }}" aria-label="Edit {{ $customer->name }}">Edit</a></td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center">No customers yet.</td></tr>
+                        <tr>
+                            <td colspan="5" class="text-center">
+                                {{ $search !== '' ? 'No customers match your search.' : 'No customers yet.' }}
+                            </td>
+                        </tr>
                     @endforelse
                 </tbody>
             </table>

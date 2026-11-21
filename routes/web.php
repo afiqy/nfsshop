@@ -1,34 +1,36 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
-use App\Http\Middleware\EnsureWorkshopContext;
-use App\Http\Middleware\EnsureInventoryAccess;
-use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\VehicleController;
-use App\Http\Controllers\WorkshopDashboardController;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BillplzSandboxController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\CustomerAccountController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerPortalController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\JobCardController;
 use App\Http\Controllers\MyInvoisPreparationController;
 use App\Http\Controllers\PaymentPreferenceController;
-use App\Http\Controllers\BillplzSandboxController;
-use App\Http\Controllers\StripeSandboxController;
-use App\Http\Controllers\ToyyibPaySandboxController;
-use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PurchaseOrderController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\JobCardController;
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\RegistrationController;
-use App\Http\Controllers\SuperAdminController;
-use App\Http\Controllers\SuperAdmin\OwnerController;
-use App\Http\Controllers\SuperAdmin\WorkshopController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\StripeSandboxController;
 use App\Http\Controllers\SuperAdmin\BillingController;
 use App\Http\Controllers\SuperAdmin\ImpersonationController;
+use App\Http\Controllers\SuperAdmin\OwnerController;
+use App\Http\Controllers\SuperAdmin\WorkshopController;
+use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ToyyibPaySandboxController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\WorkshopDashboardController;
+use App\Http\Middleware\EnsureInventoryAccess;
+use App\Http\Middleware\EnsureWorkshopContext;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -43,7 +45,9 @@ Route::get('/', function () {
             ? redirect()->route('super-admin.dashboard')
             : (auth()->user()->isAccountSuperAdmin()
                 ? redirect()->route('account.workshops.index')
-                : redirect()->route('dashboard')))
+                : (auth()->user()->role === \App\Models\User::ROLE_CLIENT
+                    ? redirect()->route('client.portal')
+                    : redirect()->route('dashboard'))))
         : redirect()->route('login');
 })->name('home');
 
@@ -152,6 +156,12 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::resource('customers', CustomerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
             Route::resource('vehicles', VehicleController::class)->only(['index', 'create', 'store', 'edit', 'update']);
             Route::get('vehicles/{vehicle}/history', [VehicleController::class, 'history'])->name('vehicles.history');
+            Route::get('client-accounts', [CustomerAccountController::class, 'index'])->name('client-accounts.index');
+            Route::post('client-accounts/{user}/activate', [CustomerAccountController::class, 'activate'])->name('client-accounts.activate');
+            Route::patch('client-vehicle-requests/{vehicleRequest}/approve', [CustomerAccountController::class, 'approveVehicleRequest'])
+                ->name('client-vehicle-requests.approve');
+            Route::patch('client-vehicle-requests/{vehicleRequest}/reject', [CustomerAccountController::class, 'rejectVehicleRequest'])
+                ->name('client-vehicle-requests.reject');
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show']);
             Route::get('myinvois/workshop-profile', [MyInvoisPreparationController::class, 'editSeller'])->name('myinvois.seller.edit');
             Route::put('myinvois/workshop-profile', [MyInvoisPreparationController::class, 'updateSeller'])->name('myinvois.seller.update');
@@ -201,6 +211,18 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 Route::patch('appointments/{appointment}/cancel', [CalendarController::class, 'cancel'])->name('cancel');
             });
         });
+
+        Route::middleware(['role:client', EnsureWorkshopContext::class])
+            ->prefix('my-account')->name('client.')->group(function () {
+                Route::get('/', [CustomerPortalController::class, 'index'])->name('portal');
+                Route::get('vehicles/create', [CustomerPortalController::class, 'createVehicle'])->name('vehicle.create');
+                Route::post('vehicles', [CustomerPortalController::class, 'storeVehicle'])->name('vehicles.store');
+                Route::get('vehicles/{vehicle}', [CustomerPortalController::class, 'history'])->name('vehicles.history');
+                Route::get('vehicle-requests/create', [CustomerPortalController::class, 'createVehicleRequest'])
+                    ->name('vehicle-requests.create');
+                Route::post('vehicle-requests', [CustomerPortalController::class, 'storeVehicleRequest'])
+                    ->name('vehicle-requests.store');
+            });
 
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
             Route::resource('users', UserController::class);

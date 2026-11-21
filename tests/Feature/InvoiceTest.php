@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AccountSubscription;
 use App\Models\Calendar;
 use App\Models\Customer;
+use App\Models\CustomerVehicleRequest;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Invoice;
@@ -759,6 +760,7 @@ class InvoiceTest extends TestCase
         [$admin] = $this->createWorkshop();
         $details = [
             'name' => 'Beta Customer',
+            'short_name' => 'Beta Fleet',
             'email' => 'customer@example.test',
             'phone' => '0123456789',
             'address' => 'Test address',
@@ -772,6 +774,7 @@ class InvoiceTest extends TestCase
 
         $customer = Customer::query()->sole();
         $this->get(route('customers.index'))->assertOk()->assertSee($details['email']);
+        $this->get(route('customers.index', ['search' => 'Beta Fleet']))->assertOk()->assertSeeText($details['name']);
         $this->get(route('customers.edit', $customer))->assertOk()->assertSee($details['address']);
 
         $details['name'] = 'Updated Beta Customer';
@@ -812,6 +815,189 @@ class InvoiceTest extends TestCase
         $this->actingAs($otherAdmin)->get(route('customers.index'))->assertOk()->assertSee('No customers yet.');
         $this->put(route('customers.update', $customer), $details)->assertNotFound();
         $this->post(route('customers.store'), $details)->assertRedirect(route('customers.index'));
+    }
+
+    public function test_workshop_admin_confirms_client_identity_before_portal_history_is_available(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $client = User::factory()->create([
+            'name' => 'Sample Customer',
+            'email' => 'unmatched@example.test',
+            'role' => User::ROLE_CLIENT,
+            'tenant_id' => $workshop->id,
+            'status' => User::STATUS_SUSPENDED,
+        ]);
+
+        $workshop->run(function () use ($customer, $vehicle) {
+            $appointment = Calendar::create([
+                'customer_id' => $customer->id,
+                'vehicle_id' => $vehicle->id,
+                'title' => 'Oil change',
+                'service_type' => 'Oil change',
+                'start' => '2026-11-18 09:00:00',
+                'end' => '2026-11-18 10:00:00',
+                'status' => Calendar::STATUS_SCHEDULED,
+            ]);
+            $job = JobCard::create([
+                'customer_id' => $customer->id,
+                'vehicle_id' => $vehicle->id,
+                'calendar_id' => $appointment->id,
+                'description' => 'Replace the brake pads',
+                'status' => JobCard::COMPLETED,
+            ]);
+            $job->updates()->create([
+                'actor_user_id' => 999,
+                'actor_name' => 'Workshop mechanic',
+                'type' => JobCardUpdate::TYPE_NOTE,
+                'note' => 'Internal workshop note',
+            ]);
+            Invoice::create([
+                'customer_id' => $customer->id,
+                'vehicle_id' => $vehicle->id,
+                'workshop_name' => 'Beta Workshop',
+                'customer_name' => $customer->name,
+                'vehicle_plate' => $vehicle->plate_number,
+                'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price_sen' => 2500, 'total_sen' => 2500]],
+                'total_sen' => 2500,
+            ]);
+        });
+
+        $this->actingAs($client)->get(route('client.portal'))->assertOk()
+            ->assertSeeText('waiting for the workshop owner')->assertDontSeeText($vehicle->plate_number);
+        $this->actingAs($admin)->post(route('client-accounts.activate', $client))
+            ->assertSessionHasErrors('email');
+        $this->assertSame(User::STATUS_SUSPENDED, $client->fresh()->status);
+        $client->update(['email' => 'sample@example.test']);
+        $this->actingAs($admin)->get(route('client-accounts.index'))->assertOk()
+            ->assertSeeText($client->email)->assertSeeText($customer->name);
+        $this->post(route('client-accounts.activate', $client))->assertRedirect(route('client-accounts.index'));
+
+        $this->assertSame(User::STATUS_ACTIVE, $client->fresh()->status);
+        $this->assertSame($client->id, $workshop->run(fn () => (int) $customer->fresh()->portal_user_id));
+        $this->actingAs($client->fresh())->get(route('client.portal'))->assertOk()
+            ->assertSeeText($vehicle->plate_number)->assertSeeText('View service history');
+        $this->get(route('client.vehicles.history', $vehicle))->assertOk()
+            ->assertSeeText('Oil change')->assertSeeText('Replace the brake pads')
+            ->assertSeeText('INV-000001')->assertSeeText('RM 25.00')
+            ->assertDontSeeText('Internal workshop note');
+    }
+
+    public function test_unregistered_customer_records_and_other_customers_vehicles_are_not_visible_in_the_portal(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [, $otherWorkshop] = $this->createWorkshop();
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'tenant_id' => $workshop->id,
+            'email' => 'registered@example.test',
+        ]);
+        [$registeredCustomer, $registeredVehicle, $unregisteredVehicle] = $workshop->run(function () use ($client) {
+            $registeredCustomer = Customer::create([
+                'name' => 'Registered Customer',
+                'email' => 'registered@example.test',
+            ]);
+            $registeredVehicle = Vehicle::create(array_replace($this->vehicleDetails($registeredCustomer), [
+                'plate_number' => 'REG100',
+                'chassis_number' => 'REG-CHASSIS',
+                'engine_number' => 'REG-ENGINE',
+            ]));
+            $unregisteredCustomer = Customer::create([
+                'name' => 'Walk-in Customer',
+                'short_name' => 'Walk-in',
+                'email' => 'walkin@example.test',
+            ]);
+            $unregisteredVehicle = Vehicle::create(array_replace($this->vehicleDetails($unregisteredCustomer), [
+                'plate_number' => 'WALK200',
+                'chassis_number' => 'WALK-CHASSIS',
+                'engine_number' => 'WALK-ENGINE',
+            ]));
+            $registeredCustomer->update(['portal_user_id' => $client->id]);
+
+            return [$registeredCustomer, $registeredVehicle, $unregisteredVehicle];
+        });
+        [, $outsideVehicle] = $otherWorkshop->run(function () {
+            $customer = Customer::create(['name' => 'Outside Customer', 'email' => 'outside@example.test']);
+
+            return [$customer, Vehicle::create(array_replace($this->vehicleDetails($customer), [
+                'plate_number' => 'OUT300',
+                'chassis_number' => 'OUT-CHASSIS',
+                'engine_number' => 'OUT-ENGINE',
+            ]))];
+        });
+
+        $this->get(route('client.portal'))->assertRedirect(route('login'));
+        $this->actingAs($client)->get(route('client.portal'))->assertOk()
+            ->assertSeeText($registeredVehicle->plate_number)
+            ->assertDontSeeText('Walk-in')
+            ->assertDontSeeText($unregisteredVehicle->plate_number);
+        $this->get(route('client.vehicles.history', $unregisteredVehicle))->assertNotFound();
+        $this->get(route('client.vehicles.history', $outsideVehicle))->assertOk()
+            ->assertSeeText($registeredVehicle->plate_number)->assertDontSeeText('OUT300');
+        $this->get(route('client-accounts.index'))->assertForbidden();
+        $this->actingAs($admin)->get(route('client.portal'))->assertForbidden();
+    }
+
+    public function test_clients_can_self_add_five_vehicles_and_request_additional_vehicles_for_approval(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'tenant_id' => $workshop->id,
+            'email' => 'fleet@example.test',
+        ]);
+        $customer = $workshop->run(function () use ($client) {
+            return Customer::create([
+                'name' => 'Fleet Customer',
+                'email' => 'fleet@example.test',
+                'portal_user_id' => $client->id,
+            ]);
+        });
+        for ($index = 1; $index <= 5; $index++) {
+            $this->actingAs($client)->post(route('client.vehicles.store'), [
+                'plate_number' => "FLEET{$index}",
+                'chassis_number' => "FLEET-CHASSIS-{$index}",
+                'engine_number' => "FLEET-ENGINE-{$index}",
+                'brand' => 'Sample',
+                'model' => 'Car',
+            ])->assertRedirect(route('client.portal'));
+        }
+        $this->assertSame(5, $workshop->run(fn () => $customer->vehicles()->count()));
+        $extraVehicle = [
+            'plate_number' => 'FLEET6',
+            'chassis_number' => 'FLEET-CHASSIS-6',
+            'engine_number' => 'FLEET-ENGINE-6',
+            'brand' => 'Sample',
+            'model' => 'Car',
+            'year' => '2024',
+            'color' => 'Blue',
+        ];
+
+        $this->actingAs($client)->get(route('client.vehicle.create'))
+            ->assertRedirect(route('client.portal'))->assertSessionHasErrors('vehicles');
+        $this->post(route('client.vehicles.store'), $extraVehicle)->assertSessionHasErrors('vehicles');
+        $this->post(route('client.vehicle-requests.store'), $extraVehicle)
+            ->assertRedirect(route('client.portal'));
+        $request = CustomerVehicleRequest::query()->sole();
+        $this->assertSame($customer->id, $request->customer_id);
+
+        $this->actingAs($admin)->get(route('client-accounts.index'))->assertOk()
+            ->assertSeeText('FLEET6');
+        $this->patch(route('client-vehicle-requests.approve', $request))
+            ->assertRedirect(route('client-accounts.index'));
+        $this->assertSame(CustomerVehicleRequest::APPROVED, $request->fresh()->status);
+        $this->assertSame(6, $workshop->run(fn () => $customer->vehicles()->count()));
+
+        $extraVehicle['plate_number'] = 'FLEET7';
+        $extraVehicle['chassis_number'] = 'FLEET-CHASSIS-7';
+        $extraVehicle['engine_number'] = 'FLEET-ENGINE-7';
+        $this->actingAs($client)->post(route('client.vehicle-requests.store'), $extraVehicle)
+            ->assertRedirect(route('client.portal'));
+        $rejectedRequest = CustomerVehicleRequest::query()->latest('id')->firstOrFail();
+        $this->actingAs($admin)->patch(route('client-vehicle-requests.reject', $rejectedRequest))
+            ->assertRedirect(route('client-accounts.index'));
+        $this->assertSame(CustomerVehicleRequest::REJECTED, $rejectedRequest->fresh()->status);
+        $this->assertSame(6, $workshop->run(fn () => $customer->vehicles()->count()));
     }
 
     public function test_vehicle_records_and_customer_links_are_scoped_to_the_workshop(): void

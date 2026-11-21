@@ -9,6 +9,7 @@
     @php
         $fields = [
             'name' => ['Name', 'text', 255, true],
+            'short_name' => ['Short name (optional)', 'text', 100, false],
             'email' => ['Email', 'email', 255, true],
             'phone' => ['Phone (optional)', 'tel', 255, false],
             'address' => ['Address (optional)', 'textarea', 1000, false],

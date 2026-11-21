@@ -2,6 +2,9 @@
 @php
     $user = auth()->user();
     $isSuperAdmin = $user?->isSuperAdmin() ?? false;
+    $homeRoute = $isSuperAdmin
+        ? 'super-admin.dashboard'
+        : ($user?->role === \App\Models\User::ROLE_CLIENT ? 'client.portal' : 'dashboard');
     $accountSubscription = request()->attributes->get('account_subscription');
     $subscriptionUsable = request()->attributes->get('subscription_usable');
     if ($subscriptionUsable === null && $user && in_array($user->role, [
@@ -17,7 +20,7 @@
 <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
 
     <!-- Sidebar - Brand -->
-    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{{ route($isSuperAdmin ? 'super-admin.dashboard' : 'dashboard') }}">
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{{ route($homeRoute) }}">
         <div class="sidebar-brand-icon rotate-n-15">
             <i class="fas fa-tools"></i>
         </div>
@@ -28,7 +31,7 @@
     <hr class="sidebar-divider my-0">
 
     <li class="nav-item">
-        <a class="nav-link" href="{{ route($isSuperAdmin ? 'super-admin.dashboard' : 'dashboard') }}">
+        <a class="nav-link" href="{{ route($homeRoute) }}">
             <i class="fas fa-fw fa-tachometer-alt"></i>
             <span>Dashboard</span>
         </a>
@@ -107,6 +110,12 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link" href="{{ route('client-accounts.index') }}">
+                    <i class="fas fa-user-check"></i>
+                    <span>Client accounts</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" href="{{ route('vehicles.index') }}">
                     <i class="fas fa-car"></i>
                     <span>Vehicles</span>
@@ -137,6 +146,13 @@
                 <a class="nav-link" href="{{ route('my-jobs.index') }}">
                     <i class="fas fa-clipboard-list"></i>
                     <span>My jobs</span>
+                </a>
+            </li>
+        @elseif ($user?->role === \App\Models\User::ROLE_CLIENT)
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('client.portal') }}">
+                    <i class="fas fa-car"></i>
+                    <span>My vehicles &amp; history</span>
                 </a>
             </li>
         @endif

@@ -8,8 +8,8 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [ ] Full authentication: password recovery and password policy, CAPTCHA, MFA, SSO, device management.
 - [ ] Profile and account preferences: full contact/profile editing, avatar, language, timezone and notification settings.
 - [ ] Staff account administration: safe workshop-scoped invitations, activation/suspension and permission management.
-- [ ] Client account and self-service portal.
-- [x] Customer records: workshop-scoped list, create and edit.
+- [x] Client account and self-service portal: workshop-admin-confirmed email linking, client-owned vehicle records (five self-service vehicles), approval requests for additional vehicles, and read-only service history.
+- [x] Customer records: workshop-scoped list, create and edit, short-name aliases and search.
 - [x] Vehicle records: workshop-scoped list, create and edit, customer linkage.
 - [ ] Complete vehicle master data: year, colour, mileage, fuel type and owner assignment for unregistered clients.
 - [x] Appointment scheduling: workshop calendar, Malaysia-time booking/rescheduling/cancellation, same-vehicle conflict prevention.
@@ -91,6 +91,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Assigned mechanic vehicle updates for mileage, condition and service notes; sensitive text is encrypted and entries appear in vehicle history.
 - [x] Supplier management and purchase orders with partial/complete receiving recorded in linked inventory movements.
 - [x] Invoice-linked stock deductions and inventory-entitled workshop dashboard low-stock alerts.
+- [x] Registered customer portal with admin-confirmed customer linking, a five-vehicle self-service limit, approved additional-vehicle requests and private service history.
 
 ## Next recommended module
 

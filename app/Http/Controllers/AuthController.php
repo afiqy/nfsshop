@@ -86,7 +86,9 @@ class AuthController extends Controller
             ? route('super-admin.dashboard')
             : ($user->isAccountSuperAdmin()
                 ? route('account.workshops.index')
-                : route('dashboard'));
+                : ($user->role === User::ROLE_CLIENT
+                    ? route('client.portal')
+                    : route('dashboard')));
 
         return redirect()->intended($fallbackRoute);
     }

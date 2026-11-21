@@ -11,10 +11,15 @@ class Customer extends Model
     use HasFactory;
     use TenantConnection;
 
-    protected $fillable = ['name', 'email', 'phone', 'address'];
+    protected $fillable = ['name', 'short_name', 'email', 'phone', 'address', 'portal_user_id'];
 
     public function vehicles()
     {
         return $this->hasMany(Vehicle::class);
+    }
+
+    public function vehicleRequests()
+    {
+        return $this->hasMany(CustomerVehicleRequest::class);
     }
 }
