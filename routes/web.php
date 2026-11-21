@@ -10,6 +10,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoicePaymentSubmissionController;
 use App\Http\Controllers\JobCardController;
 use App\Http\Controllers\MyInvoisPreparationController;
 use App\Http\Controllers\PaymentPreferenceController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\ToyyibPaySandboxController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\WorkshopDashboardController;
+use App\Http\Controllers\WorkshopPaymentQrController;
 use App\Http\Middleware\EnsureInventoryAccess;
 use App\Http\Middleware\EnsureWorkshopContext;
 use Illuminate\Http\Request;
@@ -171,8 +173,23 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::delete('invoices/{invoice}/myinvois', [MyInvoisPreparationController::class, 'clearBuyer'])->name('myinvois.buyer.clear');
             Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
             Route::get('invoices/{invoice}/payments/{payment}/receipt', [InvoiceController::class, 'receipt'])->name('invoices.payments.receipt');
+            Route::post('invoices/{invoice}/payment-submissions', [InvoicePaymentSubmissionController::class, 'adminRecord'])
+                ->name('invoices.payment-submissions.store');
+            Route::post('invoices/{invoice}/payment-submissions/{submission}/approve', [InvoicePaymentSubmissionController::class, 'approve'])
+                ->name('invoices.payment-submissions.approve');
+            Route::post('invoices/{invoice}/payment-submissions/{submission}/reject', [InvoicePaymentSubmissionController::class, 'reject'])
+                ->name('invoices.payment-submissions.reject');
+            Route::get('invoices/{invoice}/payment-submissions/{submission}/proof', [InvoicePaymentSubmissionController::class, 'adminProof'])
+                ->name('invoices.payment-submissions.proof');
+            Route::get('payment-submissions', [InvoicePaymentSubmissionController::class, 'adminIndex'])
+                ->name('payment-submissions.index');
             Route::get('payment-preferences', [PaymentPreferenceController::class, 'edit'])->name('payment-preferences.edit');
             Route::put('payment-preferences', [PaymentPreferenceController::class, 'update'])->name('payment-preferences.update');
+            Route::get('payment-qrs', [WorkshopPaymentQrController::class, 'index'])->name('payment-qrs.index');
+            Route::post('payment-qrs', [WorkshopPaymentQrController::class, 'store'])->name('payment-qrs.store');
+            Route::patch('payment-qrs/{qr}', [WorkshopPaymentQrController::class, 'setActive'])->name('payment-qrs.active');
+            Route::get('payment-qrs/{qr}/image', [WorkshopPaymentQrController::class, 'adminImage'])
+                ->name('payment-qrs.image');
             Route::post('payment-preferences/stripe-sandbox', [StripeSandboxController::class, 'start'])
                 ->middleware('throttle:6,1')->name('stripe-sandbox.start');
             Route::get('payment-preferences/stripe-sandbox/result', [StripeSandboxController::class, 'result'])
@@ -216,6 +233,15 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
         Route::middleware(['role:client', EnsureWorkshopContext::class])
             ->prefix('my-account')->name('client.')->group(function () {
                 Route::get('/', [CustomerPortalController::class, 'index'])->name('portal');
+                Route::get('invoices', [InvoicePaymentSubmissionController::class, 'customerIndex'])->name('invoices.index');
+                Route::get('invoices/{invoice}', [InvoicePaymentSubmissionController::class, 'customerShow'])
+                    ->name('invoices.show');
+                Route::post('invoices/{invoice}/payment-submissions', [InvoicePaymentSubmissionController::class, 'customerSubmit'])
+                    ->middleware('throttle:10,1')->name('invoices.payment-submissions.store');
+                Route::get('invoices/{invoice}/payment-submissions/{submission}/proof', [InvoicePaymentSubmissionController::class, 'customerProof'])
+                    ->name('invoices.payment-submissions.proof');
+                Route::get('payment-qrs/{qr}/image', [WorkshopPaymentQrController::class, 'customerImage'])
+                    ->name('payment-qrs.image');
                 Route::get('vehicles/create', [CustomerPortalController::class, 'createVehicle'])->name('vehicle.create');
                 Route::post('vehicles', [CustomerPortalController::class, 'storeVehicle'])->name('vehicles.store');
                 Route::get('vehicles/{vehicle}', [CustomerPortalController::class, 'history'])->name('vehicles.history');

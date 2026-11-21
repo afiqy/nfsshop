@@ -85,12 +85,27 @@
                 </tr>
             </tfoot>
         </table>
+        @php
+            $paid = $invoice->paid_sen ?? 0;
+            $balance = $invoice->balanceDue($paid);
+        @endphp
+        @if ($balance > 0 && ! $invoice->isVoided() && $paymentQrs->isNotEmpty())
+            <section aria-labelledby="invoice-payment-qrs">
+                <h2 id="invoice-payment-qrs">Pay by bank or e-wallet QR</h2>
+                <p>Use your banking or e-wallet app to pay, then send the transfer proof to the workshop.</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem">
+                    @foreach ($paymentQrs as $qr)
+                        <div style="max-width: 12rem">
+                            <strong>{{ $qr->label }}</strong>
+                            <img src="{{ route('payment-qrs.image', $qr) }}" alt="{{ $qr->label }} payment QR"
+                                style="display: block; max-width: 100%; max-height: 12rem">
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
         <p>Beta test document — not submitted to MyInvois.</p>
         <section id="payments" aria-labelledby="payments-heading">
-            @php
-                $paid = $invoice->paid_sen ?? 0;
-                $balance = $invoice->balanceDue($paid);
-            @endphp
             <h2 id="payments-heading">Payments</h2>
             <p><strong>{{ $invoice->paymentStatus($paid) }}</strong>
                 @if ($invoice->isOverdue($paid, $today))
@@ -109,7 +124,7 @@
             @if ($balance > 0)
                 <form action="{{ route('invoices.payments.store', $invoice) }}" method="POST">
                     @csrf
-                    <p>Only record money already received outside this app. Double-check the amount before saving; entries cannot be edited or deleted here.</p>
+                    <p>Use this for other payments already received outside this app. For QR transfers, use the proof form below. Double-check the amount before saving; entries cannot be edited or deleted here.</p>
                     <p><label for="amount">Amount received (RM)</label><br>
                         <input type="text" name="amount" id="amount" inputmode="decimal" pattern="[0-9]{1,11}(\.[0-9]{1,2})?" maxlength="14"
                             value="{{ is_scalar(old('amount')) ? old('amount') : '' }}" required></p>
@@ -117,6 +132,33 @@
                         <input type="text" name="reference" id="reference" maxlength="255" value="{{ is_string(old('reference')) ? old('reference') : '' }}"></p>
                     <button type="submit">Record payment</button>
                 </form>
+            @endif
+            @if ($balance > 0)
+                <h3>Record QR payment with proof</h3>
+                @if ($paymentQrs->isEmpty())
+                    <p><a href="{{ route('payment-qrs.index') }}">Add a workshop QR code</a> before recording a QR payment with proof.</p>
+                @else
+                    <p>Use this after receiving a QR payment. The payment is recorded immediately with the uploaded proof.</p>
+                    <form action="{{ route('invoices.payment-submissions.store', $invoice) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <p>
+                            <label for="admin-qr">Payment method</label><br>
+                            <select id="admin-qr" name="workshop_payment_qr_id" required>
+                                <option value="">Select a QR method</option>
+                                @foreach ($paymentQrs as $qr)
+                                    <option value="{{ $qr->id }}">{{ $qr->label }}</option>
+                                @endforeach
+                            </select>
+                        </p>
+                        <p><label for="admin-amount">Amount received (RM)</label><br>
+                            <input type="text" name="amount" id="admin-amount" inputmode="decimal" pattern="[0-9]{1,13}(\.[0-9]{1,2})?" maxlength="16" required></p>
+                        <p><label for="admin-reference">Transfer reference (optional)</label><br>
+                            <input type="text" name="reference" id="admin-reference" maxlength="255"></p>
+                        <p><label for="admin-proof">Payment proof (JPG, PNG, WebP or PDF; max 5 MB)</label><br>
+                            <input type="file" name="proof" id="admin-proof" accept="image/jpeg,image/png,image/webp,application/pdf" required></p>
+                        <button type="submit">Record QR payment with proof</button>
+                    </form>
+                @endif
             @endif
             @if ($canEdit)
                 <form action="{{ route('invoices.void', $invoice) }}" method="POST">
@@ -147,6 +189,45 @@
                 </tbody>
             </table>
             {{ $payments->links() }}
+
+            <h3>Payment proof submissions</h3>
+            <table>
+                <thead>
+                    <tr><th scope="col">Submitted (MYT)</th><th scope="col">Method</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col">Proof</th><th scope="col">Review</th></tr>
+                </thead>
+                <tbody>
+                    @forelse ($paymentSubmissions as $submission)
+                        <tr>
+                            <td>{{ $submission->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</td>
+                            <td>{{ $submission->payment_method }}</td>
+                            <td>{{ \App\Models\Invoice::formatAmount($submission->amount_sen) }}</td>
+                            <td>{{ ucfirst($submission->status) }}</td>
+                            <td><a href="{{ route('invoices.payment-submissions.proof', [$invoice, $submission]) }}">Download</a></td>
+                            <td>
+                                @if ($submission->review_note)
+                                    {{ $submission->review_note }}
+                                @elseif ($submission->status === \App\Models\InvoicePaymentSubmission::STATUS_PENDING)
+                                    <form action="{{ route('invoices.payment-submissions.approve', [$invoice, $submission]) }}" method="POST">
+                                        @csrf
+                                        <button type="submit">Approve and record</button>
+                                    </form>
+                                    <form action="{{ route('invoices.payment-submissions.reject', [$invoice, $submission]) }}" method="POST">
+                                        @csrf
+                                        <label for="reject-reason-{{ $submission->id }}">Reason to reject</label>
+                                        <input id="reject-reason-{{ $submission->id }}" name="reason" maxlength="1000" required>
+                                        <button type="submit">Reject</button>
+                                    </form>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6">No payment proofs submitted.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+            {{ $paymentSubmissions->links() }}
         </section>
     </main>
 </body>

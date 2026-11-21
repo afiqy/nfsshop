@@ -9,6 +9,7 @@ use App\Models\CustomerVehicleRequest;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Invoice;
+use App\Models\InvoicePaymentSubmission;
 use App\Models\JobCard;
 use App\Models\JobCardPart;
 use App\Models\JobCardUpdate;
@@ -19,10 +20,14 @@ use App\Models\Supplier;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\WorkshopPaymentQr;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as StripeRequest;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -1574,6 +1579,120 @@ class InvoiceTest extends TestCase
         $this->get(route('invoices.index'))->assertOk()->assertSee('Paid')->assertDontSee('Partially paid');
         $this->post($record, ['amount' => '0.01'])->assertSessionHasErrors('amount');
         $this->assertSame([1005, 1505], $invoice->payments()->orderBy('id')->pluck('amount_sen')->all());
+    }
+
+    public function test_customer_payment_proofs_need_admin_approval_and_admin_can_record_proof_directly(): void
+    {
+        Storage::fake('local');
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $client = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'tenant_id' => $workshop->id,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $unlinkedClient = User::factory()->create([
+            'role' => User::ROLE_CLIENT,
+            'tenant_id' => $workshop->id,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        [$customer, $invoice] = $workshop->run(function () use ($client) {
+            $customer = Customer::create([
+                'name' => 'QR Customer',
+                'email' => 'qr-customer@example.test',
+                'portal_user_id' => $client->id,
+            ]);
+            $invoice = Invoice::create([
+                'customer_id' => $customer->id,
+                'workshop_name' => 'QR Workshop',
+                'customer_name' => $customer->name,
+                'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price_sen' => 2510, 'total_sen' => 2510]],
+                'total_sen' => 2510,
+            ]);
+
+            return [$customer, $invoice];
+        });
+
+        $this->actingAs($admin)->post(route('payment-qrs.store'), [
+            'category' => 'bank',
+            'label' => 'Workshop Bank QR',
+            'image' => UploadedFile::fake()->image('bank.png'),
+        ])->assertRedirect(route('payment-qrs.index'));
+        $qr = WorkshopPaymentQr::query()->sole();
+        $this->get(route('payment-qrs.index'))->assertOk()->assertSeeText('Workshop Bank QR');
+        $this->actingAs($client)->get(route('client.invoices.index'))->assertOk()->assertSeeText($invoice->number());
+        $this->get(route('client.invoices.show', $invoice))->assertOk()->assertSeeText('Workshop Bank QR');
+        $this->get(route('client.payment-qrs.image', $qr))->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->actingAs($unlinkedClient)->get(route('client.invoices.show', $invoice))->assertNotFound();
+
+        $proof = UploadedFile::fake()->image('transfer-proof.png');
+        $proofContents = file_get_contents($proof->getRealPath());
+        $show = route('client.invoices.show', $invoice);
+        $submit = route('client.invoices.payment-submissions.store', $invoice);
+        $this->actingAs($client)->from($show)->post($submit, [
+            'amount' => '10.05',
+            'workshop_payment_qr_id' => $qr->id,
+            'reference' => 'BANK-QR-123',
+            'proof' => $proof,
+        ])->assertRedirect($show);
+
+        $submission = InvoicePaymentSubmission::query()->sole();
+        $this->assertSame(InvoicePaymentSubmission::STATUS_PENDING, $submission->status);
+        $this->assertSame(0, $invoice->payments()->count());
+        $this->assertSame($proofContents, Crypt::decryptString(Storage::disk('local')->get($submission->proof_path)));
+        $this->get(route('client.invoices.show', $invoice))->assertOk()->assertSeeText('Pending');
+        $this->actingAs($admin)->get(route('payment-submissions.index'))->assertOk()
+            ->assertSeeText($invoice->number())->assertSeeText('BANK-QR-123');
+        $this->get(route('invoices.index'))->assertOk()->assertViewHas('pendingPaymentProofs', 1);
+        $this->actingAs($client)->get(route('client.invoices.payment-submissions.proof', [$invoice, $submission]))
+            ->assertOk()->assertHeader('Content-Disposition', 'attachment; filename="payment-proof.png"')
+            ->assertContent($proofContents);
+        $this->actingAs($otherAdmin)->get(route('invoices.payment-submissions.proof', [$invoice, $submission]))
+            ->assertNotFound();
+
+        $this->actingAs($admin)->get(route('invoices.edit', $invoice))->assertStatus(409);
+        $this->patch(route('invoices.void', $invoice), ['reason' => 'Pending proof'])->assertStatus(409);
+        $this->actingAs($client)->from($show)->post($submit, [
+            'amount' => '15.06',
+            'workshop_payment_qr_id' => $qr->id,
+            'proof' => UploadedFile::fake()->image('excess-proof.png'),
+        ])->assertRedirect($show)->assertSessionHasErrors('amount');
+
+        $this->actingAs($admin)->post(route('invoices.payment-submissions.approve', [$invoice, $submission]))
+            ->assertRedirect(route('invoices.show', $invoice));
+        $submission->refresh();
+        $this->assertSame(InvoicePaymentSubmission::STATUS_APPROVED, $submission->status);
+        $this->assertSame(1005, $invoice->payments()->sole()->amount_sen);
+        $this->get(route('payment-submissions.index'))->assertOk()->assertSeeText('No payment proofs are waiting for review.');
+
+        $this->actingAs($client)->post($submit, [
+            'amount' => '5.00',
+            'workshop_payment_qr_id' => $qr->id,
+            'proof' => UploadedFile::fake()->image('rejected-proof.png'),
+        ])->assertRedirect($show);
+        $rejected = InvoicePaymentSubmission::query()->latest('id')->firstOrFail();
+        $this->actingAs($admin)->post(route('invoices.payment-submissions.reject', [$invoice, $rejected]), [
+            'reason' => 'Transfer amount could not be confirmed.',
+        ])->assertRedirect(route('invoices.show', $invoice));
+        $rejected->refresh();
+        $this->assertSame(InvoicePaymentSubmission::STATUS_REJECTED, $rejected->status);
+        $this->assertSame('Transfer amount could not be confirmed.', $rejected->review_note);
+        $this->assertSame(1005, (int) $invoice->payments()->sum('amount_sen'));
+
+        $adminProof = UploadedFile::fake()->image('admin-proof.png');
+        $this->post(route('invoices.payment-submissions.store', $invoice), [
+            'amount' => '15.05',
+            'workshop_payment_qr_id' => $qr->id,
+            'reference' => 'ADMIN-QR-456',
+            'proof' => $adminProof,
+        ])->assertRedirect(route('invoices.show', $invoice));
+        $this->assertSame([1005, 1505], $invoice->payments()->orderBy('id')->pluck('amount_sen')->all());
+        $this->assertSame(InvoicePaymentSubmission::STATUS_APPROVED, InvoicePaymentSubmission::query()->latest('id')->value('status'));
+        $this->assertSame(0, $invoice->fresh()->balanceDue((int) $invoice->payments()->sum('amount_sen')));
+
+        $this->patch(route('payment-qrs.active', $qr), ['active' => '0'])->assertRedirect(route('payment-qrs.index'));
+        $this->actingAs($client)->get(route('client.payment-qrs.image', $qr))->assertNotFound();
+        $this->actingAs($otherAdmin)->get(route('payment-qrs.image', $qr))->assertNotFound();
     }
 
     public function test_invoice_payments_require_an_admin_in_the_same_workshop(): void

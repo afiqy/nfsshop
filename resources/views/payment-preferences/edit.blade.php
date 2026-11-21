@@ -5,6 +5,7 @@
 @section('content')
     <h1 class="h3 mb-3">Payment settings</h1>
     <p>These preferences apply to your workshop admin account only. Saving them does not connect a gateway, enable checkout, or change invoices.</p>
+    <p><a href="{{ route('payment-qrs.index') }}">Manage workshop payment QR codes</a></p>
 
     @if (session('success'))
         <div class="alert alert-success" role="status">{{ session('success') }}</div>

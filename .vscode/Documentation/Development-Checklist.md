@@ -25,6 +25,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Optional invoice-line inventory linkage deducts stock atomically with invoice creation; eligible workshop dashboards show tenant-scoped low-stock alerts.
 - [x] Invoices: create, view, print/save as PDF, MYR line-item totals, optional vehicle.
 - [x] Invoice payment tracking: manual partial/final payments, balance and payment status; no payment processing or reversal.
+- [x] Workshop bank/e-wallet QR payment options, customer-submitted proof with admin approval, and admin-uploaded proof for payments already received.
 - [x] Printable acknowledgments for recorded payments; not MyInvois-validated receipts.
 - [x] Optional invoice due date, Malaysia-time overdue detection for unpaid balances, overdue filter/dashboard total.
 - [x] Edit or void unpaid invoices with reason tracking and atomic inventory stock reconciliation; invoices with payments cannot be changed or voided.
@@ -96,6 +97,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Invoice-linked stock deductions and inventory-entitled workshop dashboard low-stock alerts.
 - [x] Registered customer portal with admin-confirmed customer linking, a five-vehicle self-service limit, approved additional-vehicle requests and private service history.
 - [x] Unpaid invoice editing and voiding with inventory reconciliation; paid invoices remain immutable pending refund/credit-note support.
+- [x] Workshop QR payment setup and payment-proof workflow; customer proofs reserve invoice balance and require admin approval, while admin-uploaded proofs record received payments immediately.
 
 ## Next recommended module
 

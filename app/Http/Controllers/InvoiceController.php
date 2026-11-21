@@ -6,7 +6,9 @@ use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
+use App\Models\InvoicePaymentSubmission;
 use App\Models\Vehicle;
+use App\Models\WorkshopPaymentQr;
 use App\Services\InvoiceLifecycleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +33,8 @@ class InvoiceController extends Controller
                 ->when($overdueOnly, fn ($query) => $query->overdue($today)->orderBy('due_date'))
                 ->latest('id')->paginate(15)->appends($overdueOnly ? ['status' => 'overdue'] : []),
             'overdueOnly' => $overdueOnly,
+            'pendingPaymentProofs' => InvoicePaymentSubmission::query()
+                ->where('status', InvoicePaymentSubmission::STATUS_PENDING)->count(),
             'today' => $today,
         ]);
     }
@@ -88,6 +92,9 @@ class InvoiceController extends Controller
         return view('invoices.show', [
             'invoice' => $invoice,
             'payments' => $invoice->payments()->latest('id')->paginate(15),
+            'paymentSubmissions' => $invoice->paymentSubmissions()->latest('id')->paginate(10, ['*'], 'submissions_page'),
+            'paymentQrs' => WorkshopPaymentQr::query()->where('is_active', true)
+                ->orderBy('category')->orderBy('label')->get(),
             'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
             'canEdit' => $invoice->status === Invoice::STATUS_ISSUED
                 && ! $invoice->payments()->exists(),

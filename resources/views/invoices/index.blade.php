@@ -8,6 +8,10 @@
         <a href="{{ route('invoices.create') }}" class="btn btn-primary">New invoice</a>
     </div>
 
+    <p>
+        <a href="{{ route('payment-submissions.index') }}">Pending payment proofs</a>
+        <span class="badge badge-secondary">{{ $pendingPaymentProofs }}</span>
+    </p>
     <nav class="mb-3" aria-label="Filter invoices">
         <a class="btn {{ $overdueOnly ? 'btn-outline-secondary' : 'btn-secondary' }}" href="{{ route('invoices.index') }}"
             @if (! $overdueOnly) aria-current="page" @endif>All invoices</a>

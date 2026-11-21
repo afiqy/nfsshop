@@ -44,6 +44,7 @@
                 <li class="list-group-item">
                     {{ $invoice->number() }}
                     <span class="d-block text-muted">{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} · {{ $invoice->isVoided() ? 'Voided' : \App\Models\Invoice::formatAmount($invoice->total_sen) }}</span>
+                    <a class="d-block" href="{{ route('client.invoices.show', $invoice) }}">View invoice and payment options</a>
                 </li>
             @empty
                 <li class="list-group-item">No invoices for this vehicle.</li>

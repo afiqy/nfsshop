@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
+use App\Models\InvoicePaymentSubmission;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,11 @@ class InvoiceLifecycleService
             409,
             'An invoice with recorded payments cannot be edited. Refund and credit-note workflows are not available yet.'
         );
+        abort_if(
+            $invoice->paymentSubmissions()->where('status', InvoicePaymentSubmission::STATUS_PENDING)->exists(),
+            409,
+            'Resolve pending payment proofs before changing or voiding this invoice.'
+        );
     }
 
     public function save(array $validated, User $actor, ?Invoice $invoice = null): Invoice
@@ -30,6 +36,12 @@ class InvoiceLifecycleService
                 : new Invoice;
             if ($record->exists) {
                 $this->assertEditable($record);
+                if ((int) $record->customer_id !== (int) $validated['customer_id']
+                    && $record->paymentSubmissions()->exists()) {
+                    throw ValidationException::withMessages([
+                        'customer_id' => 'The customer cannot be changed after payment proof has been submitted.',
+                    ]);
+                }
             }
 
             $customer = Customer::query()->lockForUpdate()->find($validated['customer_id']);

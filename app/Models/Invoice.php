@@ -50,6 +50,11 @@ class Invoice extends Model
         return $this->hasMany(InvoicePayment::class);
     }
 
+    public function paymentSubmissions(): HasMany
+    {
+        return $this->hasMany(InvoicePaymentSubmission::class);
+    }
+
     public function scopeOverdue(Builder $query, string $today): Builder
     {
         return $query->where('status', self::STATUS_ISSUED)
