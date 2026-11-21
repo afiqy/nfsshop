@@ -111,6 +111,26 @@
             </div>
         </div>
 
+        @if (isset($lowStockCount) && $lowStockCount > 0)
+            <section class="alert alert-warning mb-4" aria-labelledby="low-stock-heading">
+                <h2 class="h5" id="low-stock-heading">Low inventory stock ({{ $lowStockCount }})</h2>
+                <ul class="mb-2">
+                    @foreach ($lowStockItems as $item)
+                        <li>
+                            <a href="{{ route('inventory.show', $item) }}">{{ $item->sku }} &middot; {{ $item->name }}</a>
+                            — {{ $item->quantity }} on hand (threshold: {{ $item->low_stock_threshold }})
+                        </li>
+                    @endforeach
+                </ul>
+                @if ($lowStockCount > $lowStockItems->count())
+                    <p class="mb-2">Showing {{ $lowStockItems->count() }} of {{ $lowStockCount }} low-stock items.</p>
+                @endif
+                <a class="alert-link" href="{{ route('inventory.index') }}">Review inventory</a>
+            </section>
+        @elseif (isset($lowStockCount))
+            <p class="text-muted mb-4">No low-stock inventory items.</p>
+        @endif
+
         <section class="card shadow-sm mb-4">
             <div class="card-body">
                 <h2 class="h5">Today's schedule</h2>

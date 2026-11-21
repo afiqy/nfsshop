@@ -22,7 +22,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Assigned mechanics can append mileage, vehicle condition and service notes to an active job; updates appear in vehicle service history.
 - [x] Inventory beta: items, stock movements and low-stock threshold, subject to plan entitlement.
 - [x] Supplier records and purchase orders, with partial/complete receiving added to audited stock movements.
-- [ ] Invoice-linked stock deduction and low-stock dashboard alerts.
+- [x] Optional invoice-line inventory linkage deducts stock atomically with invoice creation; eligible workshop dashboards show tenant-scoped low-stock alerts.
 - [x] Invoices: create, view, print/save as PDF, MYR line-item totals, optional vehicle.
 - [x] Invoice payment tracking: manual partial/final payments, balance and payment status; no payment processing or reversal.
 - [x] Printable acknowledgments for recorded payments; not MyInvois-validated receipts.
@@ -90,8 +90,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Optional job deadlines with Malaysia-time overdue detection/filtering, and inventory-linked parts usage/returns with append-only stock movements.
 - [x] Assigned mechanic vehicle updates for mileage, condition and service notes; sensitive text is encrypted and entries appear in vehicle history.
 - [x] Supplier management and purchase orders with partial/complete receiving recorded in linked inventory movements.
+- [x] Invoice-linked stock deductions and inventory-entitled workshop dashboard low-stock alerts.
 
 ## Next recommended module
 
-- [ ] Invoice-linked stock deduction and low-stock dashboard alerts.
+- [ ] Invoice editing/voids, refunds/credit notes, sending/emailing and payment reminders.
 

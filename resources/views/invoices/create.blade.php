@@ -63,11 +63,21 @@
             <h2 class="h5">Line items</h2>
             <div id="invoice-items" data-max-items="{{ $maxItems }}">
                 @foreach ($rows as $item)
-                    @include('invoices.item', ['index' => $loop->index, 'item' => is_array($item) ? $item : []])
+                    @include('invoices.item', [
+                        'index' => $loop->index,
+                        'item' => is_array($item) ? $item : [],
+                        'canManageInventory' => $canManageInventory,
+                        'inventoryItems' => $inventoryItems,
+                    ])
                 @endforeach
             </div>
             <template id="invoice-item-template">
-                @include('invoices.item', ['index' => '__INDEX__', 'item' => []])
+                @include('invoices.item', [
+                    'index' => '__INDEX__',
+                    'item' => [],
+                    'canManageInventory' => $canManageInventory,
+                    'inventoryItems' => $inventoryItems,
+                ])
             </template>
             <div class="mt-2">
                 <button type="button" class="btn btn-outline-secondary" id="add-item" hidden>Add line item</button>

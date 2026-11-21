@@ -58,7 +58,12 @@
             <tbody>
                 @foreach ($invoice->items as $item)
                     <tr>
-                        <td class="description">{{ $item['description'] }}</td>
+                        <td class="description">
+                            {{ $item['description'] }}
+                            @if (! empty($item['inventory_sku']))
+                                <span class="d-block text-muted">Inventory: {{ $item['inventory_sku'] }}</span>
+                            @endif
+                        </td>
                         <td class="amount">{{ $item['quantity'] }}</td>
                         <td class="amount">{{ \App\Models\Invoice::formatAmount($item['unit_price_sen']) }}</td>
                         <td class="amount">{{ \App\Models\Invoice::formatAmount($item['total_sen']) }}</td>

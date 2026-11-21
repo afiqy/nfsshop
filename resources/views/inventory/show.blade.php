@@ -69,6 +69,11 @@
                                     </a>
                                 </span>
                             @endif
+                            @if ($movement->invoice)
+                                <span class="d-block">
+                                    <a href="{{ route('invoices.show', $movement->invoice) }}">{{ $movement->invoice->number() }}</a>
+                                </span>
+                            @endif
                         </td>
                     </tr>
                 @empty

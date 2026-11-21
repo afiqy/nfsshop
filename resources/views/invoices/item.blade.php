@@ -1,11 +1,25 @@
 <fieldset class="border rounded p-2 mb-2">
     <legend class="sr-only">Invoice line item</legend>
     <div class="form-row align-items-end">
-        <div class="form-group col-md-5 mb-2">
+        <div class="form-group {{ $canManageInventory ? 'col-md-3' : 'col-md-5' }} mb-2">
             <label for="item-{{ $index }}-description">Description</label>
             <input id="item-{{ $index }}-description" name="items[{{ $index }}][description]" class="form-control" maxlength="255" required
                 value="{{ is_scalar($item['description'] ?? null) ? $item['description'] : '' }}">
         </div>
+        @if ($canManageInventory)
+            <div class="form-group col-md-2 mb-2">
+                <label for="item-{{ $index }}-inventory">Deduct from inventory (optional)</label>
+                <select id="item-{{ $index }}-inventory" name="items[{{ $index }}][inventory_item_id]" class="form-control">
+                    <option value="">Not an inventory item</option>
+                    @foreach ($inventoryItems as $inventoryItem)
+                        <option value="{{ $inventoryItem->id }}"
+                            @selected((string) ($item['inventory_item_id'] ?? '') === (string) $inventoryItem->id)>
+                            {{ $inventoryItem->sku }} &middot; {{ $inventoryItem->name }} ({{ $inventoryItem->quantity }} on hand)
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
         <div class="form-group col-md-2 mb-2">
             <label for="item-{{ $index }}-quantity">Quantity</label>
             <input id="item-{{ $index }}-quantity" name="items[{{ $index }}][quantity]" class="form-control" type="number" min="1" max="999" required

@@ -35,7 +35,7 @@ class InventoryController extends Controller
 
         return view('inventory.show', [
             'item' => $item,
-            'movements' => $item->movements()->with('purchaseOrderItem.purchaseOrder')->latest('id')->paginate(15),
+            'movements' => $item->movements()->with(['purchaseOrderItem.purchaseOrder', 'invoice'])->latest('id')->paginate(15),
         ]);
     }
 

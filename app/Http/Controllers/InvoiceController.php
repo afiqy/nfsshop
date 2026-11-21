@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Calendar;
 use App\Models\Customer;
+use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\Vehicle;
 use Carbon\CarbonImmutable;
@@ -31,11 +32,17 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $canManageInventory = $request->attributes->get('account_subscription')?->canManageInventory() ?? false;
+
         return view('invoices.create', [
             'customers' => Customer::query()->orderBy('name')->get(['id', 'name', 'email']),
             'vehicles' => Vehicle::query()->orderBy('plate_number')->get(['id', 'customer_id', 'plate_number']),
+            'canManageInventory' => $canManageInventory,
+            'inventoryItems' => $canManageInventory
+                ? InventoryItem::query()->orderBy('sku')->get(['id', 'sku', 'name', 'quantity'])
+                : collect(),
             'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
         ]);
     }
@@ -47,15 +54,24 @@ class InvoiceController extends Controller
             'vehicle_id' => ['nullable', 'integer', 'min:1'],
             'due_date' => ['bail', 'nullable', 'date_format:Y-m-d', 'after_or_equal:'.CarbonImmutable::today(Calendar::TIMEZONE)->toDateString()],
             'items' => ['required', 'array', 'min:1', 'max:'.Invoice::MAX_ITEMS],
-            'items.*' => ['required', 'array:description,quantity,unit_price'],
+            'items.*' => ['required', 'array:description,quantity,unit_price,inventory_item_id'],
             'items.*.description' => ['required', 'string', 'max:255'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
             'items.*.unit_price' => ['required', 'regex:/\A[0-9]{1,6}(?:\.[0-9]{1,2})?\z/'],
+            'items.*.inventory_item_id' => ['nullable', 'integer', 'min:1'],
         ]);
+        $canManageInventory = $request->attributes->get('account_subscription')?->canManageInventory() ?? false;
+        $inventoryItemIds = collect($validated['items'])->pluck('inventory_item_id')->filter();
+        if ($inventoryItemIds->isNotEmpty() && ! $canManageInventory) {
+            throw ValidationException::withMessages([
+                'items' => 'Inventory-linked invoice items require an active inventory entitlement.',
+            ]);
+        }
 
         $workshopName = tenant('workshop_name') ?: ($request->user()->workshop_name ?: tenant('id'));
+        $actorId = $request->user()->id;
 
-        $invoice = DB::connection('tenant')->transaction(function () use ($validated, $workshopName) {
+        $invoice = DB::connection('tenant')->transaction(function () use ($validated, $workshopName, $inventoryItemIds, $actorId) {
             $customer = Customer::query()->lockForUpdate()->find($validated['customer_id']);
 
             if (! $customer) {
@@ -70,19 +86,44 @@ class InvoiceController extends Controller
                 }
             }
 
+            $inventoryItems = InventoryItem::query()->whereIn('id', $inventoryItemIds->unique())
+                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            if ($inventoryItems->count() !== $inventoryItemIds->unique()->count()) {
+                throw ValidationException::withMessages([
+                    'items' => 'Select inventory items from this workshop.',
+                ]);
+            }
+
+            $deductions = [];
             $items = [];
             foreach ($validated['items'] as $item) {
                 $unitPrice = Invoice::toSen((string) $item['unit_price']);
                 $quantity = (int) $item['quantity'];
-                $items[] = [
+                $inventoryItemId = isset($item['inventory_item_id']) ? (int) $item['inventory_item_id'] : null;
+                $inventoryItem = $inventoryItemId ? $inventoryItems->get($inventoryItemId) : null;
+                $items[] = array_filter([
                     'description' => $item['description'],
                     'quantity' => $quantity,
                     'unit_price_sen' => $unitPrice,
                     'total_sen' => $quantity * $unitPrice,
-                ];
+                    'inventory_item_id' => $inventoryItem?->id,
+                    'inventory_sku' => $inventoryItem?->sku,
+                ], fn ($value) => $value !== null);
+                if ($inventoryItem) {
+                    $deductions[$inventoryItemId] = ($deductions[$inventoryItemId] ?? 0) + $quantity;
+                }
             }
 
-            return Invoice::create([
+            foreach ($deductions as $inventoryItemId => $quantity) {
+                $inventoryItem = $inventoryItems->get($inventoryItemId);
+                if ($quantity > $inventoryItem->quantity) {
+                    throw ValidationException::withMessages([
+                        'items' => "Not enough stock for {$inventoryItem->sku}.",
+                    ]);
+                }
+            }
+
+            $invoice = Invoice::create([
                 'customer_id' => $customer->id,
                 'vehicle_id' => $vehicle?->id,
                 'workshop_name' => $workshopName,
@@ -93,6 +134,21 @@ class InvoiceController extends Controller
                 'items' => $items,
                 'total_sen' => array_sum(array_column($items, 'total_sen')),
             ]);
+
+            foreach ($deductions as $inventoryItemId => $quantity) {
+                $inventoryItem = $inventoryItems->get($inventoryItemId);
+                $inventoryItem->quantity -= $quantity;
+                $inventoryItem->save();
+                $inventoryItem->movements()->create([
+                    'invoice_id' => $invoice->id,
+                    'quantity_change' => -$quantity,
+                    'balance_after' => $inventoryItem->quantity,
+                    'recorded_by_user_id' => $actorId,
+                    'note' => "Sold on invoice {$invoice->number()}",
+                ]);
+            }
+
+            return $invoice;
         });
 
         return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created.');

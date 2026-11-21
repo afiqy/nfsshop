@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Calendar;
+use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\JobCard;
@@ -55,6 +56,7 @@ class WorkshopDashboardController extends Controller
                 ->selectRaw("COALESCE(SUM(CASE WHEN invoices.due_date < ? THEN $balance ELSE 0 END), 0) AS overdue_sen", [$today->toDateString()])
                 ->first();
 
+            $canManageInventory = $request->attributes->get('account_subscription')?->canManageInventory() ?? false;
             $data += [
                 'appointmentCount' => $appointments->count(),
                 'appointments' => $appointments->with(['vehicle:id,plate_number'])->limit(10)->get(),
@@ -66,6 +68,13 @@ class WorkshopDashboardController extends Controller
                 'overdueCount' => (int) $outstanding->overdue_count,
                 'overdueSen' => (int) $outstanding->overdue_sen,
             ];
+            if ($canManageInventory) {
+                $lowStock = InventoryItem::query()->whereColumn('quantity', '<=', 'low_stock_threshold');
+                $data += [
+                    'lowStockCount' => (clone $lowStock)->count(),
+                    'lowStockItems' => $lowStock->orderBy('sku')->limit(5)->get(['id', 'sku', 'name', 'quantity', 'low_stock_threshold']),
+                ];
+            }
         } elseif ($hasMechanicWorkshop && $subscriptionUsable) {
             $assignedJobs = JobCard::query()
                 ->where('assigned_mechanic_id', $user->id)

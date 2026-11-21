@@ -12,6 +12,7 @@ class InventoryMovement extends Model
 
     protected $fillable = [
         'purchase_order_item_id',
+        'invoice_id',
         'quantity_change',
         'balance_after',
         'recorded_by_user_id',
@@ -21,5 +22,10 @@ class InventoryMovement extends Model
     public function purchaseOrderItem(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrderItem::class);
+    }
+
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 }

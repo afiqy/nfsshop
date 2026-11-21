@@ -453,6 +453,60 @@ class InvoiceTest extends TestCase
             ->assertDontSeeText('RM 87.36');
     }
 
+    public function test_inventory_entitled_workshop_dashboard_lists_low_stock_items_without_tenant_leaks(): void
+    {
+        [$admin] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $this->actingAs($admin);
+
+        foreach (range(1, 6) as $number) {
+            $this->post(route('inventory.store'), [
+                'sku' => sprintf('LOW-%02d', $number),
+                'name' => sprintf('Low stock item %02d', $number),
+                'low_stock_threshold' => 2,
+            ])->assertRedirect();
+            $item = InventoryItem::query()->where('sku', sprintf('LOW-%02d', $number))->firstOrFail();
+            $this->post(route('inventory.move', $item), [
+                'direction' => 'in',
+                'quantity' => 1,
+                'note' => 'Opening stock',
+            ])->assertRedirect();
+        }
+        $this->post(route('inventory.store'), [
+            'sku' => 'AVAILABLE',
+            'name' => 'Available item',
+            'low_stock_threshold' => 0,
+        ])->assertRedirect();
+        $available = InventoryItem::query()->where('sku', 'AVAILABLE')->firstOrFail();
+        $this->post(route('inventory.move', $available), [
+            'direction' => 'in',
+            'quantity' => 1,
+            'note' => 'Opening stock',
+        ])->assertRedirect();
+
+        $this->get(route('dashboard'))->assertOk()
+            ->assertViewHas('lowStockCount', 6)
+            ->assertViewHas('lowStockItems', fn ($items) => $items->count() === 5)
+            ->assertSeeText('Low inventory stock (6)')
+            ->assertSeeText('LOW-01')->assertSeeText('LOW-05')
+            ->assertDontSeeText('LOW-06')->assertDontSeeText('AVAILABLE');
+
+        $this->actingAs($otherAdmin)->get(route('dashboard'))->assertOk()
+            ->assertViewHas('lowStockCount', 0)
+            ->assertSeeText('No low-stock inventory items.')
+            ->assertDontSeeText('LOW-01');
+
+        $basic = SubscriptionPlan::firstOrCreate(['slug' => 'basic'], ['name' => 'Basic']);
+        tenancy()->end();
+        $admin->accountSubscription()->update([
+            'status' => AccountSubscription::STATUS_ACTIVE,
+            'subscription_plan_id' => $basic->id,
+        ]);
+        $this->actingAs($admin)->get(route('dashboard'))->assertOk()
+            ->assertViewMissing('lowStockCount')
+            ->assertDontSeeText('Low inventory stock');
+    }
+
     public function test_mechanic_dashboard_shows_only_their_open_jobs_scheduled_today_in_malaysia_time(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-18 17:00:00', 'UTC'));
@@ -562,6 +616,101 @@ class InvoiceTest extends TestCase
             ->assertSee($customer->name)
             ->assertSee($vehicle->plate_number)
             ->assertSee('RM 24.90');
+    }
+
+    public function test_invoice_creation_deducts_linked_inventory_once_and_records_the_invoice_movement(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $this->actingAs($admin);
+        $this->post(route('inventory.store'), [
+            'sku' => 'INV-BRAKE',
+            'name' => 'Brake pad set',
+            'low_stock_threshold' => 3,
+        ])->assertRedirect();
+        $item = InventoryItem::query()->sole();
+        $this->post(route('inventory.move', $item), [
+            'direction' => 'in',
+            'quantity' => 8,
+            'note' => 'Opening stock',
+        ])->assertRedirect();
+
+        $this->get(route('invoices.create'))->assertOk()
+            ->assertSee('Deduct from inventory (optional)')
+            ->assertSee('INV-BRAKE');
+        $this->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [
+                ['description' => 'Brake pad set', 'quantity' => 2, 'unit_price' => '45.00', 'inventory_item_id' => $item->id],
+                ['description' => 'Brake inspection', 'quantity' => 1, 'unit_price' => '10.00'],
+                ['description' => 'Additional set', 'quantity' => 1, 'unit_price' => '45.00', 'inventory_item_id' => $item->id],
+            ],
+        ])->assertRedirect(route('invoices.show', 1));
+
+        $invoice = Invoice::query()->sole();
+        $item->refresh();
+        $this->assertSame(5, $item->quantity);
+        $this->assertSame(14500, $invoice->total_sen);
+        $this->assertSame([$item->id, null, $item->id], array_map(
+            fn (array $line) => $line['inventory_item_id'] ?? null,
+            $invoice->items
+        ));
+        $this->assertSame(['INV-BRAKE', null, 'INV-BRAKE'], array_map(
+            fn (array $line) => $line['inventory_sku'] ?? null,
+            $invoice->items
+        ));
+        $movement = InventoryMovement::where('invoice_id', $invoice->id)->sole();
+        $this->assertSame(-3, $movement->quantity_change);
+        $this->assertSame(5, $movement->balance_after);
+        $this->assertSame($admin->id, $movement->recorded_by_user_id);
+        $this->assertSame('Sold on invoice INV-000001', $movement->note);
+
+        $this->get(route('invoices.show', $invoice))->assertOk()->assertSeeText('INV-BRAKE');
+        $this->get(route('inventory.show', $item))->assertOk()
+            ->assertSee(route('invoices.show', $invoice))->assertSee('INV-000001');
+        $this->post(route('invoices.payments.store', $invoice), ['amount' => '145.00'])->assertRedirect();
+        $this->assertSame(5, $item->fresh()->quantity);
+        $this->assertSame(1, InventoryMovement::where('invoice_id', $invoice->id)->count());
+    }
+
+    public function test_invoice_stock_shortage_or_unentitled_link_rolls_back_without_changes(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$customer] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $this->actingAs($admin)->post(route('inventory.store'), [
+            'sku' => 'INV-LIMITED',
+            'name' => 'Limited item',
+            'low_stock_threshold' => 1,
+        ])->assertRedirect();
+        $item = InventoryItem::query()->sole();
+        $this->post(route('inventory.move', $item), [
+            'direction' => 'in',
+            'quantity' => 2,
+            'note' => 'Opening stock',
+        ])->assertRedirect();
+        $details = [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Limited item', 'quantity' => 3, 'unit_price' => '2.00', 'inventory_item_id' => $item->id]],
+        ];
+        $this->from(route('invoices.create'))->post(route('invoices.store'), $details)
+            ->assertRedirect(route('invoices.create'))->assertSessionHasErrors('items');
+        $this->assertSame(0, Invoice::query()->count());
+        $this->assertSame(2, $item->fresh()->quantity);
+        $this->assertSame(0, InventoryMovement::whereNotNull('invoice_id')->count());
+
+        $basic = SubscriptionPlan::firstOrCreate(['slug' => 'basic'], ['name' => 'Basic']);
+        tenancy()->end();
+        $admin->accountSubscription()->update([
+            'status' => AccountSubscription::STATUS_ACTIVE,
+            'subscription_plan_id' => $basic->id,
+        ]);
+        $this->actingAs($admin)->get(route('invoices.create'))->assertOk()
+            ->assertDontSee('Deduct from inventory (optional)');
+        $this->from(route('invoices.create'))->post(route('invoices.store'), $details)
+            ->assertRedirect(route('invoices.create'))->assertSessionHasErrors('items');
+        $this->assertSame(0, Invoice::query()->count());
+        $this->assertSame(2, $item->fresh()->quantity);
+        $this->assertSame(0, InventoryMovement::whereNotNull('invoice_id')->count());
     }
 
     public function test_invoice_rejects_invalid_price_and_vehicle_from_a_different_customer(): void
