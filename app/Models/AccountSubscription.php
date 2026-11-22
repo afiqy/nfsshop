@@ -10,6 +10,16 @@ class AccountSubscription extends Model
 {
     public function canManageInventory(): bool
     {
+        return $this->canUseProFeatures();
+    }
+
+    public function canViewReports(): bool
+    {
+        return $this->canUseProFeatures();
+    }
+
+    private function canUseProFeatures(): bool
+    {
         return $this->isUsable()
             && ($this->status === self::STATUS_TRIALING || in_array($this->plan?->slug, ['pro', 'enterprise'], true));
     }
@@ -17,9 +27,13 @@ class AccountSubscription extends Model
     use HasFactory;
 
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_TRIALING = 'trialing';
+
     public const STATUS_PAST_DUE = 'past_due';
+
     public const STATUS_CANCELED = 'canceled';
+
     public const STATUS_PENDING = 'pending';
 
     protected $fillable = [

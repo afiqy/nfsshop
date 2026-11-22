@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\InvoicePaymentSubmission;
 use App\Models\User;
+use App\Models\WorkshopService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -62,12 +63,26 @@ class InvoiceLifecycleService
             }
 
             $oldDeductions = $record->exists ? $this->inventoryDeductions($record->items ?? []) : [];
+            $oldServices = collect($record->items ?? [])->filter(fn (array $item) => isset($item['service_id']))
+                ->keyBy('service_id');
+            $serviceIds = collect($validated['items'])->pluck('service_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
+            $services = WorkshopService::query()->whereIn('id', $serviceIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            if ($services->count() !== $serviceIds->count()) {
+                throw ValidationException::withMessages(['items' => 'Select services from this workshop.']);
+            }
             $newDeductions = [];
             $items = [];
             foreach ($validated['items'] as $item) {
                 $unitPrice = Invoice::toSen((string) $item['unit_price']);
                 $quantity = (int) $item['quantity'];
                 $inventoryItemId = isset($item['inventory_item_id']) ? (int) $item['inventory_item_id'] : null;
+                $serviceId = isset($item['service_id']) ? (int) $item['service_id'] : null;
+                if ($serviceId && $inventoryItemId) {
+                    throw ValidationException::withMessages(['items' => 'An invoice line cannot be both an inventory item and a service.']);
+                }
+                if ($serviceId && ! $services[$serviceId]->is_active && ! $oldServices->has($serviceId)) {
+                    throw ValidationException::withMessages(['items' => 'Select an active service.']);
+                }
                 $items[] = array_filter([
                     'description' => $item['description'],
                     'quantity' => $quantity,
@@ -75,6 +90,8 @@ class InvoiceLifecycleService
                     'total_sen' => $quantity * $unitPrice,
                     'inventory_item_id' => $inventoryItemId,
                     'inventory_sku' => null,
+                    'service_id' => $serviceId,
+                    'service_name' => $serviceId ? ($oldServices->get($serviceId)['service_name'] ?? $services[$serviceId]->name) : null,
                 ], fn ($value) => $value !== null);
                 if ($inventoryItemId) {
                     $newDeductions[$inventoryItemId] = ($newDeductions[$inventoryItemId] ?? 0) + $quantity;

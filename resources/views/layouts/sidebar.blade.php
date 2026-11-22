@@ -97,6 +97,14 @@
                     <span>Services &amp; pricing</span>
                 </a>
             </li>
+            @if ($accountSubscription?->canViewReports())
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ route('reports.index') }}">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Reports</span>
+                    </a>
+                </li>
+            @endif
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('invoices.index') }}">
                     <i class="fas fa-file-invoice"></i>

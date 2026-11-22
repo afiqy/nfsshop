@@ -36,8 +36,10 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\WorkshopDashboardController;
 use App\Http\Controllers\WorkshopPaymentQrController;
+use App\Http\Controllers\WorkshopReportController;
 use App\Http\Middleware\EnsureInventoryAccess;
 use App\Http\Middleware\EnsureWorkshopContext;
+use App\Http\Middleware\EnsureReportsAccess;
 use App\Http\Middleware\EnsureCustomerReadAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -171,6 +173,8 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             });
 
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
+            Route::get('reports', [WorkshopReportController::class, 'index'])
+                ->middleware(EnsureReportsAccess::class)->name('reports.index');
             Route::get('services', [ServiceCatalogController::class, 'index'])->name('services.index');
             Route::get('services/create', [ServiceCatalogController::class, 'serviceForm'])->name('services.create');
             Route::post('services', [ServiceCatalogController::class, 'saveService'])->name('services.store');

@@ -40,7 +40,8 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Stripe, toyyibPay and Billplz hosted sandbox demos. Mocked provider tests pass; live sandbox browser/webhook tests remain outstanding.
 - [ ] Live payment processing, settlement/reconciliation and production gateway webhooks.
 - [x] Workshop service and package price lists, optional invoice-wide percentage discounts, and invoice-specific inclusive/exclusive tax calculations (beta estimates; not MyInvois compliance).
-- [ ] Workshop reports and analytics: revenue by service, staff performance, client spend, monthly/annual summaries.
+- [x] Workshop reporting beta: monthly/annual invoice and cash movements, customer spend, assigned-mechanic completed-job counts, and tagged gross service line totals.
+- [ ] Net revenue by service, including allocation of invoice-wide discounts, tax and credit notes and a strategy for historical untagged lines.
 - [ ] Client engagement: promotions, loyalty/rewards and service/renewal reminders.
 
 ## LHDN MyInvois
@@ -105,8 +106,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Vehicle master mileage and fuel type for workshop and client workflows, with customer-scoped portal history after ownership changes.
 - [x] Staff email invitations, role and suspension management, and optional mechanic access to read-only customer and vehicle lists.
 - [x] Workshop services and packages, customer appointment requests with admin confirmation, and invoice percentage discounts and inclusive/exclusive tax snapshots.
+- [x] Workshop reporting beta with Malaysia-time monthly/annual figures, customer cash spend, assigned-mechanic completed jobs and tagged gross service lines.
 
 ## Next recommended module
 
-- [ ] Workshop reports and analytics: revenue by service, staff performance, client spend, monthly/annual summaries.
+- [ ] Client engagement: promotions, loyalty/rewards and service/renewal reminders.
 

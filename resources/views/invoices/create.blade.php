@@ -66,6 +66,7 @@
             </div>
 
             <h2 class="h5">Line items</h2>
+            <p>Optionally tag a service for reporting; enter the actual description and price. An inventory line cannot also be tagged as a service.</p>
             <div id="invoice-items" data-max-items="{{ $maxItems }}">
                 @foreach ($rows as $item)
                     @include('invoices.item', [

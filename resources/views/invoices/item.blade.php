@@ -1,10 +1,21 @@
 <fieldset class="border rounded p-2 mb-2">
     <legend class="sr-only">Invoice line item</legend>
     <div class="form-row align-items-end">
-        <div class="form-group {{ $canManageInventory ? 'col-md-3' : 'col-md-5' }} mb-2">
+        <div class="form-group col-md-3 mb-2">
             <label for="item-{{ $index }}-description">Description</label>
             <input id="item-{{ $index }}-description" name="items[{{ $index }}][description]" class="form-control" maxlength="255" required
                 value="{{ is_scalar($item['description'] ?? null) ? $item['description'] : '' }}">
+        </div>
+        <div class="form-group col-md-3 mb-2">
+            <label for="item-{{ $index }}-service">Service reporting (optional)</label>
+            <select id="item-{{ $index }}-service" name="items[{{ $index }}][service_id]" class="form-control">
+                <option value="">Unclassified line</option>
+                @foreach ($services as $service)
+                    <option value="{{ $service->id }}" @selected((string) ($item['service_id'] ?? '') === (string) $service->id)>
+                        {{ $service->name }}{{ $service->is_active ? '' : ' (inactive)' }}
+                    </option>
+                @endforeach
+            </select>
         </div>
         @if ($canManageInventory)
             <div class="form-group col-md-2 mb-2">
