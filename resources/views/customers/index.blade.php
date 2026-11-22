@@ -5,7 +5,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Customers</h1>
-        <a href="{{ route('customers.create') }}" class="btn btn-primary">Add customer</a>
+        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)
+            <a href="{{ route('customers.create') }}" class="btn btn-primary">Add customer</a>
+        @endif
     </div>
 
     <form method="GET" action="{{ route('customers.index') }}" class="form-inline mb-3">
@@ -28,7 +30,8 @@
                         <th scope="col">Short name</th>
                         <th scope="col">Email</th>
                         <th scope="col">Phone</th>
-                        <th scope="col">Actions</th>
+                        @if (auth()->user()->role === \App\Models\User::ROLE_MECHANIC)<th scope="col">Address</th>@endif
+                        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)<th scope="col">Actions</th>@endif
                     </tr>
                 </thead>
                 <tbody>
@@ -38,7 +41,8 @@
                             <td>{{ $customer->short_name ?? '—' }}</td>
                             <td>{{ $customer->email }}</td>
                             <td>{{ $customer->phone ?? 'Not provided' }}</td>
-                            <td><a href="{{ route('customers.edit', $customer) }}" aria-label="Edit {{ $customer->name }}">Edit</a></td>
+                            @if (auth()->user()->role === \App\Models\User::ROLE_MECHANIC)<td>{{ $customer->address ?? 'Not provided' }}</td>@endif
+                            @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)<td><a href="{{ route('customers.edit', $customer) }}" aria-label="Edit {{ $customer->name }}">Edit</a></td>@endif
                         </tr>
                     @empty
                         <tr>

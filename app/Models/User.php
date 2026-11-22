@@ -40,6 +40,7 @@ class User extends Authenticatable
         'suspended_at',
         'suspension_reason',
         'force_password_reset',
+        'can_view_customers',
     ];
 
     protected $fillable = [
@@ -54,6 +55,7 @@ class User extends Authenticatable
         'suspended_at',
         'suspension_reason',
         'force_password_reset',
+        'can_view_customers',
         'failed_login_attempts',
         'locked_until',
     ];
@@ -68,6 +70,7 @@ class User extends Authenticatable
         'password' => 'hashed',
         'suspended_at' => 'datetime',
         'force_password_reset' => 'boolean',
+        'can_view_customers' => 'boolean',
         'locked_until' => 'datetime',
     ];
 

@@ -116,6 +116,12 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link" href="{{ route('staff.index') }}">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Staff access</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" href="{{ route('vehicles.index') }}">
                     <i class="fas fa-car"></i>
                     <span>Vehicles</span>
@@ -148,6 +154,10 @@
                     <span>My jobs</span>
                 </a>
             </li>
+            @if ($user->can_view_customers)
+                <li class="nav-item"><a class="nav-link" href="{{ route('customers.index') }}"><i class="fas fa-users"></i> <span>Customers</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('vehicles.index') }}"><i class="fas fa-car"></i> <span>Vehicles</span></a></li>
+            @endif
         @elseif ($user?->role === \App\Models\User::ROLE_CLIENT)
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('client.portal') }}">

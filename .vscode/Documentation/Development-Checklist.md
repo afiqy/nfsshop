@@ -7,7 +7,8 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Authentication and access-control baseline: login/logout, role checks, account lockout, session timeout, tenant scoping, subscription-expiry gates.
 - [ ] Full authentication: password recovery and password policy, CAPTCHA, MFA, SSO, device management.
 - [ ] Profile and account preferences: full contact/profile editing, avatar, language, timezone and notification settings.
-- [ ] Staff account administration: safe workshop-scoped invitations, activation/suspension and permission management.
+- [x] Staff account administration beta: workshop-scoped email invitations for mechanics or full workshop admins; activation/suspension, role management and optional read-only customer/vehicle lists.
+- [ ] Additional staff permissions (including invoice and payment recording), existing-account invitations, self-registration approval and permanent session revocation on suspension.
 - [x] Client account and self-service portal: workshop-admin-confirmed email linking, client-owned vehicle records (five self-service vehicles), approval requests for additional vehicles, and read-only service history.
 - [x] Customer records: workshop-scoped list, create and edit, short-name aliases and search.
 - [x] Vehicle records: workshop-scoped list, create and edit, customer linkage.
@@ -101,8 +102,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Partial/full refunds and credit notes for recorded payments, with external-transfer recording, printable documents and customer-credit balance tracking.
 - [x] Workshop-opted-in email payment reminders with Malaysia-time scheduling and tenant-scoped delivery history.
 - [x] Vehicle master mileage and fuel type for workshop and client workflows, with customer-scoped portal history after ownership changes.
+- [x] Staff email invitations, role and suspension management, and optional mechanic access to read-only customer and vehicle lists.
 
 ## Next recommended module
 
-- [ ] Staff account administration: safe workshop-scoped invitations, activation/suspension and permission management.
+- [ ] Workshop services, price lists, discounts and tax settings.
 

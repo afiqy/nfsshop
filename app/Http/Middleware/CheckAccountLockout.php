@@ -17,6 +17,10 @@ class CheckAccountLockout
     {
         $user = $request->user();
 
+        if ($user && $user->isSuspended()) {
+            abort(403, 'Your account is suspended. Contact your workshop admin.');
+        }
+
         if ($user && $user->isLocked()) {
             auth()->logout();
             $request->session()->invalidate();

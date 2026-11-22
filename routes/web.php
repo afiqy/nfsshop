@@ -19,6 +19,8 @@ use App\Http\Controllers\PaymentPreferenceController;
 use App\Http\Controllers\PaymentReminderController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StripeSandboxController;
 use App\Http\Controllers\SuperAdmin\BillingController;
@@ -34,6 +36,7 @@ use App\Http\Controllers\WorkshopDashboardController;
 use App\Http\Controllers\WorkshopPaymentQrController;
 use App\Http\Middleware\EnsureInventoryAccess;
 use App\Http\Middleware\EnsureWorkshopContext;
+use App\Http\Middleware\EnsureCustomerReadAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -69,6 +72,10 @@ Route::get('/register/plan', [RegistrationController::class, 'showPlan'])->name(
 Route::post('/register/plan', [RegistrationController::class, 'submitPlan'])->name('register.plan.submit');
 Route::get('/register/staff', [RegistrationController::class, 'showStaff'])->name('register.staff');
 Route::post('/register/staff', [RegistrationController::class, 'submitStaff'])->name('register.staff.submit');
+Route::middleware(['guest', 'throttle:10,1'])->group(function () {
+    Route::get('/staff-invitations/{token}', [StaffInvitationController::class, 'show'])->name('staff-invitations.show');
+    Route::post('/staff-invitations/{token}', [StaffInvitationController::class, 'accept'])->name('staff-invitations.accept');
+});
 Route::get('/register/complete', [RegistrationController::class, 'complete'])->name('register.complete');
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -143,6 +150,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
         ->middleware('subscription.active')->name('dashboard');
 
     Route::middleware('subscription.active')->group(function () {
+        Route::middleware([EnsureWorkshopContext::class, EnsureCustomerReadAccess::class])->group(function () {
+            Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+            Route::get('vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
+        });
         Route::middleware(['role:mechanic', EnsureWorkshopContext::class])
             ->prefix('my-jobs')->name('my-jobs.')->group(function () {
                 Route::get('/', [JobCardController::class, 'index'])->name('index');
@@ -158,8 +169,12 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             });
 
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
-            Route::resource('customers', CustomerController::class)->only(['index', 'create', 'store', 'edit', 'update']);
-            Route::resource('vehicles', VehicleController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+            Route::get('staff', [StaffController::class, 'index'])->name('staff.index');
+            Route::post('staff/invitations', [StaffController::class, 'invite'])->middleware('throttle:10,1')->name('staff.invite');
+            Route::delete('staff/invitations/{invitation}', [StaffController::class, 'revoke'])->name('staff.invitations.revoke');
+            Route::patch('staff/{staff}', [StaffController::class, 'update'])->name('staff.update');
+            Route::resource('customers', CustomerController::class)->only(['create', 'store', 'edit', 'update']);
+            Route::resource('vehicles', VehicleController::class)->only(['create', 'store', 'edit', 'update']);
             Route::get('vehicles/{vehicle}/history', [VehicleController::class, 'history'])->name('vehicles.history');
             Route::get('client-accounts', [CustomerAccountController::class, 'index'])->name('client-accounts.index');
             Route::post('client-accounts/{user}/activate', [CustomerAccountController::class, 'activate'])->name('client-accounts.activate');

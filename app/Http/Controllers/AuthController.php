@@ -42,6 +42,11 @@ class AuthController extends Controller
             ])->withInput($request->only('email'));
         }
 
+        if ($user && $user->isSuspended()) {
+            return back()->withErrors(['email' => 'Your account is suspended. Contact your workshop admin.'])
+                ->withInput($request->only('email'));
+        }
+
         if (RateLimiter::tooManyAttempts($throttleKey, $this->maxAttempts)) {
             error_log("Too many login attempts for email: " . $email);
             if ($user) {
