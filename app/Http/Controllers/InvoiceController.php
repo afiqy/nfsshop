@@ -92,10 +92,12 @@ class InvoiceController extends Controller
         $invoice = Invoice::withSum('payments as paid_sen', 'amount_sen')
             ->withSum('refunds as refunded_sen', 'amount_sen')
             ->withSum('creditNotes as credited_sen', 'amount_sen')
+            ->with('customer:id,name,email')
             ->findOrFail($invoice);
 
         return view('invoices.show', [
             'invoice' => $invoice,
+            'emailDeliveries' => $invoice->emailDeliveries()->latest('id')->paginate(10, ['*'], 'email_page'),
             'payments' => $invoice->payments()->withSum('refunds as refunded_sen', 'amount_sen')
                 ->latest('id')->paginate(15),
             'refunds' => $invoice->refunds()->with('payment')->latest('id')->paginate(10, ['*'], 'refunds_page'),

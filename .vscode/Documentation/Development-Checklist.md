@@ -30,7 +30,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Optional invoice due date, Malaysia-time overdue detection for unpaid balances, overdue filter/dashboard total.
 - [x] Edit or void unpaid invoices with reason tracking and atomic inventory stock reconciliation; invoices with payments cannot be changed or voided.
 - [x] Partial/full refunds and credit notes for invoices with recorded payments; immutable records preserve original payments/invoices and track customer credit.
-- [ ] Email invoice sending with configured delivery and retry/audit behavior.
+- [x] Email invoice sending through configured transport, with manual retries and tenant-scoped per-attempt audit history.
 - [ ] Payment reminder policy, scheduling and delivery tracking.
 - [x] Vehicle service history: linked appointments, job cards and invoices.
 - [x] Workshop dashboard: workshop/plan, today's appointments, open and overdue jobs, balances, overdue balances and quick actions.
@@ -102,5 +102,5 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 
 ## Next recommended module
 
-- [ ] Invoice email delivery with configured transport, retries and audit history.
+- [ ] Payment reminder policy, scheduling and delivery tracking.
 

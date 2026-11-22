@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\InvoiceEmail;
 use App\Models\AccountSubscription;
 use App\Models\Calendar;
 use App\Models\Customer;
@@ -10,6 +11,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Invoice;
 use App\Models\InvoiceCreditNote;
+use App\Models\InvoiceEmailDelivery;
 use App\Models\InvoicePaymentSubmission;
 use App\Models\JobCard;
 use App\Models\JobCardPart;
@@ -28,6 +30,7 @@ use Illuminate\Http\Client\Request as StripeRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -1641,6 +1644,81 @@ class InvoiceTest extends TestCase
             'amount' => '1.00',
             'reason' => 'Wrong workshop.',
         ])->assertNotFound();
+    }
+
+    public function test_admin_can_send_invoice_email_and_audit_transport_acceptance(): void
+    {
+        Mail::fake();
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $mechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $customer = $workshop->run(fn () => Customer::create([
+            'name' => 'Email Customer',
+            'email' => 'email-customer@example.test',
+        ]));
+
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Email service', 'quantity' => 1, 'unit_price' => '50.00']],
+        ])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $show = route('invoices.show', $invoice);
+        $send = route('invoices.email-deliveries.store', $invoice);
+
+        $this->get($show)->assertOk()
+            ->assertSeeText('Invoice email delivery')
+            ->assertSeeText('email-customer@example.test')
+            ->assertSee('action="'.$send.'"', false);
+        $this->post($send)->assertRedirect($show)->assertSessionHas('success');
+
+        Mail::assertSent(InvoiceEmail::class, function (InvoiceEmail $mail) {
+            return $mail->hasTo('email-customer@example.test')
+                && str_contains($mail->render(), 'Email service')
+                && str_contains($mail->render(), 'not submitted to or validated by LHDN MyInvois');
+        });
+        $delivery = $workshop->run(fn () => InvoiceEmailDelivery::sole());
+        $this->assertSame(InvoiceEmailDelivery::STATUS_SENT, $delivery->status);
+        $this->assertSame('email-customer@example.test', $delivery->recipient_email);
+        $this->assertNotNull($delivery->sent_at);
+        $this->get($show)->assertOk()->assertSeeText('Accepted by mail transport');
+
+        $this->actingAs($mechanic)->post($send)->assertForbidden();
+        $this->actingAs($otherAdmin)->post($send)->assertNotFound();
+    }
+
+    public function test_failed_invoice_emails_can_be_retried_and_each_attempt_is_audited(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $customer = $workshop->run(fn () => Customer::create([
+            'name' => 'Retry Customer',
+            'email' => 'retry-customer@example.test',
+        ]));
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Retry service', 'quantity' => 1, 'unit_price' => '25.00']],
+        ])->assertRedirect();
+
+        $invoice = Invoice::query()->sole();
+        $show = route('invoices.show', $invoice);
+        $send = route('invoices.email-deliveries.store', $invoice);
+        Mail::shouldReceive('to')->once()->with('retry-customer@example.test')
+            ->andThrow(new \RuntimeException('Do not expose transport details.'));
+
+        $this->post($send)->assertRedirect($show)->assertSessionHas('error');
+        $failed = $workshop->run(fn () => InvoiceEmailDelivery::sole());
+        $this->assertSame(InvoiceEmailDelivery::STATUS_FAILED, $failed->status);
+        $this->assertStringNotContainsString('transport details', $failed->failure_message);
+        $this->assertNull($failed->sent_at);
+
+        Mail::fake();
+        $this->post(route('invoices.email-deliveries.retry', [$invoice, $failed]))
+            ->assertRedirect($show)->assertSessionHas('success');
+        Mail::assertSent(InvoiceEmail::class, fn (InvoiceEmail $mail) => $mail->hasTo('retry-customer@example.test'));
+        $attempts = $workshop->run(fn () => InvoiceEmailDelivery::query()->orderBy('id')->get());
+        $this->assertCount(2, $attempts);
+        $this->assertSame($failed->id, $attempts[1]->retry_of_id);
+        $this->assertSame(InvoiceEmailDelivery::STATUS_SENT, $attempts[1]->status);
+        $this->get($show)->assertOk()->assertSeeText('Failed:')->assertSeeText('Accepted by mail transport');
     }
 
     public function test_credit_notes_reduce_invoice_balance_and_refunds_consume_customer_credit(): void

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Stancl\Tenancy\Database\Concerns\TenantConnection;
@@ -51,6 +52,16 @@ class Invoice extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(InvoicePayment::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function emailDeliveries(): HasMany
+    {
+        return $this->hasMany(InvoiceEmailDelivery::class);
     }
 
     public function paymentSubmissions(): HasMany

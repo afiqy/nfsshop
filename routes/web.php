@@ -11,6 +11,7 @@ use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InvoiceAdjustmentController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoiceEmailDeliveryController;
 use App\Http\Controllers\InvoicePaymentSubmissionController;
 use App\Http\Controllers\JobCardController;
 use App\Http\Controllers\MyInvoisPreparationController;
@@ -167,6 +168,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 ->name('client-vehicle-requests.reject');
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update']);
             Route::patch('invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
+            Route::post('invoices/{invoice}/email-deliveries', [InvoiceEmailDeliveryController::class, 'store'])
+                ->name('invoices.email-deliveries.store');
+            Route::post('invoices/{invoice}/email-deliveries/{delivery}/retry', [InvoiceEmailDeliveryController::class, 'retry'])
+                ->name('invoices.email-deliveries.retry');
             Route::get('myinvois/workshop-profile', [MyInvoisPreparationController::class, 'editSeller'])->name('myinvois.seller.edit');
             Route::put('myinvois/workshop-profile', [MyInvoisPreparationController::class, 'updateSeller'])->name('myinvois.seller.update');
             Route::get('invoices/{invoice}/myinvois', [MyInvoisPreparationController::class, 'editBuyer'])->name('myinvois.buyer.edit');

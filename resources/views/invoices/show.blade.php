@@ -34,6 +34,9 @@
     @if (session('success'))
         <p role="status">{{ session('success') }}</p>
     @endif
+    @if (session('error'))
+        <p role="alert">{{ session('error') }}</p>
+    @endif
     <main>
         <h1>Invoice {{ $invoice->number() }}</h1>
         @if ($invoice->isVoided())
@@ -108,6 +111,65 @@
             </section>
         @endif
         <p>Beta test document — not submitted to MyInvois.</p>
+        <section aria-labelledby="invoice-email-heading">
+            <h2 id="invoice-email-heading">Invoice email delivery</h2>
+            @if (! $invoice->isVoided())
+                @if (filter_var($invoice->customer?->email, FILTER_VALIDATE_EMAIL))
+                    <p>Send this itemized invoice to {{ $invoice->customer->email }}.</p>
+                    <form action="{{ route('invoices.email-deliveries.store', $invoice) }}" method="POST">
+                        @csrf
+                        <button type="submit">Send invoice email</button>
+                    </form>
+                @else
+                    <p>Add a valid email address to the customer record before sending this invoice.</p>
+                @endif
+            @else
+                <p>Voided invoices cannot be emailed.</p>
+            @endif
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Attempted (MYT)</th>
+                        <th scope="col">Recipient</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Sent by</th>
+                        <th scope="col">Retry</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($emailDeliveries as $delivery)
+                        <tr>
+                            <td>{{ $delivery->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</td>
+                            <td>{{ $delivery->recipient_email }}</td>
+                            <td>
+                                @if ($delivery->status === \App\Models\InvoiceEmailDelivery::STATUS_SENT)
+                                    Accepted by mail transport
+                                @elseif ($delivery->status === \App\Models\InvoiceEmailDelivery::STATUS_FAILED)
+                                    Failed: {{ $delivery->failure_message }}
+                                @else
+                                    Sending
+                                @endif
+                            </td>
+                            <td>User #{{ $delivery->sent_by_user_id }}</td>
+                            <td>
+                                @if ($delivery->status === \App\Models\InvoiceEmailDelivery::STATUS_FAILED && ! $invoice->isVoided())
+                                    <form action="{{ route('invoices.email-deliveries.retry', [$invoice, $delivery]) }}" method="POST">
+                                        @csrf
+                                        <button type="submit">Retry this email</button>
+                                    </form>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5">No invoice email attempts yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+            {{ $emailDeliveries->links() }}
+            <p>Transport acceptance does not confirm inbox delivery. Failed attempts can be retried; every attempt is recorded.</p>
+        </section>
         <section id="payments" aria-labelledby="payments-heading">
             <h2 id="payments-heading">Payments</h2>
             <p><strong>{{ $invoice->paymentStatus($paid, $refunded, $credited) }}</strong>
