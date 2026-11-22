@@ -26,12 +26,17 @@
             'engine_number' => ['Engine number', true],
             'year' => ['Year (optional)', false],
             'color' => ['Colour (optional)', false],
+            'mileage_km' => ['Mileage in km (optional)', false],
+            'fuel_type' => ['Fuel type (optional)', false],
         ] as $field => [$label, $required])
             <div class="form-group">
                 <label for="{{ $field }}">{{ $label }}</label>
                 <input id="{{ $field }}" name="{{ $field }}" type="text" value="{{ old($field) }}"
                     class="form-control @error($field) is-invalid @enderror"
-                    @if ($field === 'year') inputmode="numeric" maxlength="4" @else maxlength="255" @endif
+                    @if ($field === 'year') inputmode="numeric" pattern="[0-9]{4}" maxlength="4"
+                    @elseif ($field === 'mileage_km') inputmode="numeric" pattern="[0-9]+" maxlength="10"
+                    @elseif ($field === 'fuel_type') maxlength="100"
+                    @else maxlength="255" @endif
                     @required($required) @error($field) aria-invalid="true" aria-describedby="{{ $field }}-error" @enderror>
                 @error($field)
                     <div class="invalid-feedback" id="{{ $field }}-error">{{ $message }}</div>

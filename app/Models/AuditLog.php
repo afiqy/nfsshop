@@ -4,8 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class AuditLog extends Model
 {
@@ -41,7 +41,8 @@ class AuditLog extends Model
     public static function record(string $event, Model $model, ?User $user = null, array $payload = []): self
     {
         $request = request();
-        return static::create([
+
+        return static::on(config('tenancy.database.central_connection'))->create([
             'auditable_type' => $model->getMorphClass(),
             'auditable_id' => $model->getKey(),
             'user_id' => $user?->id,

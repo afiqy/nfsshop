@@ -85,7 +85,14 @@
                         @forelse ($vehicleRequests as $vehicleRequest)
                             <tr>
                                 <td>{{ $vehicleRequest->customer->short_name ?: $vehicleRequest->customer->name }}</td>
-                                <td>{{ $vehicleRequest->brand }} {{ $vehicleRequest->model }}{{ $vehicleRequest->year ? ' · '.$vehicleRequest->year : '' }}{{ $vehicleRequest->color ? ' · '.$vehicleRequest->color : '' }}</td>
+                                <td>{{ $vehicleRequest->brand }} {{ $vehicleRequest->model }}{{ $vehicleRequest->year ? ' · '.$vehicleRequest->year : '' }}{{ $vehicleRequest->color ? ' · '.$vehicleRequest->color : '' }}
+                                    @if ($vehicleRequest->mileage_km !== null)
+                                        <span class="d-block">{{ number_format($vehicleRequest->mileage_km) }} km</span>
+                                    @endif
+                                    @if ($vehicleRequest->fuel_type)
+                                        <span class="d-block">{{ $vehicleRequest->fuel_type }}</span>
+                                    @endif
+                                </td>
                                 <td>{{ $vehicleRequest->plate_number }}<span class="d-block text-muted">Chassis: {{ $vehicleRequest->chassis_number }}</span><span class="d-block text-muted">Engine: {{ $vehicleRequest->engine_number }}</span></td>
                                 <td>{{ $vehicleRequest->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }}</td>
                                 <td>

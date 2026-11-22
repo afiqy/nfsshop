@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -17,7 +18,7 @@ class CustomerPortalController extends Controller
 {
     public const MAX_SELF_SERVICE_VEHICLES = 5;
 
-    public function index(Request $request): View
+    public function index(Request $request): Response
     {
         $customer = $request->user()->status === User::STATUS_ACTIVE
             ? Customer::query()->where('portal_user_id', $request->user()->id)->first()
@@ -93,18 +94,19 @@ class CustomerPortalController extends Controller
         return redirect()->route('client.portal')->with('success', 'Additional vehicle request sent to the workshop.');
     }
 
-    public function history(Request $request, string $vehicle): View
+    public function history(Request $request, string $vehicle): Response
     {
         $customer = $this->activeCustomer($request);
         $vehicle = $customer->vehicles()->findOrFail($vehicle);
 
         return response()->view('customer-portal.history', [
             'vehicle' => $vehicle,
-            'appointments' => $vehicle->appointments()->latest('start')->latest('id')
+            'appointments' => $vehicle->appointments()->where('customer_id', $customer->id)->latest('start')->latest('id')
                 ->paginate(10, ['*'], 'appointments_page')->withQueryString(),
-            'jobs' => $vehicle->jobCards()->latest('id')
+            'jobs' => $vehicle->jobCards()->where('customer_id', $customer->id)->latest('id')
                 ->paginate(10, ['*'], 'jobs_page')->withQueryString(),
-            'invoices' => $vehicle->invoices()->withSum('payments as paid_sen', 'amount_sen')->latest('id')
+            'invoices' => $vehicle->invoices()->where('customer_id', $customer->id)
+                ->withSum('payments as paid_sen', 'amount_sen')->latest('id')
                 ->paginate(10, ['*'], 'invoices_page')->withQueryString(),
         ])->header('Cache-Control', 'private, no-store');
     }
@@ -123,6 +125,8 @@ class CustomerPortalController extends Controller
             'model' => ['required', 'string', 'max:255'],
             'year' => ['nullable', 'digits:4'],
             'color' => ['nullable', 'string', 'max:255'],
+            'mileage_km' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'fuel_type' => ['nullable', 'string', 'max:100'],
         ];
 
         foreach (['plate_number', 'chassis_number', 'engine_number'] as $field) {

@@ -6,6 +6,11 @@
     <a href="{{ route('client.portal') }}">Back to my account</a>
     <h1 class="h3 mt-2">Service history: {{ $vehicle->plate_number }}</h1>
     <p>{{ $vehicle->brand }} {{ $vehicle->model }}{{ $vehicle->year ? ' · '.$vehicle->year : '' }}{{ $vehicle->color ? ' · '.$vehicle->color : '' }}</p>
+    <p>
+        Mileage: {{ $vehicle->mileage_km !== null ? number_format($vehicle->mileage_km).' km' : 'Not provided' }}
+        &middot; Fuel type: {{ $vehicle->fuel_type ?? 'Not provided' }}
+    </p>
+    <p>Only service records associated with your customer record are shown.</p>
 
     <section class="card shadow-sm p-3 mb-3" aria-labelledby="appointments">
         <h2 class="h5" id="appointments">Appointments</h2>

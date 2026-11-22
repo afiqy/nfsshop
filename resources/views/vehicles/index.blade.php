@@ -19,6 +19,7 @@
                     <tr>
                         <th scope="col">Plate number</th>
                         <th scope="col">Make and model</th>
+                        <th scope="col">Details</th>
                         <th scope="col">Customer</th>
                         <th scope="col">Actions</th>
                     </tr>
@@ -28,6 +29,15 @@
                         <tr>
                             <td>{{ $vehicle->plate_number }}</td>
                             <td>{{ $vehicle->brand }} {{ $vehicle->model }}</td>
+                            <td>
+                                {{ $vehicle->year ?? 'Year not provided' }}{{ $vehicle->color ? ' · '.$vehicle->color : '' }}
+                                @if ($vehicle->mileage_km !== null)
+                                    <span class="d-block">{{ number_format($vehicle->mileage_km) }} km</span>
+                                @endif
+                                @if ($vehicle->fuel_type)
+                                    <span class="d-block">{{ $vehicle->fuel_type }}</span>
+                                @endif
+                            </td>
                             <td>{{ $vehicle->customer->name }}</td>
                             <td>
                                 <a class="mr-2" href="{{ route('vehicles.history', $vehicle) }}" aria-label="Service history for {{ $vehicle->plate_number }}">History</a>
@@ -35,7 +45,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center">No vehicles yet.</td></tr>
+                        <tr><td colspan="5" class="text-center">No vehicles yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

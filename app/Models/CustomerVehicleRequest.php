@@ -25,6 +25,8 @@ class CustomerVehicleRequest extends Model
         'model',
         'year',
         'color',
+        'mileage_km',
+        'fuel_type',
         'status',
         'decided_by_user_id',
         'decided_at',
@@ -32,6 +34,7 @@ class CustomerVehicleRequest extends Model
 
     protected $casts = [
         'decided_at' => 'datetime',
+        'mileage_km' => 'integer',
     ];
 
     public function customer()

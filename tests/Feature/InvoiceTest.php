@@ -977,6 +977,7 @@ class InvoiceTest extends TestCase
             'tenant_id' => $workshop->id,
             'status' => User::STATUS_SUSPENDED,
         ]);
+        $client->setConnection(config('tenancy.database.central_connection'));
 
         $workshop->run(function () use ($customer, $vehicle) {
             $appointment = Calendar::create([
@@ -1030,6 +1031,79 @@ class InvoiceTest extends TestCase
             ->assertSeeText('Oil change')->assertSeeText('Replace the brake pads')
             ->assertSeeText('INV-000001')->assertSeeText('RM 25.00')
             ->assertDontSeeText('Internal workshop note');
+    }
+
+    public function test_vehicle_master_details_can_be_recorded_for_unregistered_customers(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $customer = $workshop->run(fn () => Customer::create([
+            'name' => 'Walk-in Customer', 'email' => 'walkin@example.test',
+        ]));
+        $details = $this->vehicleDetails($customer) + [
+            'year' => '2020', 'color' => 'Blue', 'mileage_km' => '0', 'fuel_type' => 'Petrol',
+        ];
+        $this->actingAs($admin)->post(route('vehicles.store'), array_replace($details, [
+            'mileage_km' => '-1', 'fuel_type' => str_repeat('x', 101),
+        ]))->assertSessionHasErrors(['mileage_km', 'fuel_type']);
+        $this->post(route('vehicles.store'), array_replace($details, ['mileage_km' => '4294967296']))
+            ->assertSessionHasErrors('mileage_km');
+        $this->post(route('vehicles.store'), array_replace($details, ['customer_id' => null]))
+            ->assertSessionHasErrors('customer_id');
+        $this->post(route('vehicles.store'), $details)->assertRedirect(route('vehicles.index'));
+        $vehicle = Vehicle::query()->sole();
+        $this->assertSame(0, $vehicle->mileage_km);
+        $this->assertSame('Petrol', $vehicle->fuel_type);
+        $this->get(route('vehicles.edit', $vehicle))->assertOk()->assertSee('value="0"', false);
+        $this->get(route('vehicles.index'))->assertOk()->assertSeeText('0 km')->assertSeeText('Petrol');
+        $this->put(route('vehicles.update', $vehicle), array_replace($details, [
+            'mileage_km' => '12500', 'fuel_type' => 'Hybrid',
+        ]))->assertRedirect(route('vehicles.index'));
+        $this->assertSame(12500, $vehicle->fresh()->mileage_km);
+        $this->get(route('vehicles.history', $vehicle))->assertOk()->assertSeeText('12,500 km')->assertSeeText('Hybrid');
+    }
+
+    public function test_vehicle_history_in_the_portal_is_scoped_to_the_current_customer_after_transfer(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $oldClient = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        $newClient = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        [$oldCustomer, $newCustomer, $vehicle] = $workshop->run(function () use ($oldClient, $newClient) {
+            $oldCustomer = Customer::create([
+                'name' => 'Previous customer', 'email' => 'previous@example.test', 'portal_user_id' => $oldClient->id,
+            ]);
+            $newCustomer = Customer::create([
+                'name' => 'Current customer', 'email' => 'current@example.test', 'portal_user_id' => $newClient->id,
+            ]);
+            $vehicle = Vehicle::create($this->vehicleDetails($oldCustomer));
+            foreach ([[$oldCustomer, 'Previous'], [$newCustomer, 'Current']] as [$customer, $label]) {
+                Calendar::create([
+                    'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+                    'title' => $label.' appointment', 'start' => '2026-11-18 09:00:00',
+                    'end' => '2026-11-18 10:00:00', 'status' => Calendar::STATUS_SCHEDULED,
+                ]);
+                JobCard::create([
+                    'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+                    'description' => $label.' job', 'status' => JobCard::COMPLETED,
+                ]);
+                Invoice::create([
+                    'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+                    'workshop_name' => 'Beta Workshop', 'customer_name' => $customer->name,
+                    'items' => [], 'total_sen' => 1000,
+                ]);
+            }
+
+            return [$oldCustomer, $newCustomer, $vehicle];
+        });
+        $this->actingAs($admin)->put(route('vehicles.update', $vehicle), array_replace(
+            $this->vehicleDetails($oldCustomer), ['customer_id' => $newCustomer->id]
+        ))->assertRedirect(route('vehicles.index'));
+        $this->get(route('vehicles.history', $vehicle))->assertOk()
+            ->assertSeeText('Previous job')->assertSeeText('Current job');
+        $this->actingAs($newClient)->get(route('client.vehicles.history', $vehicle))->assertOk()
+            ->assertSeeText('Current appointment')->assertSeeText('Current job')->assertSeeText('INV-000002')
+            ->assertDontSeeText('Previous appointment')->assertDontSeeText('Previous job')->assertDontSeeText('INV-000001');
+        $this->actingAs($oldClient)->get(route('client.vehicles.history', $vehicle))->assertNotFound();
+        $this->get(route('client.invoices.index'))->assertOk()->assertSeeText('INV-000001')->assertDontSeeText('INV-000002');
     }
 
     public function test_unregistered_customer_records_and_other_customers_vehicles_are_not_visible_in_the_portal(): void
@@ -1102,6 +1176,10 @@ class InvoiceTest extends TestCase
                 'portal_user_id' => $client->id,
             ]);
         });
+        $this->actingAs($client)->post(route('client.vehicles.store'), [
+            'plate_number' => 'BAD-FLEET', 'chassis_number' => 'BAD-CHASSIS', 'engine_number' => 'BAD-ENGINE',
+            'brand' => 'Sample', 'model' => 'Car', 'mileage_km' => '-1', 'fuel_type' => str_repeat('x', 101),
+        ])->assertSessionHasErrors(['mileage_km', 'fuel_type']);
         for ($index = 1; $index <= 5; $index++) {
             $this->actingAs($client)->post(route('client.vehicles.store'), [
                 'plate_number' => "FLEET{$index}",
@@ -1109,9 +1187,12 @@ class InvoiceTest extends TestCase
                 'engine_number' => "FLEET-ENGINE-{$index}",
                 'brand' => 'Sample',
                 'model' => 'Car',
+                'mileage_km' => '12000',
+                'fuel_type' => 'Electric',
             ])->assertRedirect(route('client.portal'));
         }
         $this->assertSame(5, $workshop->run(fn () => $customer->vehicles()->count()));
+        $this->actingAs($client)->get(route('client.portal'))->assertOk()->assertSeeText('12,000 km')->assertSeeText('Electric');
         $extraVehicle = [
             'plate_number' => 'FLEET6',
             'chassis_number' => 'FLEET-CHASSIS-6',
@@ -1120,6 +1201,8 @@ class InvoiceTest extends TestCase
             'model' => 'Car',
             'year' => '2024',
             'color' => 'Blue',
+            'mileage_km' => '23456',
+            'fuel_type' => 'Diesel',
         ];
 
         $this->actingAs($client)->get(route('client.vehicle.create'))
@@ -1136,6 +1219,9 @@ class InvoiceTest extends TestCase
             ->assertRedirect(route('client-accounts.index'));
         $this->assertSame(CustomerVehicleRequest::APPROVED, $request->fresh()->status);
         $this->assertSame(6, $workshop->run(fn () => $customer->vehicles()->count()));
+        $approved = $workshop->run(fn () => Vehicle::where('plate_number', 'FLEET6')->firstOrFail());
+        $this->assertSame(23456, $approved->mileage_km);
+        $this->assertSame('Diesel', $approved->fuel_type);
 
         $extraVehicle['plate_number'] = 'FLEET7';
         $extraVehicle['chassis_number'] = 'FLEET-CHASSIS-7';

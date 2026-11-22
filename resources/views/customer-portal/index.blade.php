@@ -53,7 +53,14 @@
                             <tr>
                                 <td>{{ $vehicle->brand }} {{ $vehicle->model }}</td>
                                 <td>{{ $vehicle->plate_number }}</td>
-                                <td>{{ $vehicle->year ?? 'Year not provided' }}{{ $vehicle->color ? ' · '.$vehicle->color : '' }}</td>
+                                <td>{{ $vehicle->year ?? 'Year not provided' }}{{ $vehicle->color ? ' · '.$vehicle->color : '' }}
+                                    @if ($vehicle->mileage_km !== null)
+                                        <span class="d-block">{{ number_format($vehicle->mileage_km) }} km</span>
+                                    @endif
+                                    @if ($vehicle->fuel_type)
+                                        <span class="d-block">{{ $vehicle->fuel_type }}</span>
+                                    @endif
+                                </td>
                                 <td><a href="{{ route('client.vehicles.history', $vehicle) }}">View service history</a></td>
                             </tr>
                         @empty

@@ -6,6 +6,11 @@
     <a href="{{ route('vehicles.index') }}">Back to vehicles</a>
     <h1 class="h3 mt-2">Service history: {{ $vehicle->plate_number }}</h1>
     <p>{{ $vehicle->brand }} {{ $vehicle->model }} &middot; Current customer: {{ $vehicle->customer->name }}</p>
+    <p>
+        Year: {{ $vehicle->year ?? 'Not provided' }} &middot; Colour: {{ $vehicle->color ?? 'Not provided' }}<br>
+        Mileage: {{ $vehicle->mileage_km !== null ? number_format($vehicle->mileage_km).' km' : 'Not provided' }}
+        &middot; Fuel type: {{ $vehicle->fuel_type ?? 'Not provided' }}
+    </p>
     <p>All dates and times are shown in Malaysia time (MYT).</p>
 
     <section class="card shadow-sm p-3 mb-3" aria-labelledby="appointments">

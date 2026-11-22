@@ -11,7 +11,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Client account and self-service portal: workshop-admin-confirmed email linking, client-owned vehicle records (five self-service vehicles), approval requests for additional vehicles, and read-only service history.
 - [x] Customer records: workshop-scoped list, create and edit, short-name aliases and search.
 - [x] Vehicle records: workshop-scoped list, create and edit, customer linkage.
-- [ ] Complete vehicle master data: year, colour, mileage, fuel type and owner assignment for unregistered clients.
+- [x] Vehicle master data: year, colour, mileage and fuel type, with assignment to registered or workshop-only customer records; portal history is customer-scoped.
 - [x] Appointment scheduling: workshop calendar, Malaysia-time booking/rescheduling/cancellation, same-vehicle conflict prevention.
 - [ ] Client appointment self-service and booking/confirmation/reminder notifications.
 - [x] Job cards: create from a vehicle or appointment, track open/in-progress/completed states.
@@ -100,8 +100,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Workshop QR payment setup and payment-proof workflow; customer proofs reserve invoice balance and require admin approval, while admin-uploaded proofs record received payments immediately.
 - [x] Partial/full refunds and credit notes for recorded payments, with external-transfer recording, printable documents and customer-credit balance tracking.
 - [x] Workshop-opted-in email payment reminders with Malaysia-time scheduling and tenant-scoped delivery history.
+- [x] Vehicle master mileage and fuel type for workshop and client workflows, with customer-scoped portal history after ownership changes.
 
 ## Next recommended module
 
-- [ ] Complete vehicle master data: year, colour, mileage, fuel type and owner assignment for unregistered clients.
+- [ ] Staff account administration: safe workshop-scoped invitations, activation/suspension and permission management.
 

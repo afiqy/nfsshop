@@ -16,7 +16,7 @@ class CustomerAccountController extends Controller
     public function index(): View
     {
         $tenantId = tenant('id');
-        $users = User::query()->where('tenant_id', $tenantId)
+        $users = User::on(config('tenancy.database.central_connection'))->where('tenant_id', $tenantId)
             ->where('role', User::ROLE_CLIENT)->orderBy('name')->get();
         $linkedUserIds = Customer::query()->whereNotNull('portal_user_id')
             ->pluck('portal_user_id')->map(fn ($id) => (int) $id)->all();
@@ -39,7 +39,7 @@ class CustomerAccountController extends Controller
 
     public function activate(string $user): RedirectResponse
     {
-        $user = User::query()->where('tenant_id', tenant('id'))
+        $user = User::on(config('tenancy.database.central_connection'))->where('tenant_id', tenant('id'))
             ->where('role', User::ROLE_CLIENT)->findOrFail($user);
         $email = strtolower(trim($user->email));
 
@@ -89,7 +89,7 @@ class CustomerAccountController extends Controller
             $customer = Customer::query()->lockForUpdate()->findOrFail($request->customer_id);
             abort_unless((int) $customer->portal_user_id === (int) $request->requested_by_user_id, 409);
             $vehicleDetails = $request->only([
-                'plate_number', 'chassis_number', 'engine_number', 'brand', 'model', 'year', 'color',
+                'plate_number', 'chassis_number', 'engine_number', 'brand', 'model', 'year', 'color', 'mileage_km', 'fuel_type',
             ]);
             foreach (['plate_number', 'chassis_number', 'engine_number'] as $field) {
                 $exists = Vehicle::query()->where($field, $vehicleDetails[$field])->exists();

@@ -18,6 +18,8 @@
                 'model' => ['Model', 255, true],
                 'year' => ['Year (optional)', 4, false],
                 'color' => ['Color (optional)', 255, false],
+                'mileage_km' => ['Mileage in km (optional)', 10, false],
+                'fuel_type' => ['Fuel type (optional)', 100, false],
             ];
             $selectedCustomer = old('customer_id', $vehicle->customer_id);
         @endphp
@@ -30,6 +32,7 @@
 
             <div class="form-group">
                 <label for="customer_id">Customer</label>
+                <p class="small text-muted">Unregistered customers can use a workshop customer record. If ownership changes, each customer can only see service records made for them.</p>
                 <select id="customer_id" name="customer_id" class="form-control @error('customer_id') is-invalid @enderror"
                     @error('customer_id') aria-invalid="true" aria-describedby="customer_id-error" @enderror required>
                     <option value="">Select a customer</option>
@@ -49,8 +52,9 @@
                 <div class="form-group">
                     <label for="{{ $field }}">{{ $label }}</label>
                     <input id="{{ $field }}" name="{{ $field }}" type="text" maxlength="{{ $maxLength }}"
-                        value="{{ is_string($value) ? $value : '' }}" class="form-control @error($field) is-invalid @enderror"
+                        value="{{ is_scalar($value) ? $value : '' }}" class="form-control @error($field) is-invalid @enderror"
                         @if ($field === 'year') inputmode="numeric" pattern="[0-9]{4}" @endif
+                        @if ($field === 'mileage_km') inputmode="numeric" pattern="[0-9]+" @endif
                         @required($required) @error($field) aria-invalid="true" aria-describedby="{{ $field }}-error" @enderror>
                     @error($field)
                         <div class="invalid-feedback" id="{{ $field }}-error">{{ $message }}</div>

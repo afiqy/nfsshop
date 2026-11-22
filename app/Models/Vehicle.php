@@ -13,9 +13,11 @@ class Vehicle extends Model
     use TenantConnection;
 
     protected $fillable = [
-        'customer_id', 'plate_number', 'chassis_number', 
-        'engine_number', 'brand', 'model', 'year', 'color'
+        'customer_id', 'plate_number', 'chassis_number',
+        'engine_number', 'brand', 'model', 'year', 'color', 'mileage_km', 'fuel_type',
     ];
+
+    protected $casts = ['mileage_km' => 'integer'];
 
     public function customer()
     {

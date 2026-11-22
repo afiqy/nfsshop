@@ -76,6 +76,8 @@ class VehicleController extends Controller
             'model' => ['required', 'string', 'max:255'],
             'year' => ['nullable', 'digits:4'],
             'color' => ['nullable', 'string', 'max:255'],
+            'mileage_km' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'fuel_type' => ['nullable', 'string', 'max:100'],
         ];
 
         foreach (['plate_number', 'chassis_number', 'engine_number'] as $field) {
