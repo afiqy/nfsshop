@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\InvoicePaymentSubmission;
+use App\Models\PaymentReminderSetting;
 use App\Models\Vehicle;
 use App\Models\WorkshopPaymentQr;
 use App\Services\InvoiceLifecycleService;
@@ -37,6 +38,7 @@ class InvoiceController extends Controller
             'overdueOnly' => $overdueOnly,
             'pendingPaymentProofs' => InvoicePaymentSubmission::query()
                 ->where('status', InvoicePaymentSubmission::STATUS_PENDING)->count(),
+            'remindersEnabled' => PaymentReminderSetting::query()->findOrFail(1)->enabled,
             'today' => $today,
         ]);
     }
@@ -98,6 +100,8 @@ class InvoiceController extends Controller
         return view('invoices.show', [
             'invoice' => $invoice,
             'emailDeliveries' => $invoice->emailDeliveries()->latest('id')->paginate(10, ['*'], 'email_page'),
+            'paymentReminders' => $invoice->paymentReminders()->with(['attempts' => fn ($query) => $query->orderBy('id')])->latest('id')
+                ->paginate(10, ['*'], 'reminders_page'),
             'payments' => $invoice->payments()->withSum('refunds as refunded_sen', 'amount_sen')
                 ->latest('id')->paginate(15),
             'refunds' => $invoice->refunds()->with('payment')->latest('id')->paginate(10, ['*'], 'refunds_page'),
@@ -143,7 +147,7 @@ class InvoiceController extends Controller
             }
 
             $paid = (int) $record->payments()->sum('amount_sen');
-            $refunded = (int) $record->refunds()->sum('amount_sen');
+            $refunded = (int) $record->refunds()->sum('invoice_refunds.amount_sen');
             $credited = (int) $record->creditNotes()->sum('amount_sen');
             if ($amount > $record->balanceDue($paid, $refunded, $credited)) {
                 throw ValidationException::withMessages(['amount' => 'The payment exceeds the outstanding balance.']);

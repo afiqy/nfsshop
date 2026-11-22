@@ -31,7 +31,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Edit or void unpaid invoices with reason tracking and atomic inventory stock reconciliation; invoices with payments cannot be changed or voided.
 - [x] Partial/full refunds and credit notes for invoices with recorded payments; immutable records preserve original payments/invoices and track customer credit.
 - [x] Email invoice sending through configured transport, with manual retries and tenant-scoped per-attempt audit history.
-- [ ] Payment reminder policy, scheduling and delivery tracking.
+- [x] Opt-in email payment reminders on the due date and 7/14 days overdue, with pending-proof pauses, manual retries and per-attempt history.
 - [x] Vehicle service history: linked appointments, job cards and invoices.
 - [x] Workshop dashboard: workshop/plan, today's appointments, open and overdue jobs, balances, overdue balances and quick actions.
 - [x] Per-admin payment preferences: up to two gateways plus offline methods.
@@ -99,8 +99,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Unpaid invoice editing and voiding with inventory reconciliation; invoices with payments remain immutable and use separate adjustment records.
 - [x] Workshop QR payment setup and payment-proof workflow; customer proofs reserve invoice balance and require admin approval, while admin-uploaded proofs record received payments immediately.
 - [x] Partial/full refunds and credit notes for recorded payments, with external-transfer recording, printable documents and customer-credit balance tracking.
+- [x] Workshop-opted-in email payment reminders with Malaysia-time scheduling and tenant-scoped delivery history.
 
 ## Next recommended module
 
-- [ ] Payment reminder policy, scheduling and delivery tracking.
+- [ ] Complete vehicle master data: year, colour, mileage, fuel type and owner assignment for unregistered clients.
 

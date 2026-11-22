@@ -27,7 +27,7 @@ class InvoiceAdjustmentService
             $refunded = (int) $lockedPayment->refunds()->sum('amount_sen');
             $remainingPayment = $lockedPayment->amount_sen - $refunded;
             $paidTotal = (int) $record->payments()->sum('amount_sen');
-            $refundedTotal = (int) $record->refunds()->sum('amount_sen');
+            $refundedTotal = (int) $record->refunds()->sum('invoice_refunds.amount_sen');
             $creditedTotal = (int) $record->creditNotes()->sum('amount_sen');
             $customerCredit = $record->customerCredit($paidTotal, $refundedTotal, $creditedTotal);
             $maximumRefund = $creditedTotal > 0

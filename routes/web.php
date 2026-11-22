@@ -16,6 +16,7 @@ use App\Http\Controllers\InvoicePaymentSubmissionController;
 use App\Http\Controllers\JobCardController;
 use App\Http\Controllers\MyInvoisPreparationController;
 use App\Http\Controllers\PaymentPreferenceController;
+use App\Http\Controllers\PaymentReminderController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\RoleController;
@@ -167,6 +168,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::patch('client-vehicle-requests/{vehicleRequest}/reject', [CustomerAccountController::class, 'rejectVehicleRequest'])
                 ->name('client-vehicle-requests.reject');
             Route::resource('invoices', InvoiceController::class)->only(['index', 'create', 'store', 'show', 'edit', 'update']);
+            Route::put('payment-reminders/settings', [PaymentReminderController::class, 'update'])
+                ->name('payment-reminders.settings');
+            Route::post('invoices/{invoice}/payment-reminders/{reminder}/retry', [PaymentReminderController::class, 'retry'])
+                ->name('invoices.payment-reminders.retry');
             Route::patch('invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
             Route::post('invoices/{invoice}/email-deliveries', [InvoiceEmailDeliveryController::class, 'store'])
                 ->name('invoices.email-deliveries.store');

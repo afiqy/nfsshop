@@ -64,6 +64,11 @@ class Invoice extends Model
         return $this->hasMany(InvoiceEmailDelivery::class);
     }
 
+    public function paymentReminders(): HasMany
+    {
+        return $this->hasMany(InvoicePaymentReminder::class);
+    }
+
     public function paymentSubmissions(): HasMany
     {
         return $this->hasMany(InvoicePaymentSubmission::class);

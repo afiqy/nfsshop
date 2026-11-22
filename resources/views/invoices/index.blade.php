@@ -8,6 +8,31 @@
         <a href="{{ route('invoices.create') }}" class="btn btn-primary">New invoice</a>
     </div>
 
+    @if (session('success'))
+        <p role="status">{{ session('success') }}</p>
+    @endif
+    @if ($errors->any())
+        <ul role="alert">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    @endif
+    <section class="mb-3" aria-labelledby="reminder-settings-heading">
+        <h2 class="h5" id="reminder-settings-heading">Payment reminders</h2>
+        <p>Email reminders are sent on the due date and 7 and 14 days overdue, only while a balance remains.
+            Pending payment proofs pause reminders. Failed attempts can be retried from the invoice.</p>
+        <form action="{{ route('payment-reminders.settings') }}" method="POST">
+            @csrf
+            @method('PUT')
+            <label for="reminders-enabled">Automatic reminders</label>
+            <select id="reminders-enabled" name="enabled">
+                <option value="0" @selected(! $remindersEnabled)>Off</option>
+                <option value="1" @selected($remindersEnabled)>On</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-secondary">Save reminder setting</button>
+        </form>
+    </section>
     <p>
         <a href="{{ route('payment-submissions.index') }}">Pending payment proofs</a>
         <span class="badge badge-secondary">{{ $pendingPaymentProofs }}</span>

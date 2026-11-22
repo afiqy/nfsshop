@@ -13,6 +13,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('audit:prune')->daily();
+        $schedule->command('invoices:send-payment-reminders')->hourly()->withoutOverlapping();
     }
 
     /**

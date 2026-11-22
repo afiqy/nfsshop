@@ -14,7 +14,7 @@
         .description { overflow-wrap: anywhere; }
         .void-stamp { border: 3px solid #a00; color: #a00; display: inline-block; font-size: 1.5rem; font-weight: bold; padding: .25rem .75rem; transform: rotate(-4deg); }
         @media print {
-            nav, [role="status"], #payments { display: none; }
+            nav, [role="status"], #payments, #payment-reminders, #invoice-email { display: none; }
             body { margin: 0; max-width: none; }
             thead { display: table-header-group; }
             tfoot { display: table-row-group; }
@@ -111,7 +111,7 @@
             </section>
         @endif
         <p>Beta test document — not submitted to MyInvois.</p>
-        <section aria-labelledby="invoice-email-heading">
+        <section id="invoice-email" aria-labelledby="invoice-email-heading">
             <h2 id="invoice-email-heading">Invoice email delivery</h2>
             @if (! $invoice->isVoided())
                 @if (filter_var($invoice->customer?->email, FILTER_VALIDATE_EMAIL))
@@ -169,6 +169,47 @@
             </table>
             {{ $emailDeliveries->links() }}
             <p>Transport acceptance does not confirm inbox delivery. Failed attempts can be retried; every attempt is recorded.</p>
+        </section>
+        <section id="payment-reminders" aria-labelledby="payment-reminders-heading">
+            <h2 id="payment-reminders-heading">Payment reminder history</h2>
+            <p>Accepted means the mail transport accepted the message, not that it reached the inbox.
+                If an attempt remains sending, its outcome is unknown; check the mail provider before taking further action.</p>
+            @forelse ($paymentReminders as $reminder)
+                <h3>
+                    {{ $reminder->days_overdue === 0 ? 'Due date' : $reminder->days_overdue.' days overdue' }}
+                    (due {{ $reminder->due_date->format('d M Y') }})
+                </h3>
+                <table>
+                    <thead><tr><th scope="col">Attempted (MYT)</th><th scope="col">Recipient</th><th scope="col">Status</th><th scope="col">Requested by</th></tr></thead>
+                    <tbody>
+                        @foreach ($reminder->attempts as $attempt)
+                            <tr>
+                                <td>{{ $attempt->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</td>
+                                <td>{{ $attempt->recipient_email ?? '—' }}</td>
+                                <td>
+                                    @if ($attempt->status === \App\Models\InvoicePaymentReminderAttempt::SENT)
+                                        Accepted by mail transport
+                                    @elseif ($attempt->status === \App\Models\InvoicePaymentReminderAttempt::FAILED)
+                                        Failed: {{ $attempt->failure_message }}
+                                    @else
+                                        Sending / outcome unknown
+                                    @endif
+                                </td>
+                                <td>{{ $attempt->requested_by_user_id ? 'User #'.$attempt->requested_by_user_id : 'Scheduled' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                @if ($reminder->attempts->last()?->status === \App\Models\InvoicePaymentReminderAttempt::FAILED)
+                    <form action="{{ route('invoices.payment-reminders.retry', [$invoice, $reminder]) }}" method="POST">
+                        @csrf
+                        <button type="submit">Retry failed reminder</button>
+                    </form>
+                @endif
+            @empty
+                <p>No payment reminder attempts yet.</p>
+            @endforelse
+            {{ $paymentReminders->links() }}
         </section>
         <section id="payments" aria-labelledby="payments-heading">
             <h2 id="payments-heading">Payments</h2>

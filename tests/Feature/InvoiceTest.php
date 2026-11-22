@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\InvoiceEmail;
+use App\Mail\InvoicePaymentReminderEmail;
 use App\Models\AccountSubscription;
 use App\Models\Calendar;
 use App\Models\Customer;
@@ -12,6 +13,8 @@ use App\Models\InventoryMovement;
 use App\Models\Invoice;
 use App\Models\InvoiceCreditNote;
 use App\Models\InvoiceEmailDelivery;
+use App\Models\InvoicePaymentReminder;
+use App\Models\InvoicePaymentReminderAttempt;
 use App\Models\InvoicePaymentSubmission;
 use App\Models\JobCard;
 use App\Models\JobCardPart;
@@ -1612,7 +1615,7 @@ class InvoiceTest extends TestCase
         $this->assertSame(2000, $payment->fresh()->amount_sen);
         $this->assertSame(1010, $invoice->fresh()->balanceDue(
             (int) $invoice->payments()->sum('amount_sen'),
-            (int) $invoice->refunds()->sum('amount_sen')
+            (int) $invoice->refunds()->sum('invoice_refunds.amount_sen')
         ));
         $this->get(route('invoices.refunds.show', [$invoice, $refund]))->assertOk()
             ->assertSeeText($refund->number())
@@ -1634,7 +1637,7 @@ class InvoiceTest extends TestCase
         ])->assertRedirect();
         $this->assertSame(810, $invoice->fresh()->balanceDue(
             (int) $invoice->payments()->sum('amount_sen'),
-            (int) $invoice->refunds()->sum('amount_sen'),
+            (int) $invoice->refunds()->sum('invoice_refunds.amount_sen'),
             (int) $invoice->creditNotes()->sum('amount_sen')
         ));
         $this->get(route('invoices.index', ['status' => 'overdue']))->assertOk()->assertSeeText('RM 8.10');
@@ -1721,6 +1724,136 @@ class InvoiceTest extends TestCase
         $this->get($show)->assertOk()->assertSeeText('Failed:')->assertSeeText('Accepted by mail transport');
     }
 
+    public function test_payment_reminders_are_opt_in_scheduled_once_and_pause_for_pending_proofs(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-22 09:00:00', 'Asia/Kuala_Lumpur'));
+        Mail::fake();
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin, $otherWorkshop] = $this->createWorkshop();
+        AccountSubscription::query()->whereIn('user_id', [$admin->id, $otherAdmin->id])
+            ->update(['current_period_ends_at' => now()->addDays(30)]);
+        $invoice = $workshop->run(function () {
+            $customer = Customer::create(['name' => 'Reminder Customer', 'email' => 'reminder@example.test']);
+
+            $paid = Invoice::create([
+                'customer_id' => $customer->id, 'customer_name' => $customer->name, 'workshop_name' => 'Beta Workshop',
+                'due_date' => '2026-11-22', 'items' => [], 'total_sen' => 10000,
+            ]);
+            $paid->payments()->create(['amount_sen' => 10000, 'recorded_by_user_id' => 1]);
+            $credited = Invoice::create([
+                'customer_id' => $customer->id, 'customer_name' => $customer->name, 'workshop_name' => 'Beta Workshop',
+                'due_date' => '2026-11-22', 'items' => [], 'total_sen' => 10000,
+            ]);
+            $credited->creditNotes()->create(['amount_sen' => 10000, 'reason' => 'Full credit', 'issued_by_user_id' => 1]);
+            Invoice::create([
+                'customer_id' => $customer->id, 'customer_name' => $customer->name, 'workshop_name' => 'Beta Workshop',
+                'due_date' => '2026-11-22', 'items' => [], 'total_sen' => 10000, 'status' => Invoice::STATUS_VOIDED,
+            ]);
+            Invoice::create([
+                'customer_id' => $customer->id, 'customer_name' => $customer->name, 'workshop_name' => 'Beta Workshop',
+                'items' => [], 'total_sen' => 10000,
+            ]);
+
+            return Invoice::create([
+                'customer_id' => $customer->id, 'customer_name' => $customer->name, 'workshop_name' => 'Beta Workshop',
+                'due_date' => '2026-11-22', 'items' => [], 'total_sen' => 10000,
+            ]);
+        });
+        $otherWorkshop->run(function () {
+            $customer = Customer::create(['name' => 'Other Customer', 'email' => 'other@example.test']);
+            Invoice::create([
+                'customer_id' => $customer->id, 'customer_name' => $customer->name, 'workshop_name' => 'Other Workshop',
+                'due_date' => '2026-11-22', 'items' => [], 'total_sen' => 10000,
+            ]);
+        });
+        $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
+        Mail::assertNothingSent();
+
+        $this->actingAs($otherAdmin)->put(route('payment-reminders.settings'), ['enabled' => 1])->assertRedirect();
+        AccountSubscription::query()->where('user_id', $otherAdmin->id)->update(['current_period_ends_at' => now()->subMinute()]);
+        $this->actingAs($admin)->put(route('payment-reminders.settings'), ['enabled' => 1])->assertRedirect();
+        $submission = $workshop->run(fn () => $invoice->paymentSubmissions()->create([
+            'submitted_by_user_id' => $admin->id, 'payment_method' => 'Bank', 'amount_sen' => 1000,
+            'proof_path' => 'test-proof', 'proof_mime_type' => 'application/pdf',
+            'status' => InvoicePaymentSubmission::STATUS_PENDING,
+        ]));
+        $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
+        Mail::assertNothingSent();
+        $workshop->run(fn () => $submission->update(['status' => InvoicePaymentSubmission::STATUS_REJECTED]));
+
+        $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
+        $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
+        Mail::assertSent(InvoicePaymentReminderEmail::class, 1);
+        Mail::assertSent(InvoicePaymentReminderEmail::class, fn ($mail) => $mail->hasTo('reminder@example.test')
+            && $mail->balanceSen === 10000 && str_contains($mail->render(), 'RM 100.00'));
+        $this->assertSame(0, $otherWorkshop->run(fn () => InvoicePaymentReminder::count()));
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-29 10:00:00', 'Asia/Kuala_Lumpur'));
+        $workshop->run(function () use ($invoice, $admin) {
+            $payment = $invoice->payments()->create(['amount_sen' => 4000, 'recorded_by_user_id' => $admin->id]);
+            $payment->refunds()->create(['amount_sen' => 500, 'reason' => 'Partial refund', 'refunded_by_user_id' => $admin->id]);
+            $invoice->creditNotes()->create(['amount_sen' => 1000, 'reason' => 'Adjustment', 'issued_by_user_id' => $admin->id]);
+        });
+        $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
+        Mail::assertSent(InvoicePaymentReminderEmail::class, fn ($mail) => $mail->balanceSen === 5500);
+        $this->travelTo(CarbonImmutable::parse('2026-12-06 10:00:00', 'Asia/Kuala_Lumpur'));
+        $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
+        Mail::assertSent(InvoicePaymentReminderEmail::class, 3);
+        $this->assertSame([0, 7, 14], $workshop->run(fn () => $invoice->paymentReminders()
+            ->orderBy('id')->pluck('days_overdue')->map(fn ($value) => (int) $value)->all()));
+    }
+
+    public function test_failed_reminder_retry_checks_eligibility_and_records_each_attempt(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-22 09:00:00', 'Asia/Kuala_Lumpur'));
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $mechanic = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $invoice = $workshop->run(function () {
+            $customer = Customer::create(['name' => 'Reminder Customer', 'email' => 'retry@example.test']);
+
+            return Invoice::create([
+                'customer_id' => $customer->id, 'customer_name' => $customer->name, 'workshop_name' => 'Beta Workshop',
+                'due_date' => '2026-11-22', 'items' => [], 'total_sen' => 10000,
+            ]);
+        });
+        $this->actingAs($admin)->put(route('payment-reminders.settings'), ['enabled' => 1])->assertRedirect();
+        Mail::shouldReceive('to')->once()->with('retry@example.test')->andThrow(new \RuntimeException('private error'));
+        $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
+        $reminder = $workshop->run(fn () => InvoicePaymentReminder::sole());
+        $attempt = $workshop->run(fn () => $reminder->attempts()->sole());
+        $this->assertSame(InvoicePaymentReminderAttempt::FAILED, $attempt->status);
+        $this->assertStringNotContainsString('private error', $attempt->failure_message);
+        $retry = route('invoices.payment-reminders.retry', [$invoice, $reminder]);
+        $show = route('invoices.show', $invoice);
+        $this->actingAs($mechanic)->post($retry)->assertForbidden();
+        $this->actingAs($otherAdmin)->post($retry)->assertNotFound();
+
+        $this->actingAs($admin)->put(route('payment-reminders.settings'), ['enabled' => 0])->assertRedirect();
+        $this->from($show)->post($retry)->assertSessionHasErrors('reminder');
+        $this->put(route('payment-reminders.settings'), ['enabled' => 1])->assertRedirect();
+        $submission = $workshop->run(fn () => $invoice->paymentSubmissions()->create([
+            'submitted_by_user_id' => $admin->id, 'payment_method' => 'Bank', 'amount_sen' => 1000,
+            'proof_path' => 'test-proof', 'proof_mime_type' => 'application/pdf',
+            'status' => InvoicePaymentSubmission::STATUS_PENDING,
+        ]));
+        $this->from($show)->post($retry)->assertSessionHasErrors('reminder');
+        $workshop->run(fn () => $submission->update(['status' => InvoicePaymentSubmission::STATUS_REJECTED]));
+        Mail::fake();
+        $workshop->run(fn () => $invoice->customer()->firstOrFail()->update(['email' => 'invalid-address']));
+        $this->post($retry)->assertRedirect($show)->assertSessionHas('error');
+        Mail::assertNothingSent();
+        $workshop->run(fn () => $invoice->customer()->firstOrFail()->update(['email' => 'retry@example.test']));
+        $this->post($retry)->assertRedirect($show)->assertSessionHas('success');
+        Mail::assertSent(InvoicePaymentReminderEmail::class, 1);
+        $this->from($show)->post($retry)->assertSessionHasErrors('reminder');
+        $this->assertSame(
+            [InvoicePaymentReminderAttempt::FAILED, InvoicePaymentReminderAttempt::FAILED, InvoicePaymentReminderAttempt::SENT],
+            $workshop->run(fn () => $reminder->attempts()->orderBy('id')->pluck('status')->all())
+        );
+        $this->get($show)->assertOk()->assertSeeText('Failed:')->assertSeeText('Accepted by mail transport');
+    }
+
     public function test_credit_notes_reduce_invoice_balance_and_refunds_consume_customer_credit(): void
     {
         [$admin, $workshop] = $this->createWorkshop();
@@ -1775,7 +1908,7 @@ class InvoiceTest extends TestCase
         $this->assertSame(0, $invoice->fresh()->customerCredit(10000, 10000, 10000));
         $this->assertSame('Credited', $invoice->fresh()->paymentStatus(10000, 10000, 10000));
         $this->assertSame(10000, (int) $invoice->payments()->sum('amount_sen'));
-        $this->assertSame(10000, (int) $invoice->refunds()->sum('amount_sen'));
+        $this->assertSame(10000, (int) $invoice->refunds()->sum('invoice_refunds.amount_sen'));
         $this->assertSame(10000, (int) $invoice->creditNotes()->sum('amount_sen'));
         $this->assertSame(10000, $invoice->fresh()->total_sen);
         $this->get(route('invoices.edit', $invoice))->assertStatus(409);
@@ -2383,6 +2516,7 @@ class InvoiceTest extends TestCase
             tenancy()->end();
             foreach ($this->workshops as $workshop) {
                 $workshop->database()->manager()->deleteDatabase($workshop);
+                Tenant::query()->whereKey($workshop->id)->delete();
             }
         }
 
