@@ -17,9 +17,14 @@
                     @endforeach
                 </ul>
             </div>
+            @include('services.selection', ['allowLegacy' => true])
         @endif
         @php
             $description = old('description', $appointment?->service_type ?? $appointment?->title);
+            if (! old('description') && $appointment?->service_quote) {
+                $description = \Illuminate\Support\Str::limit($appointment->service_quote['name'].': '.collect($appointment->service_quote['services'])->pluck('name')->join(', ')
+                    .($appointment->service_quote['notes'] ? "\n".$appointment->service_quote['notes'] : ''), 4000, '');
+            }
         @endphp
         <form action="{{ route('job-cards.store') }}" method="POST" class="card shadow-sm p-3">
             @csrf

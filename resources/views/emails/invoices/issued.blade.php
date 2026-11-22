@@ -40,6 +40,7 @@
             @endforeach
         </tbody>
         <tfoot>
+            @include('invoices.pricing-rows', ['labelColumns' => 3])
             <tr>
                 <th scope="row" colspan="3">Invoice total</th>
                 <td>{{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}</td>

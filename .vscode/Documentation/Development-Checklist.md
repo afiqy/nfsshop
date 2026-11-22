@@ -14,7 +14,8 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Vehicle records: workshop-scoped list, create and edit, customer linkage.
 - [x] Vehicle master data: year, colour, mileage and fuel type, with assignment to registered or workshop-only customer records; portal history is customer-scoped.
 - [x] Appointment scheduling: workshop calendar, Malaysia-time booking/rescheduling/cancellation, same-vehicle conflict prevention.
-- [ ] Client appointment self-service and booking/confirmation/reminder notifications.
+- [x] Registered clients can request a service package or custom service selection; workshop admins confirm or reject requests.
+- [ ] Client appointment cancellation/rescheduling and booking/confirmation/reminder notifications.
 - [x] Job cards: create from a vehicle or appointment, track open/in-progress/completed states.
 - [x] Job assignment: assign/reassign active same-workshop mechanics; mechanics can access and advance only their assigned jobs.
 - [x] Mechanic personal dashboard: today's assigned appointments/jobs and assigned open-job count.
@@ -38,7 +39,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Per-admin payment preferences: up to two gateways plus offline methods.
 - [x] Stripe, toyyibPay and Billplz hosted sandbox demos. Mocked provider tests pass; live sandbox browser/webhook tests remain outstanding.
 - [ ] Live payment processing, settlement/reconciliation and production gateway webhooks.
-- [ ] Workshop services, price lists, discounts and tax settings.
+- [x] Workshop service and package price lists, optional invoice-wide percentage discounts, and invoice-specific inclusive/exclusive tax calculations (beta estimates; not MyInvois compliance).
 - [ ] Workshop reports and analytics: revenue by service, staff performance, client spend, monthly/annual summaries.
 - [ ] Client engagement: promotions, loyalty/rewards and service/renewal reminders.
 
@@ -103,8 +104,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Workshop-opted-in email payment reminders with Malaysia-time scheduling and tenant-scoped delivery history.
 - [x] Vehicle master mileage and fuel type for workshop and client workflows, with customer-scoped portal history after ownership changes.
 - [x] Staff email invitations, role and suspension management, and optional mechanic access to read-only customer and vehicle lists.
+- [x] Workshop services and packages, customer appointment requests with admin confirmation, and invoice percentage discounts and inclusive/exclusive tax snapshots.
 
 ## Next recommended module
 
-- [ ] Workshop services, price lists, discounts and tax settings.
+- [ ] Workshop reports and analytics: revenue by service, staff performance, client spend, monthly/annual summaries.
 

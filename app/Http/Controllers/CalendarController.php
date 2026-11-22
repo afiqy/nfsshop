@@ -4,15 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\Calendar;
 use App\Models\Vehicle;
+use App\Models\ServicePackage;
+use App\Models\WorkshopService;
+use App\Services\AppointmentSchedulingService;
+use App\Services\ServiceQuoteService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CalendarController extends Controller
 {
+    public function __construct(private AppointmentSchedulingService $scheduling, private ServiceQuoteService $quotes) {}
+
     public function index(Request $request): View
     {
         $validated = $request->validate(['week' => ['nullable', 'date_format:Y-m-d']]);
@@ -39,6 +44,8 @@ class CalendarController extends Controller
         return view('calendar.form', [
             'appointment' => new Calendar(),
             'vehicles' => Vehicle::with('customer')->orderBy('plate_number')->get(),
+            'services' => WorkshopService::query()->where('is_active', true)->orderBy('name')->get(),
+            'packages' => ServicePackage::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -46,19 +53,21 @@ class CalendarController extends Controller
     {
         $details = $request->validate([
             'vehicle_id' => ['required', 'integer', 'min:1'],
-            'service_type' => ['required', 'string', 'max:255'],
+            'service_type' => ['nullable', 'required_without:selection_type', 'string', 'max:255'],
         ]);
-        $slot = $this->validateSlot($request);
+        $slot = $this->scheduling->validateSlot($request);
 
-        DB::connection('tenant')->transaction(function () use ($details, $slot) {
-            $vehicle = $this->lockVehicle($details['vehicle_id']);
-            $this->ensureAvailable($vehicle, $slot);
+        DB::connection('tenant')->transaction(function () use ($details, $slot, $request) {
+            $quote = $request->filled('selection_type') ? $this->quotes->fromRequest($request) : null;
+            $vehicle = $this->scheduling->lockVehicle($details['vehicle_id']);
+            $this->scheduling->ensureAvailable($vehicle, $slot);
 
             Calendar::create($slot + [
                 'vehicle_id' => $vehicle->id,
                 'customer_id' => $vehicle->customer_id,
-                'title' => $details['service_type'],
-                'service_type' => $details['service_type'],
+                'title' => $quote['name'] ?? $details['service_type'],
+                'service_type' => $quote['name'] ?? $details['service_type'],
+                'service_quote' => $quote,
                 'status' => Calendar::STATUS_SCHEDULED,
             ]);
         }, 3);
@@ -77,13 +86,13 @@ class CalendarController extends Controller
     public function update(Request $request, string $appointment): RedirectResponse
     {
         $booking = Calendar::findOrFail($appointment);
-        $slot = $this->validateSlot($request);
+        $slot = $this->scheduling->validateSlot($request);
 
         DB::connection('tenant')->transaction(function () use ($booking, $slot) {
-            $vehicle = $this->lockVehicle($booking->vehicle_id, 'start');
+            $vehicle = $this->scheduling->lockVehicle($booking->vehicle_id, 'start');
             $current = Calendar::query()->lockForUpdate()->findOrFail($booking->id);
             $this->ensureScheduled($current);
-            $this->ensureAvailable($vehicle, $slot, $current);
+            $this->scheduling->ensureAvailable($vehicle, $slot, $current);
             $current->update($slot);
         }, 3);
 
@@ -101,44 +110,6 @@ class CalendarController extends Controller
         }, 3);
 
         return $this->returnToWeek($booking->start, 'Appointment cancelled.');
-    }
-
-    private function validateSlot(Request $request): array
-    {
-        $times = $request->validate([
-            'start' => ['bail', 'required', 'date_format:Y-m-d\TH:i'],
-            'end' => ['bail', 'required', 'date_format:Y-m-d\TH:i', 'after:start'],
-        ]);
-
-        return [
-            'start' => str_replace('T', ' ', $times['start']).':00',
-            'end' => str_replace('T', ' ', $times['end']).':00',
-        ];
-    }
-
-    private function lockVehicle(int|string|null $id, string $field = 'vehicle_id'): Vehicle
-    {
-        // All slot writers lock the vehicle first to serialize bookings for that vehicle.
-        $vehicle = Vehicle::query()->lockForUpdate()->find($id);
-        if (! $vehicle) {
-            throw ValidationException::withMessages([$field => 'The vehicle could not be found in this workshop.']);
-        }
-
-        return $vehicle;
-    }
-
-    private function ensureAvailable(Vehicle $vehicle, array $slot, ?Calendar $except = null): void
-    {
-        $overlap = Calendar::query()->where('vehicle_id', $vehicle->id)
-            ->where('status', Calendar::STATUS_SCHEDULED)
-            ->where('start', '<', $slot['end'])
-            ->whereRaw('COALESCE(`end`, `start`) > ?', [$slot['start']])
-            ->when($except, fn ($query) => $query->whereKeyNot($except->id))
-            ->exists();
-
-        if ($overlap) {
-            throw ValidationException::withMessages(['start' => 'This vehicle already has an appointment in that time slot.']);
-        }
     }
 
     private function ensureScheduled(Calendar $booking): void

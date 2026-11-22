@@ -17,8 +17,10 @@ class Calendar extends Model
 
     protected $fillable = [
         'customer_id', 'vehicle_id', 'title', 'service_type',
-        'start', 'end', 'status',
+        'start', 'end', 'status', 'service_quote',
     ];
+
+    protected $casts = ['service_quote' => 'array'];
 
     public function customer()
     {

@@ -5,7 +5,8 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Appointment calendar</h1>
-        <a href="{{ route('calendar.create') }}" class="btn btn-primary">Book appointment</a>
+        <div><a href="{{ route('appointment-requests.index') }}" class="btn btn-outline-primary">Appointment requests</a>
+        <a href="{{ route('calendar.create') }}" class="btn btn-primary">Book appointment</a></div>
     </div>
 
     @if (session('success'))
@@ -49,7 +50,13 @@
                                     <br>{{ substr($appointment->end, 0, 16) }}
                                 @endif
                             </td>
-                            <td>{{ $appointment->service_type ?? $appointment->title }}</td>
+                            <td>{{ $appointment->service_type ?? $appointment->title }}
+                                @if ($appointment->service_quote)
+                                    <br>{{ collect($appointment->service_quote['services'])->pluck('name')->join(', ') }}
+                                    <br>Estimate: {{ \App\Models\Invoice::formatAmount($appointment->service_quote['total_sen']) }}
+                                    @if ($appointment->service_quote['notes'])<br>Notes: {{ $appointment->service_quote['notes'] }}@endif
+                                @endif
+                            </td>
                             <td>{{ $appointment->customer?->name ?? 'Customer unavailable' }}<br>{{ $appointment->vehicle?->plate_number ?? 'Vehicle unavailable' }}</td>
                             <td>{{ $appointment->status }}</td>
                             <td>

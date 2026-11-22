@@ -68,6 +68,12 @@
             </dd>
             <dt>Work requested</dt>
             <dd>{!! nl2br(e($job->description)) !!}</dd>
+            @if ($job->appointment?->service_quote)
+                <dt>Requested services</dt>
+                <dd>{{ $job->appointment->service_quote['name'] }}: {{ collect($job->appointment->service_quote['services'])->pluck('name')->join(', ') }}
+                    @if ($job->appointment->service_quote['notes'])<br>{{ $job->appointment->service_quote['notes'] }}@endif
+                </dd>
+            @endif
         </dl>
         @if (! $staffView && $job->nextStatus())
             <form method="POST" action="{{ route('job-cards.assign', $job) }}" class="mb-3">

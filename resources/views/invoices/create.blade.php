@@ -84,6 +84,25 @@
                     'inventoryItems' => $inventoryItems,
                 ])
             </template>
+            @php $pricing = $invoice->pricing ?? []; @endphp
+            <div class="form-row mt-3">
+                <div class="form-group col-md-4">
+                    <label for="discount_percent">Discount (%)</label>
+                    <input id="discount_percent" name="discount_percent" type="number" min="0" max="100" step="0.01" required class="form-control" value="{{ old('discount_percent', number_format(($pricing['discount_rate'] ?? 0) / 100, 2, '.', '')) }}">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="tax_percent">Tax rate (%)</label>
+                    <input id="tax_percent" name="tax_percent" type="number" min="0" max="100" step="0.01" required class="form-control" value="{{ old('tax_percent', number_format(($pricing['tax_rate'] ?? ($invoice->exists ? 0 : $defaultTaxRate)) / 100, 2, '.', '')) }}">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="tax_mode">Tax treatment</label>
+                    <select id="tax_mode" name="tax_mode" class="form-control">
+                        <option value="exclusive" @selected(old('tax_mode', $pricing['tax_mode'] ?? 'exclusive') === 'exclusive')>Add tax to discounted total</option>
+                        <option value="inclusive" @selected(old('tax_mode', $pricing['tax_mode'] ?? 'exclusive') === 'inclusive')>Prices include tax</option>
+                    </select>
+                </div>
+            </div>
+            <p class="text-muted">Discount applies first. Tax and discount are rounded to the nearest sen. Confirm the tax treatment with your accountant.</p>
             <div class="mt-2">
                 <button type="button" class="btn btn-outline-secondary" id="add-item" hidden>Add line item</button>
                 <button type="submit" class="btn btn-primary">{{ $invoice->exists ? 'Save invoice changes' : 'Create invoice' }}</button>

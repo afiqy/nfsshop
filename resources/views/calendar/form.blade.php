@@ -37,10 +37,11 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="service_type">Service</label>
-                    <input type="text" id="service_type" name="service_type" class="form-control" maxlength="255" required
+                    <label for="service_type">Service description (when not selecting a package or custom service)</label>
+                    <input type="text" id="service_type" name="service_type" class="form-control" maxlength="255"
                         value="{{ is_string(old('service_type')) ? old('service_type') : '' }}">
                 </div>
+                @include('services.selection', ['allowLegacy' => true])
             @endif
 
             @foreach (['start' => 'Starts at', 'end' => 'Ends at'] as $field => $label)

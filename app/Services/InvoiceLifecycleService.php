@@ -114,6 +114,22 @@ class InvoiceLifecycleService
             }
 
             $isNew = ! $record->exists;
+            $previousPricing = $record->pricing ?? [];
+            $discountRate = isset($validated['discount_percent'])
+                ? Invoice::toSen((string) $validated['discount_percent']) : ($previousPricing['discount_rate'] ?? 0);
+            $taxRate = isset($validated['tax_percent'])
+                ? Invoice::toSen((string) $validated['tax_percent']) : ($previousPricing['tax_rate'] ?? 0);
+            $taxMode = $validated['tax_mode'] ?? ($previousPricing['tax_mode'] ?? 'exclusive');
+            $subtotal = array_sum(array_column($items, 'total_sen'));
+            $discount = intdiv($subtotal * $discountRate + 5000, 10000);
+            $discounted = $subtotal - $discount;
+            $tax = $taxMode === 'inclusive'
+                ? intdiv($discounted * $taxRate + intdiv(10000 + $taxRate, 2), 10000 + $taxRate)
+                : intdiv($discounted * $taxRate + 5000, 10000);
+            $pricing = [
+                'subtotal_sen' => $subtotal, 'discount_rate' => $discountRate, 'discount_sen' => $discount,
+                'tax_rate' => $taxRate, 'tax_mode' => $taxMode, 'tax_sen' => $tax,
+            ];
             $record->fill([
                 'customer_id' => $customer->id,
                 'vehicle_id' => $vehicle?->id,
@@ -125,7 +141,8 @@ class InvoiceLifecycleService
                 'vehicle_plate' => $vehicle?->plate_number,
                 'due_date' => $validated['due_date'] ?? null,
                 'items' => $items,
-                'total_sen' => array_sum(array_column($items, 'total_sen')),
+                'pricing' => $pricing,
+                'total_sen' => $discounted + ($taxMode === 'exclusive' ? $tax : 0),
                 'status' => $record->status ?: Invoice::STATUS_ISSUED,
             ]);
             $record->save();

@@ -52,6 +52,7 @@
                         </tr>
                     @endforeach
                 </tbody>
+                <tfoot>@include('invoices.pricing-rows', ['labelColumns' => 2])</tfoot>
             </table>
         </div>
     </section>

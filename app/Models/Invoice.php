@@ -28,6 +28,7 @@ class Invoice extends Model
         'vehicle_plate',
         'due_date',
         'items',
+        'pricing',
         'total_sen',
         'status',
         'voided_at',
@@ -39,6 +40,7 @@ class Invoice extends Model
 
     protected $casts = [
         'items' => 'array',
+        'pricing' => 'array',
         'total_sen' => 'integer',
         'paid_sen' => 'integer',
         'refunded_sen' => 'integer',

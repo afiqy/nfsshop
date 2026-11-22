@@ -7,8 +7,11 @@ use App\Models\InventoryItem;
 use App\Models\JobCard;
 use App\Models\JobCardPart;
 use App\Models\JobCardUpdate;
+use App\Models\ServicePackage;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\WorkshopService;
+use App\Services\ServiceQuoteService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +23,8 @@ use Illuminate\View\View;
 
 class JobCardController extends Controller
 {
+    public function __construct(private ServiceQuoteService $quotes) {}
+
     public function index(Request $request): View
     {
         $staffView = $this->isMechanic($request);
@@ -66,6 +71,8 @@ class JobCardController extends Controller
             'appointment' => $appointment,
             'vehicles' => $appointment ? collect() : Vehicle::with('customer')->orderBy('plate_number')->get(),
             'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
+            'services' => $appointment ? collect() : WorkshopService::query()->where('is_active', true)->orderBy('name')->get(),
+            'packages' => $appointment ? collect() : ServicePackage::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -79,7 +86,19 @@ class JobCardController extends Controller
         ]);
 
         $actor = $request->user();
-        $job = DB::connection('tenant')->transaction(function () use ($validated, $actor) {
+        $job = DB::connection('tenant')->transaction(function () use ($validated, $actor, $request) {
+            $description = $validated['description'];
+            if ($request->filled('selection_type')) {
+                if (isset($validated['calendar_id'])) {
+                    throw ValidationException::withMessages(['selection_type' => 'The appointment already has its service selection.']);
+                }
+                $quote = $this->quotes->fromRequest($request);
+                $description = $quote['name'].': '.collect($quote['services'])->pluck('name')->join(', ')
+                    .($quote['notes'] ? "\n".$quote['notes'] : '')."\n".$description;
+                if (mb_strlen($description) > 4000) {
+                    throw ValidationException::withMessages(['description' => 'The service selection and work description together must not exceed 4000 characters.']);
+                }
+            }
             $vehicle = Vehicle::query()->lockForUpdate()->find($validated['vehicle_id']);
             if (! $vehicle) {
                 throw ValidationException::withMessages(['vehicle_id' => 'Select a vehicle from this workshop.']);
@@ -99,7 +118,7 @@ class JobCardController extends Controller
                 'vehicle_id' => $vehicle->id,
                 'customer_id' => $vehicle->customer_id,
                 'calendar_id' => $appointment?->id,
-                'description' => $validated['description'],
+                'description' => $description,
                 'status' => JobCard::OPEN,
                 'due_date' => $validated['due_date'] ?? null,
             ]);

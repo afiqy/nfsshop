@@ -10,6 +10,7 @@ use App\Models\InvoicePaymentSubmission;
 use App\Models\PaymentReminderSetting;
 use App\Models\Vehicle;
 use App\Models\WorkshopPaymentQr;
+use App\Models\WorkshopPricingSetting;
 use App\Services\InvoiceLifecycleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -186,6 +187,7 @@ class InvoiceController extends Controller
                 ? InventoryItem::query()->orderBy('sku')->get(['id', 'sku', 'name', 'quantity'])
                 : collect(),
             'today' => CarbonImmutable::today(Calendar::TIMEZONE)->toDateString(),
+            'defaultTaxRate' => WorkshopPricingSetting::query()->find(1)?->tax_rate_basis_points ?? 0,
         ]);
     }
 
@@ -206,6 +208,9 @@ class InvoiceController extends Controller
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
             'items.*.unit_price' => ['required', 'regex:/\A[0-9]{1,6}(?:\.[0-9]{1,2})?\z/'],
             'items.*.inventory_item_id' => ['nullable', 'integer', 'min:1'],
+            'discount_percent' => ['nullable', 'regex:/\A(?:100(?:\.0{1,2})?|[0-9]{1,2}(?:\.[0-9]{1,2})?)\z/'],
+            'tax_percent' => ['nullable', 'regex:/\A(?:100(?:\.0{1,2})?|[0-9]{1,2}(?:\.[0-9]{1,2})?)\z/'],
+            'tax_mode' => ['nullable', 'in:inclusive,exclusive'],
         ]);
     }
 

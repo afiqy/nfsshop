@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AppointmentRequestController;
 use App\Http\Controllers\BillplzSandboxController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CustomerAccountController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\PaymentPreferenceController;
 use App\Http\Controllers\PaymentReminderController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\ServiceCatalogController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\RoleController;
@@ -169,6 +171,19 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             });
 
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
+            Route::get('services', [ServiceCatalogController::class, 'index'])->name('services.index');
+            Route::get('services/create', [ServiceCatalogController::class, 'serviceForm'])->name('services.create');
+            Route::post('services', [ServiceCatalogController::class, 'saveService'])->name('services.store');
+            Route::get('services/{service}/edit', [ServiceCatalogController::class, 'serviceForm'])->name('services.edit');
+            Route::put('services/{service}', [ServiceCatalogController::class, 'saveService'])->name('services.update');
+            Route::put('service-tax', [ServiceCatalogController::class, 'updateTax'])->name('services.tax');
+            Route::get('service-packages/create', [ServiceCatalogController::class, 'packageForm'])->name('service-packages.create');
+            Route::post('service-packages', [ServiceCatalogController::class, 'savePackage'])->name('service-packages.store');
+            Route::get('service-packages/{package}/edit', [ServiceCatalogController::class, 'packageForm'])->name('service-packages.edit');
+            Route::put('service-packages/{package}', [ServiceCatalogController::class, 'savePackage'])->name('service-packages.update');
+            Route::get('appointment-requests', [AppointmentRequestController::class, 'index'])->name('appointment-requests.index');
+            Route::patch('appointment-requests/{appointmentRequest}/confirm', [AppointmentRequestController::class, 'confirm'])->name('appointment-requests.confirm');
+            Route::patch('appointment-requests/{appointmentRequest}/reject', [AppointmentRequestController::class, 'reject'])->name('appointment-requests.reject');
             Route::get('staff', [StaffController::class, 'index'])->name('staff.index');
             Route::post('staff/invitations', [StaffController::class, 'invite'])->middleware('throttle:10,1')->name('staff.invite');
             Route::delete('staff/invitations/{invitation}', [StaffController::class, 'revoke'])->name('staff.invitations.revoke');
@@ -267,6 +282,8 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
         Route::middleware(['role:client', EnsureWorkshopContext::class])
             ->prefix('my-account')->name('client.')->group(function () {
                 Route::get('/', [CustomerPortalController::class, 'index'])->name('portal');
+                Route::get('appointment-requests', [AppointmentRequestController::class, 'customerIndex'])->name('appointment-requests.index');
+                Route::post('appointment-requests', [AppointmentRequestController::class, 'store'])->middleware('throttle:10,1')->name('appointment-requests.store');
                 Route::get('invoices', [InvoicePaymentSubmissionController::class, 'customerIndex'])->name('invoices.index');
                 Route::get('invoices/{invoice}', [InvoicePaymentSubmissionController::class, 'customerShow'])
                     ->name('invoices.show');

@@ -92,6 +92,12 @@
 
         @if ($user?->role === \App\Models\User::ROLE_ADMIN)
             <li class="nav-item">
+                <a class="nav-link" href="{{ route('services.index') }}">
+                    <i class="fas fa-list"></i>
+                    <span>Services &amp; pricing</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" href="{{ route('invoices.index') }}">
                     <i class="fas fa-file-invoice"></i>
                     <span>Invoices</span>
