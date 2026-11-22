@@ -105,6 +105,14 @@
                     </a>
                 </li>
             @endif
+            @if ($accountSubscription?->canUseClientEngagement())
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ route('engagement.index') }}">
+                        <i class="fas fa-gift"></i>
+                        <span>Client engagement</span>
+                    </a>
+                </li>
+            @endif
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('invoices.index') }}">
                     <i class="fas fa-file-invoice"></i>

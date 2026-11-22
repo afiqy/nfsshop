@@ -42,7 +42,10 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Workshop service and package price lists, optional invoice-wide percentage discounts, and invoice-specific inclusive/exclusive tax calculations (beta estimates; not MyInvois compliance).
 - [x] Workshop reporting beta: monthly/annual invoice and cash movements, customer spend, assigned-mechanic completed-job counts, and tagged gross service line totals.
 - [ ] Net revenue by service, including allocation of invoice-wide discounts, tax and credit notes and a strategy for historical untagged lines.
-- [ ] Client engagement: promotions, loyalty/rewards and service/renewal reminders.
+- [x] Client engagement beta: dated portal promotions, manual loyalty points and redemption history, and consent-based manual vehicle service/renewal reminder emails.
+- [ ] Automatic visit/spend-based loyalty and configurable rewards; invoice-linked reward discounts.
+- [ ] Basic-tier loyalty add-on provisioning and entitlement from Qysoft Main.
+- [ ] Automated service/renewal reminder schedules and additional notification channels.
 
 ## LHDN MyInvois
 
@@ -107,8 +110,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Staff email invitations, role and suspension management, and optional mechanic access to read-only customer and vehicle lists.
 - [x] Workshop services and packages, customer appointment requests with admin confirmation, and invoice percentage discounts and inclusive/exclusive tax snapshots.
 - [x] Workshop reporting beta with Malaysia-time monthly/annual figures, customer cash spend, assigned-mechanic completed jobs and tagged gross service lines.
+- [x] Client engagement beta with portal promotions, manual points and consent-based manual vehicle reminders.
 
 ## Next recommended module
 
-- [ ] Client engagement: promotions, loyalty/rewards and service/renewal reminders.
+- [ ] Password recovery and password policy (part of full authentication).
 

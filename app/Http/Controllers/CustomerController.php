@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -51,7 +52,14 @@ class CustomerController extends Controller
     public function update(Request $request, string $customer): RedirectResponse
     {
         $customer = Customer::query()->findOrFail($customer);
-        $customer->update($this->validateCustomer($request, $customer));
+        $data = $this->validateCustomer($request, $customer);
+        DB::connection('tenant')->transaction(function () use ($customer, $data) {
+            $customer = Customer::query()->lockForUpdate()->findOrFail($customer->id);
+            if ($customer->email !== $data['email']) {
+                $data['engagement_reminders_opt_in'] = false;
+            }
+            $customer->update($data);
+        }, 3);
 
         return redirect()->route('customers.index')->with('success', 'Customer updated successfully.');
     }

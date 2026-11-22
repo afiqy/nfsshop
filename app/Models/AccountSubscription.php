@@ -18,6 +18,11 @@ class AccountSubscription extends Model
         return $this->canUseProFeatures();
     }
 
+    public function canUseClientEngagement(): bool
+    {
+        return $this->canUseProFeatures();
+    }
+
     private function canUseProFeatures(): bool
     {
         return $this->isUsable()

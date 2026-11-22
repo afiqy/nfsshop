@@ -1,11 +1,12 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AppointmentRequestController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\AppointmentRequestController;
 use App\Http\Controllers\BillplzSandboxController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\ClientEngagementController;
 use App\Http\Controllers\CustomerAccountController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerPortalController;
@@ -20,10 +21,10 @@ use App\Http\Controllers\PaymentPreferenceController;
 use App\Http\Controllers\PaymentReminderController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ServiceCatalogController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StaffInvitationController;
-use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StripeSandboxController;
 use App\Http\Controllers\SuperAdmin\BillingController;
 use App\Http\Controllers\SuperAdmin\ImpersonationController;
@@ -37,10 +38,11 @@ use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\WorkshopDashboardController;
 use App\Http\Controllers\WorkshopPaymentQrController;
 use App\Http\Controllers\WorkshopReportController;
-use App\Http\Middleware\EnsureInventoryAccess;
-use App\Http\Middleware\EnsureWorkshopContext;
-use App\Http\Middleware\EnsureReportsAccess;
+use App\Http\Middleware\EnsureClientEngagementAccess;
 use App\Http\Middleware\EnsureCustomerReadAccess;
+use App\Http\Middleware\EnsureInventoryAccess;
+use App\Http\Middleware\EnsureReportsAccess;
+use App\Http\Middleware\EnsureWorkshopContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -173,6 +175,18 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             });
 
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
+            Route::middleware(EnsureClientEngagementAccess::class)->prefix('engagement')->name('engagement.')->group(function () {
+                Route::get('/', [ClientEngagementController::class, 'index'])->name('index');
+                Route::get('customers/{customer}', [ClientEngagementController::class, 'customer'])->name('customers.show');
+                Route::post('customers/{customer}/points', [ClientEngagementController::class, 'points'])->name('points');
+                Route::put('customers/{customer}/consent', [ClientEngagementController::class, 'consent'])->name('consent');
+                Route::post('promotions', [ClientEngagementController::class, 'promotion'])->name('promotions.store');
+                Route::put('promotions/{promotion}', [ClientEngagementController::class, 'promotion'])->name('promotions.update');
+                Route::post('reminders', [ClientEngagementController::class, 'reminder'])->name('reminders.store');
+                Route::patch('reminders/{reminder}/complete', [ClientEngagementController::class, 'complete'])->name('reminders.complete');
+                Route::post('reminders/{reminder}/send', [ClientEngagementController::class, 'send'])->middleware('throttle:10,1')->name('reminders.send');
+                Route::patch('reminders/{reminder}/attempts/{attempt}/resolve', [ClientEngagementController::class, 'resolve'])->name('reminders.resolve');
+            });
             Route::get('reports', [WorkshopReportController::class, 'index'])
                 ->middleware(EnsureReportsAccess::class)->name('reports.index');
             Route::get('services', [ServiceCatalogController::class, 'index'])->name('services.index');
@@ -286,6 +300,9 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
         Route::middleware(['role:client', EnsureWorkshopContext::class])
             ->prefix('my-account')->name('client.')->group(function () {
                 Route::get('/', [CustomerPortalController::class, 'index'])->name('portal');
+                Route::get('engagement', [ClientEngagementController::class, 'portal'])
+                    ->middleware(EnsureClientEngagementAccess::class)->name('engagement');
+                Route::put('reminder-preference', [ClientEngagementController::class, 'portalConsent'])->name('reminder-preference');
                 Route::get('appointment-requests', [AppointmentRequestController::class, 'customerIndex'])->name('appointment-requests.index');
                 Route::post('appointment-requests', [AppointmentRequestController::class, 'store'])->middleware('throttle:10,1')->name('appointment-requests.store');
                 Route::get('invoices', [InvoicePaymentSubmissionController::class, 'customerIndex'])->name('invoices.index');

@@ -28,6 +28,20 @@
         <p>Welcome, {{ $customer->name }}. Your workshop customer record is linked to this account.</p>
         <p><a href="{{ route('client.invoices.index') }}">View my invoices and payment options</a></p>
         <p><a href="{{ route('client.appointment-requests.index') }}">Request an appointment</a></p>
+        @if (app(\App\Services\SubscriptionEntitlementService::class)->subscriptionFor(auth()->user())?->canUseClientEngagement())
+            <p><a href="{{ route('client.engagement') }}">View promotions, loyalty and vehicle reminders</a></p>
+        @endif
+        <form method="POST" action="{{ route('client.reminder-preference') }}" class="mb-4">
+            @csrf
+            @method('PUT')
+            <label for="reminder_opt_in">Vehicle service and renewal reminder emails</label>
+            <span>at {{ $customer->email }}</span>
+            <select id="reminder_opt_in" name="opt_in">
+                <option value="0" @selected(! $customer->engagement_reminders_opt_in)>No</option>
+                <option value="1" @selected($customer->engagement_reminders_opt_in)>Yes</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-outline-primary">Save preference</button>
+        </form>
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="h5 mb-0">Vehicles ({{ $vehicles->count() }})</h2>
