@@ -193,6 +193,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::get('appointment-requests', [AppointmentRequestController::class, 'index'])->name('appointment-requests.index');
             Route::patch('appointment-requests/{appointmentRequest}/confirm', [AppointmentRequestController::class, 'confirm'])->name('appointment-requests.confirm');
             Route::patch('appointment-requests/{appointmentRequest}/reject', [AppointmentRequestController::class, 'reject'])->name('appointment-requests.reject');
+            Route::post('appointment-notifications/{notification}/retry', [AppointmentRequestController::class, 'retryNotification'])
+                ->middleware('throttle:10,1')->name('appointment-notifications.retry');
+            Route::patch('appointment-notifications/{notification}/resolve', [AppointmentRequestController::class, 'resolveNotification'])
+                ->middleware('throttle:10,1')->name('appointment-notifications.resolve');
         });
         Route::middleware(['role:mechanic', EnsureWorkshopContext::class])
             ->prefix('my-jobs')->name('my-jobs.')->group(function () {
@@ -344,6 +348,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                 Route::put('reminder-preference', [ClientEngagementController::class, 'portalConsent'])->name('reminder-preference');
                 Route::get('appointment-requests', [AppointmentRequestController::class, 'customerIndex'])->name('appointment-requests.index');
                 Route::post('appointment-requests', [AppointmentRequestController::class, 'store'])->middleware('throttle:10,1')->name('appointment-requests.store');
+                Route::put('appointment-requests/{appointmentRequest}', [AppointmentRequestController::class, 'customerUpdate'])->middleware('throttle:10,1')->name('appointment-requests.update');
+                Route::patch('appointment-requests/{appointmentRequest}/cancel', [AppointmentRequestController::class, 'customerCancel'])->middleware('throttle:10,1')->name('appointment-requests.cancel');
+                Route::put('appointments/{appointment}', [AppointmentRequestController::class, 'updateAppointment'])->middleware('throttle:10,1')->name('appointments.update');
+                Route::patch('appointments/{appointment}/cancel', [AppointmentRequestController::class, 'cancelAppointment'])->middleware('throttle:10,1')->name('appointments.cancel');
                 Route::get('invoices', [InvoicePaymentSubmissionController::class, 'customerIndex'])->name('invoices.index');
                 Route::get('invoices/{invoice}', [InvoicePaymentSubmissionController::class, 'customerShow'])
                     ->name('invoices.show');

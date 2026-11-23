@@ -119,6 +119,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Profile editing with private avatar uploads, verified account email changes and saved personal preferences; existing customer reminder consent remains in the portal.
 - [x] Staff invoice and manual-payment permissions, invitations for active unassigned mechanics, and workshop-scoped review of mechanic self-registration requests.
 - [x] Opt-in staff permissions for workshop-wide vehicle history, customer/vehicle record creation, and appointment-request review.
+- [x] Client appointment cancellation/rescheduling and queued email notifications with 24-hour reminders; SMS/WhatsApp remain pending.
 
 ## Next recommended module
 

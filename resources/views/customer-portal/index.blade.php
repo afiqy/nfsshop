@@ -27,7 +27,7 @@
     @else
         <p>Welcome, {{ $customer->name }}. Your workshop customer record is linked to this account.</p>
         <p><a href="{{ route('client.invoices.index') }}">View my invoices and payment options</a></p>
-        <p><a href="{{ route('client.appointment-requests.index') }}">Request an appointment</a></p>
+        <p><a href="{{ route('client.appointment-requests.index') }}">Manage appointments and requests</a></p>
         @if (app(\App\Services\SubscriptionEntitlementService::class)->subscriptionFor(auth()->user())?->canUseClientEngagement())
             <p><a href="{{ route('client.engagement') }}">View promotions, loyalty and vehicle reminders</a></p>
         @endif

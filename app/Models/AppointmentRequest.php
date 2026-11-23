@@ -16,6 +16,8 @@ class AppointmentRequest extends Model
 
     public const REJECTED = 'rejected';
 
+    public const CANCELLED = 'cancelled';
+
     protected $fillable = ['customer_id', 'vehicle_id', 'calendar_id', 'start', 'end', 'service_quote', 'status'];
 
     protected $casts = ['service_quote' => 'array'];

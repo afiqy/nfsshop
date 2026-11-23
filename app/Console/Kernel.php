@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('audit:prune')->daily();
         $schedule->command('invoices:send-payment-reminders')->hourly()->withoutOverlapping();
+        $schedule->command('appointments:send-notifications')->everyMinute()->withoutOverlapping();
     }
 
     /**

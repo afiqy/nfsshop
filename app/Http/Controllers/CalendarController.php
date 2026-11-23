@@ -7,6 +7,7 @@ use App\Models\Vehicle;
 use App\Models\ServicePackage;
 use App\Models\WorkshopService;
 use App\Services\AppointmentSchedulingService;
+use App\Services\AppointmentNotificationService;
 use App\Services\ServiceQuoteService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +17,11 @@ use Illuminate\View\View;
 
 class CalendarController extends Controller
 {
-    public function __construct(private AppointmentSchedulingService $scheduling, private ServiceQuoteService $quotes) {}
+    public function __construct(
+        private AppointmentSchedulingService $scheduling,
+        private ServiceQuoteService $quotes,
+        private AppointmentNotificationService $notifications,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -62,7 +67,7 @@ class CalendarController extends Controller
             $vehicle = $this->scheduling->lockVehicle($details['vehicle_id']);
             $this->scheduling->ensureAvailable($vehicle, $slot);
 
-            Calendar::create($slot + [
+            $booking = Calendar::create($slot + [
                 'vehicle_id' => $vehicle->id,
                 'customer_id' => $vehicle->customer_id,
                 'title' => $quote['name'] ?? $details['service_type'],
@@ -70,6 +75,7 @@ class CalendarController extends Controller
                 'service_quote' => $quote,
                 'status' => Calendar::STATUS_SCHEDULED,
             ]);
+            $this->notifications->queueCalendar('booked', $booking);
         }, 3);
 
         return $this->returnToWeek($slot['start'], 'Appointment booked.');
@@ -93,7 +99,11 @@ class CalendarController extends Controller
             $current = Calendar::query()->lockForUpdate()->findOrFail($booking->id);
             $this->ensureScheduled($current);
             $this->scheduling->ensureAvailable($vehicle, $slot, $current);
+            $changed = $current->start !== $slot['start'] || $current->end !== $slot['end'];
             $current->update($slot);
+            if ($changed) {
+                $this->notifications->queueCalendar('rescheduled', $current);
+            }
         }, 3);
 
         return $this->returnToWeek($slot['start'], 'Appointment rescheduled.');
@@ -105,6 +115,7 @@ class CalendarController extends Controller
             $booking = Calendar::query()->lockForUpdate()->findOrFail($appointment);
             $this->ensureScheduled($booking);
             $booking->update(['status' => Calendar::STATUS_CANCELLED]);
+            $this->notifications->queueCalendar('cancelled', $booking);
 
             return $booking;
         }, 3);
