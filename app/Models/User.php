@@ -49,6 +49,8 @@ class User extends Authenticatable
         'suspension_reason',
         'force_password_reset',
         'can_view_customers',
+        'can_create_job_invoices',
+        'can_record_payments',
     ];
 
     protected $fillable = [
@@ -64,6 +66,8 @@ class User extends Authenticatable
         'suspension_reason',
         'force_password_reset',
         'can_view_customers',
+        'can_create_job_invoices',
+        'can_record_payments',
         'failed_login_attempts',
         'locked_until',
     ];
@@ -82,6 +86,8 @@ class User extends Authenticatable
         'suspended_at' => 'datetime',
         'force_password_reset' => 'boolean',
         'can_view_customers' => 'boolean',
+        'can_create_job_invoices' => 'boolean',
+        'can_record_payments' => 'boolean',
         'locked_until' => 'datetime',
         'credential_version' => 'integer',
         'mfa_secret' => 'encrypted',

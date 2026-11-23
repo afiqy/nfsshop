@@ -176,6 +176,9 @@
                     <span>My jobs</span>
                 </a>
             </li>
+            @if ($user->can_create_job_invoices || $user->can_record_payments)
+                <li class="nav-item"><a class="nav-link" href="{{ route('staff-invoices.index') }}"><i class="fas fa-file-invoice"></i> <span>Invoices</span></a></li>
+            @endif
             @if ($user->can_view_customers)
                 <li class="nav-item"><a class="nav-link" href="{{ route('customers.index') }}"><i class="fas fa-users"></i> <span>Customers</span></a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('vehicles.index') }}"><i class="fas fa-car"></i> <span>Vehicles</span></a></li>

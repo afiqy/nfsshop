@@ -10,7 +10,7 @@ class InvoicePayment extends Model
 {
     use TenantConnection;
 
-    protected $fillable = ['amount_sen', 'recorded_by_user_id', 'reference'];
+    protected $fillable = ['amount_sen', 'recorded_by_user_id', 'reference', 'payment_method'];
 
     protected $casts = [
         'amount_sen' => 'integer',

@@ -25,13 +25,17 @@ class StaffController extends Controller
         return view('staff.index', [
             'staff' => User::on($central)->where('tenant_id', tenant('id'))
                 ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_MECHANIC])
-                ->where(fn ($query) => $query->whereNull('suspension_reason')->orWhere('suspension_reason', '!=', 'Awaiting owner approval'))
+                ->where(fn ($query) => $query->whereNull('suspension_reason')->orWhereNotIn('suspension_reason', ['Awaiting owner approval', 'Staff request rejected']))
                 ->orderBy('name')->get(),
             'invitations' => StaffInvitation::on($central)->where('tenant_id', tenant('id'))
                 ->whereNull('accepted_at')->whereNull('revoked_at')->where('expires_at', '>', now())
                 ->latest()->get(),
+            'requests' => User::on($central)->where('tenant_id', tenant('id'))
+                ->where('role', User::ROLE_MECHANIC)->where('status', User::STATUS_SUSPENDED)
+                ->whereIn('suspension_reason', ['Awaiting owner approval', 'Staff request rejected'])
+                ->orderBy('name')->get(),
             'ownerId' => Tenant::findOrFail(tenant('id'))->account_owner_id,
-            'ownerEmail' => data_get(tenant()->data, 'owner_email'),
+            'ownerEmail' => tenant()->owner_email ?? data_get(tenant()->data, 'owner_email'),
         ]);
     }
 
@@ -41,15 +45,18 @@ class StaffController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'role' => ['required', Rule::in([User::ROLE_ADMIN, User::ROLE_MECHANIC])],
             'can_view_customers' => ['nullable', 'boolean'],
+            'can_create_job_invoices' => ['nullable', 'boolean'],
+            'can_record_payments' => ['nullable', 'boolean'],
         ]);
         $email = strtolower(trim($data['email']));
         $central = config('tenancy.database.central_connection');
         $token = Str::random(64);
-        $workshopName = data_get(tenant()->data, 'workshop_name', tenant('id'));
+        $workshopName = tenant()->workshop_name ?? data_get(tenant()->data, 'workshop_name', tenant('id'));
         DB::connection($central)->transaction(function () use ($data, $email, $central, $token, $request, $workshopName) {
             Tenant::query()->whereKey(tenant('id'))->lockForUpdate()->firstOrFail();
-            if (User::on($central)->where('email', $email)->exists()) {
-                throw ValidationException::withMessages(['email' => 'An account already exists for this email. Existing accounts cannot be invited.']);
+            $existing = User::on($central)->where('email', $email)->lockForUpdate()->first();
+            if ($existing && ($existing->tenant_id !== null || $existing->role !== User::ROLE_MECHANIC || $existing->status !== User::STATUS_ACTIVE)) {
+                throw ValidationException::withMessages(['email' => 'Only active, unassigned mechanic accounts can be invited as existing users.']);
             }
             StaffInvitation::on($central)->where('tenant_id', tenant('id'))->where('email', $email)
                 ->whereNull('accepted_at')->whereNull('revoked_at')->update(['revoked_at' => now()]);
@@ -58,12 +65,18 @@ class StaffController extends Controller
                 'email' => $email,
                 'role' => $data['role'],
                 'can_view_customers' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_view_customers'),
+                'can_create_job_invoices' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_create_job_invoices'),
+                'can_record_payments' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_record_payments'),
+                'for_existing_user' => $existing !== null,
+                'existing_user_id' => $existing?->id,
                 'token_hash' => hash('sha256', $token),
                 'expires_at' => now()->addDays(7),
                 'invited_by' => $request->user()->id,
             ]);
 
-            Mail::to($email)->send(new StaffInvitationEmail(route('staff-invitations.show', $token), $workshopName, $data['role']));
+            $route = $existing ? 'staff-invitations.existing.show' : 'staff-invitations.show';
+            $url = rtrim(config('app.url'), '/').route($route, $token, false);
+            Mail::to($email)->send(new StaffInvitationEmail($url, $workshopName, $data['role']));
         });
 
         return redirect()->route('staff.index')->with('success', 'Invitation emailed.');
@@ -85,14 +98,16 @@ class StaffController extends Controller
             'role' => ['required', Rule::in([User::ROLE_ADMIN, User::ROLE_MECHANIC])],
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_SUSPENDED])],
             'can_view_customers' => ['nullable', 'boolean'],
+            'can_create_job_invoices' => ['nullable', 'boolean'],
+            'can_record_payments' => ['nullable', 'boolean'],
         ]);
         $central = config('tenancy.database.central_connection');
         $user = User::on($central)->where('tenant_id', tenant('id'))
             ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_MECHANIC])
-            ->where(fn ($query) => $query->whereNull('suspension_reason')->orWhere('suspension_reason', '!=', 'Awaiting owner approval'))
+            ->where(fn ($query) => $query->whereNull('suspension_reason')->orWhereNotIn('suspension_reason', ['Awaiting owner approval', 'Staff request rejected']))
             ->findOrFail($staff);
         $tenant = Tenant::findOrFail(tenant('id'));
-        $isLegacyOwner = ! $tenant->account_owner_id && strtolower($user->email) === strtolower((string) data_get($tenant->data, 'owner_email'));
+        $isLegacyOwner = ! $tenant->account_owner_id && strtolower($user->email) === strtolower((string) ($tenant->owner_email ?? data_get($tenant->data, 'owner_email')));
         abort_if($user->id === $request->user()->id || (int) $tenant->account_owner_id === $user->id || $isLegacyOwner, 403);
 
         DB::connection($central)->transaction(function () use ($user, $data, $request, $central) {
@@ -102,6 +117,8 @@ class StaffController extends Controller
                 'role' => $data['role'],
                 'status' => $data['status'],
                 'can_view_customers' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_view_customers'),
+                'can_create_job_invoices' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_create_job_invoices'),
+                'can_record_payments' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_record_payments'),
                 'suspended_at' => $data['status'] === User::STATUS_SUSPENDED ? ($user->suspended_at ?? now()) : null,
                 'suspension_reason' => $data['status'] === User::STATUS_SUSPENDED ? 'Suspended by workshop admin' : null,
             ]);
@@ -114,5 +131,38 @@ class StaffController extends Controller
         });
 
         return back()->with('success', 'Staff access updated.');
+    }
+
+    public function decideRequest(Request $request, string $staff): RedirectResponse
+    {
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['approve', 'reject'])],
+            'role' => ['required_if:decision,approve', Rule::in([User::ROLE_ADMIN, User::ROLE_MECHANIC])],
+            'can_view_customers' => ['nullable', 'boolean'],
+            'can_create_job_invoices' => ['nullable', 'boolean'],
+            'can_record_payments' => ['nullable', 'boolean'],
+        ]);
+        $central = config('tenancy.database.central_connection');
+        DB::connection($central)->transaction(function () use ($request, $data, $staff, $central) {
+            $user = User::on($central)->where('tenant_id', tenant('id'))->where('role', User::ROLE_MECHANIC)
+                ->where('status', User::STATUS_SUSPENDED)
+                ->whereIn('suspension_reason', ['Awaiting owner approval', 'Staff request rejected'])
+                ->lockForUpdate()->findOrFail($staff);
+            if ($data['decision'] === 'reject') {
+                $user->update(['suspension_reason' => 'Staff request rejected']);
+
+                return;
+            }
+            $mechanic = $data['role'] === User::ROLE_MECHANIC;
+            $user->update([
+                'role' => $data['role'], 'status' => User::STATUS_ACTIVE,
+                'suspended_at' => null, 'suspension_reason' => null,
+                'can_view_customers' => $mechanic && $request->boolean('can_view_customers'),
+                'can_create_job_invoices' => $mechanic && $request->boolean('can_create_job_invoices'),
+                'can_record_payments' => $mechanic && $request->boolean('can_record_payments'),
+            ]);
+        });
+
+        return back()->with('success', $data['decision'] === 'approve' ? 'Staff request approved.' : 'Staff request rejected; the account remains suspended.');
     }
 }

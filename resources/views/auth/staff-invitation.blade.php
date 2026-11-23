@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="card my-5"><div class="card-body">
-    <h1 class="h4">Join {{ data_get($tenant->data, 'workshop_name', $tenant->id) }}</h1>
+    <h1 class="h4">Join {{ $tenant->workshop_name ?? data_get($tenant->data, 'workshop_name', $tenant->id) }}</h1>
     <p>Invited email: {{ $invitation->email }}. Role: {{ $invitation->role === 'admin' ? 'Workshop admin' : 'Mechanic' }}.</p>
     @if ($errors->any())
         <div class="alert alert-danger"><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>

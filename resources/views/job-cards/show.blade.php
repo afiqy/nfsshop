@@ -32,6 +32,9 @@
     @error('inventory_item_id')
         <div class="alert alert-danger" role="alert">{{ $message }}</div>
     @enderror
+    @error('job')
+        <div class="alert alert-danger" role="alert">{{ $message }}</div>
+    @enderror
     <div class="card shadow-sm p-3">
         <dl>
             <dt>Status</dt>
@@ -99,6 +102,9 @@
                 <input type="hidden" name="status" value="{{ $nextStatus }}">
                 <button type="submit" class="btn btn-primary">{{ $nextStatus === \App\Models\JobCard::COMPLETED ? 'Mark completed' : 'Start work' }}</button>
             </form>
+        @endif
+        @if ($staffView && $job->status === \App\Models\JobCard::COMPLETED && auth()->user()->can_create_job_invoices)
+            <p class="mt-3 mb-0"><a href="{{ route('staff-invoices.create', $job) }}">Create invoice for this completed job</a></p>
         @endif
     </div>
 

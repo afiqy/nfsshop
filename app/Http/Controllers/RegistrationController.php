@@ -334,7 +334,7 @@ class RegistrationController extends Controller
             'phone' => $account['phone'],
             'password' => $account['password_hash'],
             'tenant_id' => $tenantId,
-            'workshop_name' => Arr::get($tenant->data, 'workshop_name', $tenantId),
+            'workshop_name' => $tenant->workshop_name ?? Arr::get($tenant->data, 'workshop_name', $tenantId),
             'role' => $role,
             'status' => User::STATUS_SUSPENDED,
             'suspended_at' => Carbon::now(),
@@ -348,9 +348,10 @@ class RegistrationController extends Controller
         $tenants = Tenant::all();
 
         foreach ($tenants as $tenant) {
-            $data = $tenant->data ?? [];
-            $existingName = isset($data['workshop_name']) ? $this->normalize($data['workshop_name']) : null;
-            $existingAddress = isset($data['address']) ? $this->normalize($data['address']) : null;
+            $workshopName = $tenant->workshop_name ?? data_get($tenant->data, 'workshop_name');
+            $workshopAddress = $tenant->address ?? data_get($tenant->data, 'address');
+            $existingName = $workshopName ? $this->normalize($workshopName) : null;
+            $existingAddress = $workshopAddress ? $this->normalize($workshopAddress) : null;
 
             if ($existingName && $existingName === $name) {
                 return [$tenant->id, 'workshop_name'];

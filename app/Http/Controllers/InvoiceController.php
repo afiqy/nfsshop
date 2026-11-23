@@ -135,6 +135,7 @@ class InvoiceController extends Controller
         $data = $request->validate([
             'amount' => ['required', 'regex:/\A[0-9]{1,11}(?:\.[0-9]{1,2})?\z/'],
             'reference' => ['nullable', 'string', 'max:255'],
+            'payment_method' => ['nullable', 'in:cash,pos,transfer'],
         ]);
         $amount = Invoice::toSen((string) $data['amount']);
         if ($amount === 0) {
@@ -158,11 +159,13 @@ class InvoiceController extends Controller
             $record->payments()->create([
                 'amount_sen' => $amount,
                 'reference' => $data['reference'] ?? null,
+                'payment_method' => $data['payment_method'] ?? null,
                 'recorded_by_user_id' => $request->user()->id,
             ]);
         }, 3);
 
-        return redirect()->route('invoices.show', $invoice)->with('success', 'Payment recorded.');
+        return redirect()->route($request->user()->role === \App\Models\User::ROLE_MECHANIC ? 'staff-invoices.show' : 'invoices.show', $invoice)
+            ->with('success', 'Payment recorded.');
     }
 
     private function form(Request $request, Invoice $invoice): View
@@ -196,7 +199,7 @@ class InvoiceController extends Controller
         ]);
     }
 
-    private function validateInvoice(Request $request, ?Invoice $invoice = null): array
+    public function validateInvoice(Request $request, ?Invoice $invoice = null): array
     {
         $dueDateRules = ['bail', 'nullable', 'date_format:Y-m-d'];
         if (! $invoice) {

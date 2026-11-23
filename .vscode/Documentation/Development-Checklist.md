@@ -117,6 +117,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Email password recovery and consistent password validation, with web-session invalidation on password changes.
 - [x] Google reCAPTCHA after repeated login failures, optional authenticator verification for selected privileged actions, and device-session revocation.
 - [x] Profile editing with private avatar uploads, verified account email changes and saved personal preferences; existing customer reminder consent remains in the portal.
+- [x] Staff invoice and manual-payment permissions, invitations for active unassigned mechanics, and workshop-scoped review of mechanic self-registration requests.
 
 ## Next recommended module
 

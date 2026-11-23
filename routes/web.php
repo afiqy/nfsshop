@@ -28,6 +28,7 @@ use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ServiceCatalogController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StaffInvoiceController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\StripeSandboxController;
 use App\Http\Controllers\SuperAdmin\BillingController;
@@ -120,6 +121,8 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:super_admin
     });
 
 Route::middleware(['auth', 'check.lockout', 'session.timeout'])->group(function () {
+    Route::get('/staff-invitations/existing/{token}', [StaffInvitationController::class, 'showExisting'])->middleware('throttle:10,1')->name('staff-invitations.existing.show');
+    Route::post('/staff-invitations/existing/{token}', [StaffInvitationController::class, 'acceptExisting'])->middleware('throttle:10,1')->name('staff-invitations.existing.accept');
     Route::get('devices', [DeviceSessionController::class, 'index'])->name('devices.index');
     Route::delete('devices/{device}', [DeviceSessionController::class, 'revoke'])->name('devices.revoke');
     Route::get('authenticator', [AuthenticatorController::class, 'show'])->name('authenticator.show');
@@ -192,6 +195,14 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
                     ->middleware(EnsureInventoryAccess::class)->name('parts.return');
                 Route::patch('{job_card}/status', [JobCardController::class, 'advance'])->name('advance');
             });
+        Route::middleware(['role:mechanic', EnsureWorkshopContext::class])->prefix('staff-invoices')->name('staff-invoices.')->group(function () {
+            Route::get('/', [StaffInvoiceController::class, 'index'])->name('index');
+            Route::get('jobs/{job}/create', [StaffInvoiceController::class, 'create'])->name('create');
+            Route::post('jobs/{job}', [StaffInvoiceController::class, 'store'])->name('store');
+            Route::get('{invoice}', [StaffInvoiceController::class, 'show'])->name('show');
+            Route::post('{invoice}/payments', [StaffInvoiceController::class, 'recordPayment'])
+                ->middleware(EnsureAuthenticatorVerified::class)->name('payments.store');
+        });
 
         Route::middleware(['role:admin', EnsureWorkshopContext::class])->group(function () {
             Route::middleware(EnsureClientEngagementAccess::class)->prefix('engagement')->name('engagement.')->group(function () {
@@ -225,6 +236,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::post('staff/invitations', [StaffController::class, 'invite'])->middleware(['throttle:10,1', EnsureAuthenticatorVerified::class])->name('staff.invite');
             Route::delete('staff/invitations/{invitation}', [StaffController::class, 'revoke'])->middleware(EnsureAuthenticatorVerified::class)->name('staff.invitations.revoke');
             Route::patch('staff/{staff}', [StaffController::class, 'update'])->middleware(EnsureAuthenticatorVerified::class)->name('staff.update');
+            Route::patch('staff-requests/{staff}', [StaffController::class, 'decideRequest'])->middleware(EnsureAuthenticatorVerified::class)->name('staff.requests.decide');
             Route::resource('customers', CustomerController::class)->only(['create', 'store', 'edit', 'update']);
             Route::resource('vehicles', VehicleController::class)->only(['create', 'store', 'edit', 'update']);
             Route::get('vehicles/{vehicle}/history', [VehicleController::class, 'history'])->name('vehicles.history');

@@ -37,6 +37,12 @@ class InvoiceLifecycleService
                 : new Invoice;
             if ($record->exists) {
                 $this->assertEditable($record);
+                if ($record->job_card_id && ((int) $record->customer_id !== (int) $validated['customer_id']
+                    || (int) $record->vehicle_id !== (int) ($validated['vehicle_id'] ?? 0))) {
+                    throw ValidationException::withMessages([
+                        'customer_id' => 'The customer and vehicle cannot be changed on an invoice linked to a job.',
+                    ]);
+                }
                 if ((int) $record->customer_id !== (int) $validated['customer_id']
                     && $record->paymentSubmissions()->exists()) {
                     throw ValidationException::withMessages([

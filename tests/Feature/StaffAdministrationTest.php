@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Mail\StaffInvitationEmail;
 use App\Models\AccountSubscription;
 use App\Models\Customer;
+use App\Models\Invoice;
+use App\Models\JobCard;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
@@ -36,6 +38,7 @@ class StaffAdministrationTest extends TestCase
 
         $this->actingAs($admin)->post(route('staff.invite'), [
             'email' => 'MECHANIC@example.test', 'role' => 'mechanic', 'can_view_customers' => '1',
+            'can_record_payments' => '1',
         ])->assertRedirect(route('staff.index'));
         Mail::assertSent(StaffInvitationEmail::class, function ($mail) use (&$url) {
             $url = $mail->invitationUrl;
@@ -52,11 +55,13 @@ class StaffAdministrationTest extends TestCase
         $this->assertSame($workshop->id, $staff->tenant_id);
         $this->assertSame(User::ROLE_MECHANIC, $staff->role);
         $this->assertTrue($staff->can_view_customers);
+        $this->assertTrue($staff->can_record_payments);
         $this->actingAs($staff)->get(route('customers.index'))->assertOk()->assertSee('Sample Customer')->assertDontSee('Add customer');
         $this->get(route('vehicles.index'))->assertOk()->assertSee('BETA123')->assertDontSee('Add vehicle');
         $this->get(route('vehicles.history', 1))->assertForbidden();
         $this->post(route('customers.store'), [])->assertForbidden();
         $this->get(route('invoices.index'))->assertForbidden();
+        $this->get(route('staff-invoices.index'))->assertOk();
     }
 
     public function test_staff_invitations_expire_can_be_revoked_and_cannot_reuse_existing_accounts(): void
@@ -97,7 +102,7 @@ class StaffAdministrationTest extends TestCase
         ]);
         $access = ['role' => 'mechanic', 'status' => 'active', 'can_view_customers' => '1'];
         $this->actingAs($admin)->get(route('staff.index'))->assertOk()->assertSee($staff->email)
-            ->assertDontSee($other->email)->assertDontSee($pending->email);
+            ->assertDontSee($other->email)->assertSee($pending->email);
         $this->patch(route('staff.update', $other), $access)->assertNotFound();
         $this->patch(route('staff.update', $pending), $access)->assertNotFound();
         $this->patch(route('staff.update', $admin), $access)->assertForbidden();
@@ -164,6 +169,116 @@ class StaffAdministrationTest extends TestCase
         $this->from(route('login'))->post(route('login.post'), ['email' => $staff->email, 'password' => 'password'])
             ->assertRedirect(route('login'))->assertSessionHasErrors('email');
         $this->assertGuest();
+    }
+
+    public function test_staff_request_can_be_rejected_then_approved_only_by_its_workshop(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        $this->post(route('register.account'), [
+            'name' => 'Applicant', 'email' => 'applicant@example.test', 'phone' => '123',
+            'password' => 'password123', 'password_confirmation' => 'password123',
+        ])->assertRedirect(route('register.workshop'));
+        $this->post(route('register.workshop.submit'), ['workshop_name' => 'Beta Workshop', 'workshop_address' => 'Test address'])
+            ->assertRedirect(route('register.staff'));
+        $this->post(route('register.staff.submit'), ['desired_role' => 'mechanic'])->assertRedirect(route('login'));
+        $applicant = User::on(config('tenancy.database.central_connection'))->where('email', 'applicant@example.test')->sole();
+        $this->assertSame($workshop->id, $applicant->tenant_id);
+        [$otherAdmin] = $this->createWorkshop();
+        $url = route('staff.requests.decide', $applicant->id);
+        $this->actingAs($otherAdmin)->patch($url, ['decision' => 'approve', 'role' => 'admin'])->assertNotFound();
+        $this->actingAs($admin)->get(route('staff.index'))->assertSee('applicant@example.test');
+        $this->patch($url, ['decision' => 'reject'])->assertSessionHasNoErrors();
+        $this->assertSame('Staff request rejected', $applicant->fresh()->suspension_reason);
+        $this->assertSame(User::STATUS_SUSPENDED, $applicant->fresh()->status);
+        $this->patch($url, ['decision' => 'approve', 'role' => 'mechanic', 'can_record_payments' => 1])
+            ->assertSessionHasNoErrors();
+        $applicant->refresh();
+        $this->assertSame(User::STATUS_ACTIVE, $applicant->status);
+        $this->assertTrue($applicant->can_record_payments);
+        $this->assertFalse($applicant->can_create_job_invoices);
+        $this->patch($url, ['decision' => 'approve', 'role' => 'admin'])->assertNotFound();
+    }
+
+    public function test_existing_unassigned_mechanic_must_sign_in_to_accept_and_cannot_move_a_linked_account(): void
+    {
+        Mail::fake();
+        [$admin, $workshop] = $this->createWorkshop();
+        $existing = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => null])->fresh();
+        $other = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => null])->fresh();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => null])->fresh();
+        $blocked = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => null, 'status' => User::STATUS_SUSPENDED])->fresh();
+        $this->actingAs($admin)->post(route('staff.invite'), ['email' => $client->email, 'role' => 'mechanic'])->assertSessionHasErrors('email');
+        $this->post(route('staff.invite'), ['email' => $blocked->email, 'role' => 'mechanic'])->assertSessionHasErrors('email');
+        $this->actingAs($admin)->post(route('staff.invite'), ['email' => $existing->email, 'role' => 'mechanic',
+            'can_create_job_invoices' => 1])->assertSessionHasNoErrors();
+        $url = Mail::sent(StaffInvitationEmail::class)->last()->invitationUrl;
+        $this->actingAs($other)->get($url)->assertNotFound();
+        $this->actingAs($existing)->get($url)->assertOk();
+        $this->post($url)->assertRedirect(route('dashboard'));
+        $existing->refresh();
+        $this->assertSame($workshop->id, $existing->tenant_id);
+        $this->assertTrue($existing->can_create_job_invoices);
+        $this->assertSame(1, $existing->credential_version);
+        $this->get($url)->assertNotFound();
+        $this->actingAs($admin)->post(route('staff.invite'), ['email' => $existing->email, 'role' => 'mechanic'])
+            ->assertSessionHasErrors('email');
+    }
+
+    public function test_financial_permissions_limit_invoice_creation_and_manual_payments(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin] = $this->createWorkshop();
+        $staff = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id,
+            'can_create_job_invoices' => true])->fresh();
+        [$completed, $open, $otherJob] = $workshop->run(function () use ($staff) {
+            [$customer, $vehicle] = $this->createCustomerAndVehicle();
+            $base = ['customer_id' => $customer->id, 'vehicle_id' => $vehicle->id, 'description' => 'Service'];
+
+            return [
+                JobCard::create($base + ['status' => JobCard::COMPLETED, 'assigned_mechanic_id' => $staff->id]),
+                JobCard::create($base + ['status' => JobCard::OPEN, 'assigned_mechanic_id' => $staff->id]),
+                JobCard::create($base + ['status' => JobCard::COMPLETED]),
+            ];
+        });
+        $payload = ['customer_id' => 999, 'vehicle_id' => 999,
+            'items' => [['description' => 'Labour', 'quantity' => 1, 'unit_price' => '100.00']]];
+        $this->actingAs($staff)->get(route('staff-invoices.create', $completed))->assertOk();
+        $this->post(route('staff-invoices.store', $open), $payload)->assertNotFound();
+        $this->post(route('staff-invoices.store', $otherJob), $payload)->assertNotFound();
+        $this->post(route('staff-invoices.store', $completed), array_replace($payload, [
+            'items' => [['description' => 'Part', 'quantity' => 1, 'unit_price' => '1.00', 'inventory_item_id' => 1]],
+        ]))->assertSessionHasErrors('items');
+        $this->post(route('staff-invoices.store', $completed), $payload)->assertRedirect(route('staff-invoices.show', 1));
+        $this->post(route('staff-invoices.store', $completed), $payload)->assertSessionHasErrors('job');
+        $workshop->run(function () use ($completed) {
+            $invoice = Invoice::sole();
+            $this->assertSame($completed->id, $invoice->job_card_id);
+            $this->assertSame($completed->customer_id, $invoice->customer_id);
+            $this->assertSame($completed->vehicle_id, $invoice->vehicle_id);
+        });
+        $this->post(route('staff-invoices.payments.store', 1), ['amount' => '10.00', 'payment_method' => 'cash'])->assertForbidden();
+        $this->get(route('invoices.show', 1))->assertForbidden();
+        $this->actingAs($otherAdmin)->get(route('invoices.show', 1))->assertNotFound();
+        $this->actingAs($admin)->patch(route('staff.update', $staff), [
+            'role' => 'mechanic', 'status' => 'active', 'can_record_payments' => 1,
+        ])->assertSessionHasNoErrors();
+        $this->post(route('invoices.store'), [
+            'customer_id' => $completed->customer_id,
+            'items' => [['description' => 'Other work', 'quantity' => 1, 'unit_price' => '50.00']],
+        ])->assertRedirect(route('invoices.show', 2));
+        $this->put(route('invoices.update', 1), $payload)->assertSessionHasErrors('customer_id');
+        $this->actingAs($staff->fresh())->get(route('staff-invoices.index'))->assertOk()->assertSee('Sample Customer');
+        $this->get(route('staff-invoices.show', 2))->assertOk()->assertSee('Other work');
+        $this->get(route('staff-invoices.create', $completed))->assertForbidden();
+        $this->post(route('staff-invoices.payments.store', 1), ['amount' => '10.00', 'payment_method' => 'pos'])
+            ->assertRedirect(route('staff-invoices.show', 1))->assertSessionHasNoErrors();
+        $workshop->run(fn () => $this->assertSame('pos', Invoice::findOrFail(1)->payments()->sole()->payment_method));
+        $this->post(route('staff-invoices.payments.store', 1), ['amount' => '1000.00', 'payment_method' => 'cash'])
+            ->assertSessionHasErrors('amount');
+        $this->post(route('staff-invoices.payments.store', 2), ['amount' => '5.00', 'payment_method' => 'transfer'])
+            ->assertSessionHasNoErrors();
+        $this->get(route('payment-preferences.edit'))->assertForbidden();
+        $this->post(route('invoices.credit-notes.store', 1))->assertForbidden();
     }
 
     protected function tearDown(): void

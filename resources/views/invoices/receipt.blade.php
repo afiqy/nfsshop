@@ -35,6 +35,10 @@
             <dd>{{ $payment->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</dd>
             <dt>Amount received for this payment</dt>
             <dd>{{ \App\Models\Invoice::formatAmount($payment->amount_sen) }}</dd>
+            @if ($payment->payment_method)
+                <dt>Payment method</dt>
+                <dd>{{ strtoupper($payment->payment_method) }}</dd>
+            @endif
         </dl>
         <p>This acknowledges one recorded payment only. It does not confirm the invoice is paid in full and is not a MyInvois-validated document.</p>
     </main>

@@ -39,6 +39,9 @@
     @endif
     <main>
         <h1>Invoice {{ $invoice->number() }}</h1>
+        @if ($invoice->job_card_id)
+            <p>Linked job: <a href="{{ route('job-cards.show', $invoice->job_card_id) }}">#{{ $invoice->job_card_id }}</a></p>
+        @endif
         @if ($invoice->isVoided())
             <p class="void-stamp">VOIDED</p>
             <p>Reason: {{ $invoice->void_reason }}</p>
@@ -240,6 +243,8 @@
                             value="{{ is_scalar(old('amount')) ? old('amount') : '' }}" required></p>
                     <p><label for="reference">Reference (optional)</label><br>
                         <input type="text" name="reference" id="reference" maxlength="255" value="{{ is_string(old('reference')) ? old('reference') : '' }}"></p>
+                    <p><label for="payment-method">Method (optional)</label><br>
+                        <select id="payment-method" name="payment_method"><option value="">Not specified</option><option value="cash">Cash</option><option value="pos">POS</option><option value="transfer">Transfer</option></select></p>
                     <button type="submit">Record payment</button>
                 </form>
             @endif
@@ -282,7 +287,7 @@
             <h3>Payment history</h3>
             <table>
                 <thead>
-                    <tr><th scope="col">Recorded (MYT)</th><th scope="col">Reference</th><th scope="col">Recorded by</th><th scope="col" class="amount">Amount</th><th scope="col" class="amount">Refunded</th><th scope="col">Receipt</th><th scope="col">Refund</th></tr>
+                    <tr><th scope="col">Recorded (MYT)</th><th scope="col">Method / reference</th><th scope="col">Recorded by</th><th scope="col" class="amount">Amount</th><th scope="col" class="amount">Refunded</th><th scope="col">Receipt</th><th scope="col">Refund</th></tr>
                 </thead>
                 <tbody>
                     @forelse ($payments as $payment)
@@ -294,7 +299,7 @@
                         @endphp
                         <tr>
                             <td>{{ $payment->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }}</td>
-                            <td class="description">{{ $payment->reference ?? '—' }}</td>
+                            <td class="description">{{ $payment->payment_method ?: '—' }} / {{ $payment->reference ?? '—' }}</td>
                             <td>User #{{ $payment->recorded_by_user_id }}</td>
                             <td class="amount">{{ \App\Models\Invoice::formatAmount($payment->amount_sen) }}</td>
                             <td class="amount">{{ \App\Models\Invoice::formatAmount($payment->refunded_sen ?? 0) }}</td>
