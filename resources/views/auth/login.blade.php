@@ -1,6 +1,6 @@
 @extends('layouts.guest')
 
-@section('title', 'Login')
+@section('title', __('Login'))
 
 @section('content')
 <div class="row justify-content-center">
@@ -12,7 +12,7 @@
                     <div class="col-lg-6">
                         <div class="p-5">
                             <div class="text-center">
-                                <h1 class="h4 text-gray-900 mb-4">Welcome Back!</h1>
+                                <h1 class="h4 text-gray-900 mb-4">{{ __('Welcome Back!') }}</h1>
                             </div>
 
                             @if (session('success'))
@@ -33,16 +33,16 @@
                                 @csrf
                                 <div class="form-group">
                                     <input type="email" name="email" class="form-control form-control-user"
-                                           placeholder="Enter Email Address..." value="{{ old('email') }}" required autofocus>
+                                           placeholder="{{ __('Enter Email Address...') }}" value="{{ old('email') }}" required autofocus>
                                 </div>
                                 <div class="form-group">
                                     <input type="password" name="password" class="form-control form-control-user"
-                                           placeholder="Password" required>
+                                           placeholder="{{ __('Password') }}" required>
                                 </div>
                                 <div class="form-group">
                                     <div class="custom-control custom-checkbox small">
                                         <input type="checkbox" name="remember" class="custom-control-input" id="customCheck" {{ old('remember') ? 'checked' : '' }}>
-                                        <label class="custom-control-label" for="customCheck">Remember Me</label>
+                                        <label class="custom-control-label" for="customCheck">{{ __('Remember Me') }}</label>
                                     </div>
                                 </div>
                                 @if (session('captcha_required'))
@@ -50,23 +50,23 @@
                                         <div class="g-recaptcha mb-3" data-sitekey="{{ config('services.recaptcha.site_key') }}"></div>
                                         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
                                     @else
-                                        <div class="alert alert-warning">CAPTCHA is not configured. Contact support.</div>
+                                        <div class="alert alert-warning">{{ __('CAPTCHA is not configured. Contact support.') }}</div>
                                     @endif
                                 @endif
                                 <button type="submit" class="btn btn-primary btn-user btn-block">
-                                    Login
+                                    {{ __('Login') }}
                                 </button>
                                 <hr>
-                                <a href="{{ route('password.request') }}" class="small">Forgot Password?</a>
+                                <a href="{{ route('password.request') }}" class="small">{{ __('Forgot Password?') }}</a>
                                 <br>
-                                <a href="{{ route('register') }}" class="small">Create an Account!</a>
+                                <a href="{{ route('register') }}" class="small">{{ __('Create an Account!') }}</a>
                             </form>
                             @if ($ssoProviders)
                                 <hr>
-                                <p class="small text-muted mb-2">Or continue with</p>
+                                <p class="small text-muted mb-2">{{ __('Or continue with') }}</p>
                                 @foreach ($ssoProviders as $provider => $label)
                                     <a class="btn btn-outline-secondary btn-user btn-block mb-2" href="{{ route('sso.redirect', $provider) }}">
-                                        Continue with {{ $label }}
+                                        {{ __('Continue with :provider', ['provider' => $label]) }}
                                     </a>
                                 @endforeach
                             @endif

@@ -141,6 +141,11 @@ class ProfileManagementTest extends TestCase
             ->assertSee('lang="ms"', false)
             ->assertSee('15 Jan 2026 20:00')
             ->assertSee('Asia/Kuala_Lumpur');
+
+        $this->get(route('dashboard'))
+            ->assertOk()
+            ->assertSeeText('Papan Pemuka')
+            ->assertSeeText('Selamat datang,');
     }
 
     public function test_profile_rejects_invalid_values_without_changing_user(): void
