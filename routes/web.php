@@ -27,6 +27,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ServiceCatalogController;
+use App\Http\Controllers\SsoController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StaffInvitationController;
 use App\Http\Controllers\StaffInvoiceController;
@@ -77,6 +78,11 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:10,1') // Limit to 5 attempts per minute
     ->name('login.post');
+Route::middleware(['guest', 'throttle:10,1'])->group(function () {
+    Route::get('/auth/{provider}/redirect', [SsoController::class, 'redirect'])->name('sso.redirect');
+});
+Route::get('/auth/{provider}/callback', [SsoController::class, 'callback'])
+    ->middleware('throttle:10,1')->name('sso.callback');
 
 Route::get('/register', [RegistrationController::class, 'start'])->name('register');
 Route::post('/register/account', [RegistrationController::class, 'submitAccount'])->name('register.account');
@@ -127,6 +133,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout'])->group(function 
     Route::post('/staff-invitations/existing/{token}', [StaffInvitationController::class, 'acceptExisting'])->middleware('throttle:10,1')->name('staff-invitations.existing.accept');
     Route::get('devices', [DeviceSessionController::class, 'index'])->name('devices.index');
     Route::delete('devices/{device}', [DeviceSessionController::class, 'revoke'])->name('devices.revoke');
+    Route::post('profile/identities/{provider}', [SsoController::class, 'link'])
+        ->middleware('throttle:5,1')->name('profile.identities.link');
+    Route::delete('profile/identities/{identity}', [SsoController::class, 'unlink'])
+        ->middleware('throttle:5,1')->name('profile.identities.unlink');
     Route::get('authenticator', [AuthenticatorController::class, 'show'])->name('authenticator.show');
     Route::post('authenticator/start', [AuthenticatorController::class, 'start'])->middleware('throttle:10,1')->name('authenticator.start');
     Route::post('authenticator/confirm', [AuthenticatorController::class, 'confirm'])->middleware('throttle:10,1')->name('authenticator.confirm');

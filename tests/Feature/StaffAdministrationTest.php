@@ -232,6 +232,28 @@ class StaffAdministrationTest extends TestCase
             ->assertSessionHasErrors('email');
     }
 
+    public function test_active_unassigned_sso_client_can_accept_a_workshop_staff_invitation(): void
+    {
+        Mail::fake();
+        [$admin, $workshop] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => null])->fresh();
+        $client->socialIdentities()->create(['provider' => 'google', 'provider_user_id' => 'sso-client-123']);
+
+        $this->actingAs($admin)->post(route('staff.invite'), [
+            'email' => $client->email,
+            'role' => User::ROLE_MECHANIC,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $url = Mail::sent(StaffInvitationEmail::class)->last()->invitationUrl;
+
+        $this->actingAs($client)->get($url)->assertOk();
+        $this->post($url)->assertRedirect(route('dashboard'));
+
+        $client->refresh();
+        $this->assertSame($workshop->id, $client->tenant_id);
+        $this->assertSame(User::ROLE_MECHANIC, $client->role);
+        $this->assertSame('sso-client-123', $client->socialIdentities()->sole()->provider_user_id);
+    }
+
     public function test_financial_permissions_limit_invoice_creation_and_manual_payments(): void
     {
         [$admin, $workshop] = $this->createWorkshop();

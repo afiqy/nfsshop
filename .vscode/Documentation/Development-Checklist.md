@@ -7,7 +7,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Authentication and access-control baseline: login/logout, role checks, account lockout, session timeout, tenant scoping, subscription-expiry gates.
 - [x] Password recovery and password policy: email reset links, consistent password validation, and web-session invalidation after password changes.
 - [x] Login CAPTCHA after repeated failures, optional authenticator verification for selected high-privilege actions, and web device-session management.
-- [ ] Full authentication: Google/Microsoft SSO and linked identity management.
+- [x] Full authentication: Google/Microsoft SSO and linked identity management.
 - [x] Profile beta: personal name, phone, bio and avatar editing; verified account email changes; saved language, timezone and communication preferences; link to existing client reminder consent.
 - [ ] Complete profile and account preferences: workshop logo uploads, applied language/timezone preferences and remaining notification settings.
 - [x] Staff account administration beta: workshop-scoped email invitations for mechanics or full workshop admins; activation/suspension, role management and optional read-only customer/vehicle lists.

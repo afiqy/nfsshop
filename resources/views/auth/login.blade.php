@@ -61,6 +61,15 @@
                                 <br>
                                 <a href="{{ route('register') }}" class="small">Create an Account!</a>
                             </form>
+                            @if ($ssoProviders)
+                                <hr>
+                                <p class="small text-muted mb-2">Or continue with</p>
+                                @foreach ($ssoProviders as $provider => $label)
+                                    <a class="btn btn-outline-secondary btn-user btn-block mb-2" href="{{ route('sso.redirect', $provider) }}">
+                                        Continue with {{ $label }}
+                                    </a>
+                                @endforeach
+                            @endif
                         </div>
                     </div>
                 </div>

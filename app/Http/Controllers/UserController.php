@@ -23,8 +23,10 @@ class UserController extends Controller
     {
         $user = Auth::user();
         $profile = $this->profileFor($user);
+        $identities = $user->socialIdentities()->orderBy('provider')->get();
+        $ssoProviders = SsoController::configuredProviders();
 
-        return view('profile.index', compact('user', 'profile'));
+        return view('profile.index', compact('user', 'profile', 'identities', 'ssoProviders'));
     }
 
     public function editProfile()

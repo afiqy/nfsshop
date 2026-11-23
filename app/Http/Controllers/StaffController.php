@@ -58,8 +58,8 @@ class StaffController extends Controller
         DB::connection($central)->transaction(function () use ($data, $email, $central, $token, $request, $workshopName) {
             Tenant::query()->whereKey(tenant('id'))->lockForUpdate()->firstOrFail();
             $existing = User::on($central)->where('email', $email)->lockForUpdate()->first();
-            if ($existing && ($existing->tenant_id !== null || $existing->role !== User::ROLE_MECHANIC || $existing->status !== User::STATUS_ACTIVE)) {
-                throw ValidationException::withMessages(['email' => 'Only active, unassigned mechanic accounts can be invited as existing users.']);
+            if ($existing && ! $existing->isEligibleForStaffInvitation()) {
+                throw ValidationException::withMessages(['email' => 'Only active, unassigned mechanic accounts or SSO-linked client accounts can be invited as existing users.']);
             }
             StaffInvitation::on($central)->where('tenant_id', tenant('id'))->where('email', $email)
                 ->whereNull('accepted_at')->whereNull('revoked_at')->update(['revoked_at' => now()]);

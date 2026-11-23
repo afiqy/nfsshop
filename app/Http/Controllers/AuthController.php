@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use App\Support\PasswordPolicy;
+use App\Services\AuthenticatedSession;
 use App\Services\LoginCaptcha;
 use App\Services\DeviceSessions;
 use Illuminate\Validation\ValidationException;
@@ -20,10 +21,10 @@ class AuthController extends Controller
     public function showLoginForm()
     {
         error_log("Displaying login form to IP: " . request()->ip());
-        return view('auth.login');
+        return view('auth.login', ['ssoProviders' => SsoController::configuredProviders()]);
     }
 
-    public function login(Request $request, LoginCaptcha $captcha, DeviceSessions $devices)
+    public function login(Request $request, LoginCaptcha $captcha, DeviceSessions $devices, AuthenticatedSession $sessions)
     {
         $request->validate([
             'email' => ['required','email'],
@@ -86,23 +87,9 @@ class AuthController extends Controller
 
         RateLimiter::clear($throttleKey);
 
-        $user->resetLoginAttempts();
-
-        $request->session()->regenerate();
-        $request->session()->put('credential_version', $user->credential_version);
-        $request->session()->put('last_activity', now());
-
-        $devices->start($request, $user);
         error_log("User logged in: " . $user->email);
-        $fallbackRoute = $user->isSuperAdmin()
-            ? route('super-admin.dashboard')
-            : ($user->isAccountSuperAdmin()
-                ? route('account.workshops.index')
-                : ($user->role === User::ROLE_CLIENT
-                    ? route('client.portal')
-                    : route('dashboard')));
 
-        return redirect()->intended($fallbackRoute);
+        return $sessions->complete($request, $user, $devices);
     }
 
     public function logout(Request $request)

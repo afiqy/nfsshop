@@ -82,8 +82,7 @@ class StaffInvitationController extends Controller
             $user = User::on($central)->lockForUpdate()->findOrFail($request->user()->id);
             $invitation = $this->validInvitation($token)->where('for_existing_user', true)
                 ->where('existing_user_id', $request->user()->id)->lockForUpdate()->firstOrFail();
-            if ($user->tenant_id !== null || $user->role !== User::ROLE_MECHANIC
-                || $user->status !== User::STATUS_ACTIVE || strtolower($user->email) !== $invitation->email) {
+            if (! $user->isEligibleForStaffInvitation() || strtolower($user->email) !== $invitation->email) {
                 throw ValidationException::withMessages(['email' => 'This account is no longer eligible for the invitation. Contact the workshop admin.']);
             }
             $tenant = Tenant::findOrFail($invitation->tenant_id);

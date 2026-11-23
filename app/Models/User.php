@@ -120,6 +120,11 @@ class User extends Authenticatable
         return $this->hasMany(UserSession::class);
     }
 
+    public function socialIdentities(): HasMany
+    {
+        return $this->hasMany(SocialIdentity::class);
+    }
+
     public function accountSubscription(): HasOne
     {
         return $this->hasOne(AccountSubscription::class);
@@ -147,6 +152,13 @@ class User extends Authenticatable
     public function isAccountSuperAdmin(): bool
     {
         return $this->role === self::ROLE_ACCOUNT_SUPER_ADMIN;
+    }
+
+    public function isEligibleForStaffInvitation(): bool
+    {
+        return $this->tenant_id === null && $this->status === self::STATUS_ACTIVE
+            && ($this->role === self::ROLE_MECHANIC
+                || ($this->role === self::ROLE_CLIENT && $this->socialIdentities()->exists()));
     }
 
     public function isSuspended(): bool

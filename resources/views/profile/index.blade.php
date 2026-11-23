@@ -124,6 +124,39 @@
     </div>
 </div>
 @endunless
+@unless (session()->has('impersonator_id'))
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <h2 class="h5">Linked sign-in methods</h2>
+        <p>External identities are linked only after provider authentication. An email match never links accounts automatically.</p>
+        <p>If you signed up with SSO and have not set a password, sign out and use <a href="{{ route('password.request') }}">password recovery</a>, then sign in again before linking or unlinking an identity.</p>
+        @foreach ($identities as $identity)
+            <form action="{{ route('profile.identities.unlink', $identity->id) }}" method="POST" class="border rounded p-3 mb-3">
+                @csrf
+                @method('DELETE')
+                <strong>{{ ucfirst($identity->provider) }}</strong>
+                <label class="d-block mt-2" for="unlink-password-{{ $identity->id }}">Current password</label>
+                <input id="unlink-password-{{ $identity->id }}" type="password" name="current_password" class="form-control mb-2" autocomplete="current-password" required>
+                <button type="submit" class="btn btn-outline-danger">Unlink {{ ucfirst($identity->provider) }}</button>
+            </form>
+        @endforeach
+        @foreach ($ssoProviders as $provider => $label)
+            @unless ($identities->contains('provider', $provider))
+                <form action="{{ route('profile.identities.link', $provider) }}" method="POST" class="border rounded p-3 mb-3">
+                    @csrf
+                    <strong>Link {{ $label }}</strong>
+                    <label class="d-block mt-2" for="link-password-{{ $provider }}">Current password</label>
+                    <input id="link-password-{{ $provider }}" type="password" name="current_password" class="form-control mb-2" autocomplete="current-password" required>
+                    <button type="submit" class="btn btn-outline-primary">Link {{ $label }}</button>
+                </form>
+            @endunless
+        @endforeach
+        @if (! $ssoProviders)
+            <p class="mb-0">Google and Microsoft sign-in are not configured.</p>
+        @endif
+    </div>
+</div>
+@endunless
 <div class="card shadow mb-4">
     <a href="#collapsePasswordCard" class="d-block card-header py-3 collapsed" data-bs-toggle="collapse" data-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapsePasswordCard" data-bs-target="#collapsePasswordCard">
         <h6 class="m-0 font-weight-bold text-primary">
