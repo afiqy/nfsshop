@@ -179,9 +179,12 @@
             @if ($user->can_create_job_invoices || $user->can_record_payments)
                 <li class="nav-item"><a class="nav-link" href="{{ route('staff-invoices.index') }}"><i class="fas fa-file-invoice"></i> <span>Invoices</span></a></li>
             @endif
-            @if ($user->can_view_customers)
+            @if ($user->canViewCustomerLists())
                 <li class="nav-item"><a class="nav-link" href="{{ route('customers.index') }}"><i class="fas fa-users"></i> <span>Customers</span></a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('vehicles.index') }}"><i class="fas fa-car"></i> <span>Vehicles</span></a></li>
+            @endif
+            @if ($user->can_review_appointments)
+                <li class="nav-item"><a class="nav-link" href="{{ route('appointment-requests.index') }}"><i class="fas fa-calendar-check"></i> <span>Appointment requests</span></a></li>
             @endif
         @elseif ($user?->role === \App\Models\User::ROLE_CLIENT)
             <li class="nav-item">

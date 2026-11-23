@@ -11,7 +11,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Profile beta: personal name, phone, bio and avatar editing; verified account email changes; saved language, timezone and communication preferences; link to existing client reminder consent.
 - [ ] Complete profile and account preferences: workshop logo uploads, applied language/timezone preferences and remaining notification settings.
 - [x] Staff account administration beta: workshop-scoped email invitations for mechanics or full workshop admins; activation/suspension, role management and optional read-only customer/vehicle lists.
-- [ ] Additional staff permissions (including invoice and payment recording), existing-account invitations and self-registration approval.
+- [x] Additional staff permissions (including invoice and payment recording), invitations for active unassigned existing mechanics, and self-registration approval.
 - [x] Client account and self-service portal: workshop-admin-confirmed email linking, client-owned vehicle records (five self-service vehicles), approval requests for additional vehicles, and read-only service history.
 - [x] Customer records: workshop-scoped list, create and edit, short-name aliases and search.
 - [x] Vehicle records: workshop-scoped list, create and edit, customer linkage.
@@ -118,8 +118,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Google reCAPTCHA after repeated login failures, optional authenticator verification for selected privileged actions, and device-session revocation.
 - [x] Profile editing with private avatar uploads, verified account email changes and saved personal preferences; existing customer reminder consent remains in the portal.
 - [x] Staff invoice and manual-payment permissions, invitations for active unassigned mechanics, and workshop-scoped review of mechanic self-registration requests.
+- [x] Opt-in staff permissions for workshop-wide vehicle history, customer/vehicle record creation, and appointment-request review.
 
 ## Next recommended module
 
-- [ ] Additional staff permissions (including invoice and payment recording), existing-account invitations and self-registration approval.
+- [ ] Client appointment cancellation/rescheduling and booking/confirmation/reminder notifications.
 

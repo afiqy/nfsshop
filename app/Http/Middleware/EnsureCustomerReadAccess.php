@@ -12,10 +12,7 @@ class EnsureCustomerReadAccess
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        abort_unless($user->status === User::STATUS_ACTIVE && (
-            $user->role === User::ROLE_ADMIN ||
-            ($user->role === User::ROLE_MECHANIC && $user->can_view_customers)
-        ), 403);
+        abort_unless($user->status === User::STATUS_ACTIVE && $user->canViewCustomerLists(), 403);
 
         return $next($request);
     }

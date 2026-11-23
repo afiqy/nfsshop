@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Appointment requests')
 @section('content')
-<a href="{{ route('calendar.index') }}">Back to calendar</a>
+@if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)<a href="{{ route('calendar.index') }}">Back to calendar</a>@endif
 <h1 class="h3 mt-2">Pending appointment requests</h1>
 @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @if ($errors->any())<div class="alert alert-danger"><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif

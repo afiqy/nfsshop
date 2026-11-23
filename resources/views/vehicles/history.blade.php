@@ -18,7 +18,11 @@
         <ul class="list-group list-group-flush">
             @forelse ($appointments as $appointment)
                 <li class="list-group-item">
-                    <a href="{{ route('calendar.index', ['week' => substr($appointment->start, 0, 10)]) }}">{{ $appointment->service_type ?? $appointment->title }}</a>
+                    @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)
+                        <a href="{{ route('calendar.index', ['week' => substr($appointment->start, 0, 10)]) }}">{{ $appointment->service_type ?? $appointment->title }}</a>
+                    @else
+                        {{ $appointment->service_type ?? $appointment->title }}
+                    @endif
                     <span class="d-block text-muted">{{ substr($appointment->start, 0, 16) }} &middot; {{ $appointment->status }}</span>
                 </li>
             @empty
@@ -33,7 +37,11 @@
         <ul class="list-group list-group-flush">
             @forelse ($jobs as $job)
                 <li class="list-group-item">
-                    <a href="{{ route('job-cards.show', $job) }}">Job #{{ $job->id }}: {{ \Illuminate\Support\Str::limit($job->description, 100) }}</a>
+                    @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)
+                        <a href="{{ route('job-cards.show', $job) }}">Job #{{ $job->id }}: {{ \Illuminate\Support\Str::limit($job->description, 100) }}</a>
+                    @else
+                        Job #{{ $job->id }}: {{ \Illuminate\Support\Str::limit($job->description, 100) }}
+                    @endif
                     <span class="d-block text-muted">{{ $job->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} &middot; {{ \App\Models\JobCard::LABELS[$job->status] }}</span>
                     @foreach ($job->updates as $update)
                         <span class="d-block ml-3">
@@ -72,7 +80,11 @@
         <ul class="list-group list-group-flush">
             @forelse ($invoices as $invoice)
                 <li class="list-group-item">
-                    <a href="{{ route('invoices.show', $invoice) }}">{{ $invoice->number() }}</a>
+                    @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)
+                        <a href="{{ route('invoices.show', $invoice) }}">{{ $invoice->number() }}</a>
+                    @else
+                        {{ $invoice->number() }}
+                    @endif
                     <span class="d-block text-muted">{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }} &middot; {{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}{{ $invoice->isVoided() ? ' · Voided' : '' }}</span>
                 </li>
             @empty

@@ -49,6 +49,7 @@ use App\Http\Middleware\EnsureCustomerReadAccess;
 use App\Http\Middleware\EnsureInventoryAccess;
 use App\Http\Middleware\EnsureReportsAccess;
 use App\Http\Middleware\EnsureWorkshopContext;
+use App\Http\Middleware\EnsureWorkshopStaffPermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -182,6 +183,17 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
             Route::get('vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
         });
+        Route::middleware([EnsureWorkshopContext::class, EnsureWorkshopStaffPermission::class.':can_create_customer_records'])->group(function () {
+            Route::resource('customers', CustomerController::class)->only(['create', 'store']);
+            Route::resource('vehicles', VehicleController::class)->only(['create', 'store']);
+        });
+        Route::get('vehicles/{vehicle}/history', [VehicleController::class, 'history'])
+            ->middleware([EnsureWorkshopContext::class, EnsureWorkshopStaffPermission::class.':can_view_vehicle_history'])->name('vehicles.history');
+        Route::middleware([EnsureWorkshopContext::class, EnsureWorkshopStaffPermission::class.':can_review_appointments'])->group(function () {
+            Route::get('appointment-requests', [AppointmentRequestController::class, 'index'])->name('appointment-requests.index');
+            Route::patch('appointment-requests/{appointmentRequest}/confirm', [AppointmentRequestController::class, 'confirm'])->name('appointment-requests.confirm');
+            Route::patch('appointment-requests/{appointmentRequest}/reject', [AppointmentRequestController::class, 'reject'])->name('appointment-requests.reject');
+        });
         Route::middleware(['role:mechanic', EnsureWorkshopContext::class])
             ->prefix('my-jobs')->name('my-jobs.')->group(function () {
                 Route::get('/', [JobCardController::class, 'index'])->name('index');
@@ -229,17 +241,13 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::post('service-packages', [ServiceCatalogController::class, 'savePackage'])->name('service-packages.store');
             Route::get('service-packages/{package}/edit', [ServiceCatalogController::class, 'packageForm'])->name('service-packages.edit');
             Route::put('service-packages/{package}', [ServiceCatalogController::class, 'savePackage'])->name('service-packages.update');
-            Route::get('appointment-requests', [AppointmentRequestController::class, 'index'])->name('appointment-requests.index');
-            Route::patch('appointment-requests/{appointmentRequest}/confirm', [AppointmentRequestController::class, 'confirm'])->name('appointment-requests.confirm');
-            Route::patch('appointment-requests/{appointmentRequest}/reject', [AppointmentRequestController::class, 'reject'])->name('appointment-requests.reject');
             Route::get('staff', [StaffController::class, 'index'])->name('staff.index');
             Route::post('staff/invitations', [StaffController::class, 'invite'])->middleware(['throttle:10,1', EnsureAuthenticatorVerified::class])->name('staff.invite');
             Route::delete('staff/invitations/{invitation}', [StaffController::class, 'revoke'])->middleware(EnsureAuthenticatorVerified::class)->name('staff.invitations.revoke');
             Route::patch('staff/{staff}', [StaffController::class, 'update'])->middleware(EnsureAuthenticatorVerified::class)->name('staff.update');
             Route::patch('staff-requests/{staff}', [StaffController::class, 'decideRequest'])->middleware(EnsureAuthenticatorVerified::class)->name('staff.requests.decide');
-            Route::resource('customers', CustomerController::class)->only(['create', 'store', 'edit', 'update']);
-            Route::resource('vehicles', VehicleController::class)->only(['create', 'store', 'edit', 'update']);
-            Route::get('vehicles/{vehicle}/history', [VehicleController::class, 'history'])->name('vehicles.history');
+            Route::resource('customers', CustomerController::class)->only(['edit', 'update']);
+            Route::resource('vehicles', VehicleController::class)->only(['edit', 'update']);
             Route::get('client-accounts', [CustomerAccountController::class, 'index'])->name('client-accounts.index');
             Route::post('client-accounts/{user}/activate', [CustomerAccountController::class, 'activate'])->name('client-accounts.activate');
             Route::patch('client-vehicle-requests/{vehicleRequest}/approve', [CustomerAccountController::class, 'approveVehicleRequest'])

@@ -54,6 +54,9 @@ class StaffInvitationController extends Controller
                 'can_view_customers' => $invitation->can_view_customers,
                 'can_create_job_invoices' => $invitation->can_create_job_invoices,
                 'can_record_payments' => $invitation->can_record_payments,
+                'can_view_vehicle_history' => $invitation->can_view_vehicle_history,
+                'can_create_customer_records' => $invitation->can_create_customer_records,
+                'can_review_appointments' => $invitation->can_review_appointments,
             ]);
             $invitation->update(['accepted_at' => now()]);
         });
@@ -91,6 +94,9 @@ class StaffInvitationController extends Controller
                 'can_view_customers' => $invitation->can_view_customers,
                 'can_create_job_invoices' => $invitation->can_create_job_invoices,
                 'can_record_payments' => $invitation->can_record_payments,
+                'can_view_vehicle_history' => $invitation->can_view_vehicle_history,
+                'can_create_customer_records' => $invitation->can_create_customer_records,
+                'can_review_appointments' => $invitation->can_review_appointments,
                 'credential_version' => $user->credential_version + 1,
                 'remember_token' => Str::random(60),
             ])->save();

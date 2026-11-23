@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Mail\StaffInvitationEmail;
 use App\Models\AccountSubscription;
+use App\Models\AppointmentRequest;
+use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\JobCard;
@@ -38,7 +40,7 @@ class StaffAdministrationTest extends TestCase
 
         $this->actingAs($admin)->post(route('staff.invite'), [
             'email' => 'MECHANIC@example.test', 'role' => 'mechanic', 'can_view_customers' => '1',
-            'can_record_payments' => '1',
+            'can_record_payments' => '1', 'can_review_appointments' => '1',
         ])->assertRedirect(route('staff.index'));
         Mail::assertSent(StaffInvitationEmail::class, function ($mail) use (&$url) {
             $url = $mail->invitationUrl;
@@ -56,6 +58,8 @@ class StaffAdministrationTest extends TestCase
         $this->assertSame(User::ROLE_MECHANIC, $staff->role);
         $this->assertTrue($staff->can_view_customers);
         $this->assertTrue($staff->can_record_payments);
+        $this->assertTrue($staff->can_review_appointments);
+        $this->assertFalse($staff->can_create_customer_records);
         $this->actingAs($staff)->get(route('customers.index'))->assertOk()->assertSee('Sample Customer')->assertDontSee('Add customer');
         $this->get(route('vehicles.index'))->assertOk()->assertSee('BETA123')->assertDontSee('Add vehicle');
         $this->get(route('vehicles.history', 1))->assertForbidden();
@@ -145,7 +149,8 @@ class StaffAdministrationTest extends TestCase
         $invitation = \App\Models\StaffInvitation::on(config('tenancy.database.central_connection'))
             ->where('tenant_id', $workshop->id)->firstOrFail();
         $this->actingAs($otherAdmin)->delete(route('staff.invitations.revoke', $invitation->id))->assertNotFound();
-        $this->actingAs($admin)->post(route('staff.invite'), ['email' => 'admin-staff@example.test', 'role' => 'admin'])->assertRedirect();
+        $this->actingAs($admin)->post(route('staff.invite'), ['email' => 'admin-staff@example.test', 'role' => 'admin',
+            'can_review_appointments' => 1])->assertRedirect();
         $second = Mail::sent(StaffInvitationEmail::class)->last()->invitationUrl;
         auth()->logout();
         tenancy()->end();
@@ -155,6 +160,7 @@ class StaffAdministrationTest extends TestCase
         $staff = User::where('email', 'admin-staff@example.test')->sole();
         $this->assertSame(User::ROLE_ADMIN, $staff->role);
         $this->assertSame($workshop->id, $staff->tenant_id);
+        $this->assertFalse($staff->can_review_appointments);
         $this->actingAs($staff)->get(route('invoices.index'))->assertOk();
         $this->get(route('staff.index'))->assertOk();
     }
@@ -190,11 +196,12 @@ class StaffAdministrationTest extends TestCase
         $this->patch($url, ['decision' => 'reject'])->assertSessionHasNoErrors();
         $this->assertSame('Staff request rejected', $applicant->fresh()->suspension_reason);
         $this->assertSame(User::STATUS_SUSPENDED, $applicant->fresh()->status);
-        $this->patch($url, ['decision' => 'approve', 'role' => 'mechanic', 'can_record_payments' => 1])
+        $this->patch($url, ['decision' => 'approve', 'role' => 'mechanic', 'can_record_payments' => 1, 'can_view_vehicle_history' => 1])
             ->assertSessionHasNoErrors();
         $applicant->refresh();
         $this->assertSame(User::STATUS_ACTIVE, $applicant->status);
         $this->assertTrue($applicant->can_record_payments);
+        $this->assertTrue($applicant->can_view_vehicle_history);
         $this->assertFalse($applicant->can_create_job_invoices);
         $this->patch($url, ['decision' => 'approve', 'role' => 'admin'])->assertNotFound();
     }
@@ -210,7 +217,7 @@ class StaffAdministrationTest extends TestCase
         $this->actingAs($admin)->post(route('staff.invite'), ['email' => $client->email, 'role' => 'mechanic'])->assertSessionHasErrors('email');
         $this->post(route('staff.invite'), ['email' => $blocked->email, 'role' => 'mechanic'])->assertSessionHasErrors('email');
         $this->actingAs($admin)->post(route('staff.invite'), ['email' => $existing->email, 'role' => 'mechanic',
-            'can_create_job_invoices' => 1])->assertSessionHasNoErrors();
+            'can_create_job_invoices' => 1, 'can_create_customer_records' => 1])->assertSessionHasNoErrors();
         $url = Mail::sent(StaffInvitationEmail::class)->last()->invitationUrl;
         $this->actingAs($other)->get($url)->assertNotFound();
         $this->actingAs($existing)->get($url)->assertOk();
@@ -218,6 +225,7 @@ class StaffAdministrationTest extends TestCase
         $existing->refresh();
         $this->assertSame($workshop->id, $existing->tenant_id);
         $this->assertTrue($existing->can_create_job_invoices);
+        $this->assertTrue($existing->can_create_customer_records);
         $this->assertSame(1, $existing->credential_version);
         $this->get($url)->assertNotFound();
         $this->actingAs($admin)->post(route('staff.invite'), ['email' => $existing->email, 'role' => 'mechanic'])
@@ -279,6 +287,93 @@ class StaffAdministrationTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->get(route('payment-preferences.edit'))->assertForbidden();
         $this->post(route('invoices.credit-notes.store', 1))->assertForbidden();
+    }
+
+    public function test_client_record_and_history_permissions_are_independent_and_workshop_scoped(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin, $otherWorkshop] = $this->createWorkshop();
+        $staff = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        [$customer, $vehicle] = $workshop->run(fn () => $this->createCustomerAndVehicle());
+        $otherWorkshop->run(function () {
+            [$customer, $vehicle] = $this->createCustomerAndVehicle();
+            Vehicle::create(array_replace($this->vehicleDetails($customer), [
+                'plate_number' => 'OTHER2', 'chassis_number' => 'OTHER-CHASSIS', 'engine_number' => 'OTHER-ENGINE',
+            ]));
+        });
+        $workshop->run(function () use ($customer, $vehicle) {
+            $job = JobCard::create(['customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+                'description' => 'Historical repair', 'status' => JobCard::COMPLETED]);
+            $job->updates()->create(['actor_user_id' => 1, 'actor_name' => 'Technician', 'type' => 'note', 'note' => 'Private service note']);
+        });
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+            'items' => [['description' => 'Repair', 'quantity' => 1, 'unit_price' => '19.00']],
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($staff)->get(route('vehicles.history', $vehicle->id))->assertForbidden();
+        $this->post(route('customers.store'), [])->assertForbidden();
+        $this->actingAs($admin)->patch(route('staff.update', $staff), [
+            'role' => 'mechanic', 'status' => 'active', 'can_view_vehicle_history' => 1,
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($staff->fresh())->get(route('vehicles.index'))->assertOk()->assertSee('History')->assertDontSee('Add vehicle');
+        $this->get(route('vehicles.history', $vehicle->id))->assertOk()->assertSee('Historical repair')->assertSee('Private service note')
+            ->assertSee('19.00')->assertDontSee(route('job-cards.show', 1))->assertDontSee(route('invoices.show', 1));
+        $this->get(route('vehicles.history', 2))->assertNotFound();
+        $this->post(route('customers.store'), [])->assertForbidden();
+        $this->actingAs($admin)->patch(route('staff.update', $staff), [
+            'role' => 'mechanic', 'status' => 'active', 'can_create_customer_records' => 1,
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($staff->fresh())->get(route('vehicles.history', $vehicle->id))->assertForbidden();
+        $this->get(route('customers.index'))->assertOk()->assertSee('Add customer');
+        $this->post(route('customers.store'), ['name' => 'Walk-in', 'email' => 'walkin@example.test'])->assertRedirect(route('customers.index'));
+        $created = $workshop->run(fn () => Customer::where('email', 'walkin@example.test')->sole());
+        $this->post(route('vehicles.store'), array_replace($this->vehicleDetails($created), [
+            'plate_number' => 'NEW123', 'chassis_number' => 'NEW-CHASSIS', 'engine_number' => 'NEW-ENGINE',
+        ]))->assertRedirect(route('vehicles.index'))->assertSessionHasNoErrors();
+        $this->post(route('vehicles.store'), array_replace($this->vehicleDetails($created), [
+            'customer_id' => 999, 'plate_number' => 'NEW456', 'chassis_number' => 'NEW2-CHASSIS', 'engine_number' => 'NEW2-ENGINE',
+        ]))->assertSessionHasErrors('customer_id');
+        $this->put(route('customers.update', $created->id), [])->assertForbidden();
+        $this->put(route('vehicles.update', $vehicle->id), [])->assertForbidden();
+        $this->actingAs($otherAdmin)->get(route('customers.index'))->assertDontSee('walkin@example.test');
+        $this->actingAs($admin)->patch(route('staff.update', $staff), ['role' => 'mechanic', 'status' => 'active'])->assertSessionHasNoErrors();
+        $this->actingAs($staff->fresh())->get(route('customers.index'))->assertForbidden();
+        $this->get(route('vehicles.create'))->assertForbidden();
+    }
+
+    public function test_appointment_review_permission_respects_conflicts_replay_and_workshop_isolation(): void
+    {
+        [$admin, $workshop] = $this->createWorkshop();
+        [$otherAdmin, $otherWorkshop] = $this->createWorkshop();
+        $staff = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $workshop->id]);
+        $otherStaff = User::factory()->create(['role' => User::ROLE_MECHANIC, 'tenant_id' => $otherWorkshop->id, 'can_review_appointments' => true]);
+        [$booking, $rejected] = $workshop->run(function () {
+            [$customer, $vehicle] = $this->createCustomerAndVehicle();
+            $start = now('Asia/Kuala_Lumpur')->addDays(3)->startOfHour();
+            $data = ['customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+                'start' => $start->format('Y-m-d H:i:s'), 'end' => $start->copy()->addHour()->format('Y-m-d H:i:s'),
+                'service_quote' => ['name' => 'Service', 'services' => [], 'total_sen' => 1000, 'notes' => null],
+                'status' => AppointmentRequest::PENDING];
+            Calendar::create(array_replace($data, ['title' => 'Existing', 'status' => Calendar::STATUS_SCHEDULED]));
+
+            return [AppointmentRequest::create($data), AppointmentRequest::create($data)];
+        });
+        $this->actingAs($staff)->get(route('appointment-requests.index'))->assertForbidden();
+        $this->patch(route('appointment-requests.confirm', $booking->id))->assertForbidden();
+        $this->actingAs($otherStaff)->patch(route('appointment-requests.confirm', $booking->id))->assertNotFound();
+        $this->actingAs($admin)->patch(route('staff.update', $staff), [
+            'role' => 'mechanic', 'status' => 'active', 'can_review_appointments' => 1,
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($staff->fresh())->get(route('appointment-requests.index'))->assertOk()->assertSee('Service')->assertDontSee('Back to calendar');
+        $this->patch(route('appointment-requests.confirm', $booking->id))->assertSessionHasErrors('start');
+        $workshop->run(fn () => Calendar::sole()->update(['status' => Calendar::STATUS_CANCELLED]));
+        $this->patch(route('appointment-requests.confirm', $booking->id))->assertSessionHasNoErrors()->assertRedirect(route('appointment-requests.index'));
+        $this->patch(route('appointment-requests.confirm', $booking->id))->assertStatus(409);
+        $this->patch(route('appointment-requests.reject', $rejected->id))->assertSessionHasNoErrors();
+        $this->patch(route('appointment-requests.reject', $rejected->id))->assertStatus(409);
+        $this->actingAs($admin)->patch(route('staff.update', $staff), ['role' => 'mechanic', 'status' => 'active'])->assertSessionHasNoErrors();
+        $this->actingAs($staff->fresh())->get(route('appointment-requests.index'))->assertForbidden();
     }
 
     protected function tearDown(): void

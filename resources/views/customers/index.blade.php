@@ -5,7 +5,7 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Customers</h1>
-        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)
+        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN || auth()->user()->can_create_customer_records)
             <a href="{{ route('customers.create') }}" class="btn btn-primary">Add customer</a>
         @endif
     </div>

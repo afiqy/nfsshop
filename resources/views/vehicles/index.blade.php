@@ -5,7 +5,7 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Vehicles</h1>
-        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)
+        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN || auth()->user()->can_create_customer_records)
             <a href="{{ route('vehicles.create') }}" class="btn btn-primary">Add vehicle</a>
         @endif
     </div>
@@ -23,7 +23,7 @@
                         <th scope="col">Make and model</th>
                         <th scope="col">Details</th>
                         <th scope="col">Customer</th>
-                        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)<th scope="col">Actions</th>@endif
+                        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN || auth()->user()->can_view_vehicle_history)<th scope="col">Actions</th>@endif
                     </tr>
                 </thead>
                 <tbody>
@@ -44,9 +44,9 @@
                                 @endif
                             </td>
                             <td>{{ $vehicle->customer->name }}</td>
-                            @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)<td>
+                            @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN || auth()->user()->can_view_vehicle_history)<td>
                                 <a class="mr-2" href="{{ route('vehicles.history', $vehicle) }}" aria-label="Service history for {{ $vehicle->plate_number }}">History</a>
-                                <a href="{{ route('vehicles.edit', $vehicle) }}" aria-label="Edit {{ $vehicle->plate_number }}">Edit</a>
+                                @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)<a href="{{ route('vehicles.edit', $vehicle) }}" aria-label="Edit {{ $vehicle->plate_number }}">Edit</a>@endif
                             </td>@endif
                         </tr>
                     @empty

@@ -47,6 +47,9 @@ class StaffController extends Controller
             'can_view_customers' => ['nullable', 'boolean'],
             'can_create_job_invoices' => ['nullable', 'boolean'],
             'can_record_payments' => ['nullable', 'boolean'],
+            'can_view_vehicle_history' => ['nullable', 'boolean'],
+            'can_create_customer_records' => ['nullable', 'boolean'],
+            'can_review_appointments' => ['nullable', 'boolean'],
         ]);
         $email = strtolower(trim($data['email']));
         $central = config('tenancy.database.central_connection');
@@ -67,6 +70,9 @@ class StaffController extends Controller
                 'can_view_customers' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_view_customers'),
                 'can_create_job_invoices' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_create_job_invoices'),
                 'can_record_payments' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_record_payments'),
+                'can_view_vehicle_history' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_view_vehicle_history'),
+                'can_create_customer_records' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_create_customer_records'),
+                'can_review_appointments' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_review_appointments'),
                 'for_existing_user' => $existing !== null,
                 'existing_user_id' => $existing?->id,
                 'token_hash' => hash('sha256', $token),
@@ -100,6 +106,9 @@ class StaffController extends Controller
             'can_view_customers' => ['nullable', 'boolean'],
             'can_create_job_invoices' => ['nullable', 'boolean'],
             'can_record_payments' => ['nullable', 'boolean'],
+            'can_view_vehicle_history' => ['nullable', 'boolean'],
+            'can_create_customer_records' => ['nullable', 'boolean'],
+            'can_review_appointments' => ['nullable', 'boolean'],
         ]);
         $central = config('tenancy.database.central_connection');
         $user = User::on($central)->where('tenant_id', tenant('id'))
@@ -119,6 +128,9 @@ class StaffController extends Controller
                 'can_view_customers' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_view_customers'),
                 'can_create_job_invoices' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_create_job_invoices'),
                 'can_record_payments' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_record_payments'),
+                'can_view_vehicle_history' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_view_vehicle_history'),
+                'can_create_customer_records' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_create_customer_records'),
+                'can_review_appointments' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_review_appointments'),
                 'suspended_at' => $data['status'] === User::STATUS_SUSPENDED ? ($user->suspended_at ?? now()) : null,
                 'suspension_reason' => $data['status'] === User::STATUS_SUSPENDED ? 'Suspended by workshop admin' : null,
             ]);
@@ -141,6 +153,9 @@ class StaffController extends Controller
             'can_view_customers' => ['nullable', 'boolean'],
             'can_create_job_invoices' => ['nullable', 'boolean'],
             'can_record_payments' => ['nullable', 'boolean'],
+            'can_view_vehicle_history' => ['nullable', 'boolean'],
+            'can_create_customer_records' => ['nullable', 'boolean'],
+            'can_review_appointments' => ['nullable', 'boolean'],
         ]);
         $central = config('tenancy.database.central_connection');
         DB::connection($central)->transaction(function () use ($request, $data, $staff, $central) {
@@ -160,6 +175,9 @@ class StaffController extends Controller
                 'can_view_customers' => $mechanic && $request->boolean('can_view_customers'),
                 'can_create_job_invoices' => $mechanic && $request->boolean('can_create_job_invoices'),
                 'can_record_payments' => $mechanic && $request->boolean('can_record_payments'),
+                'can_view_vehicle_history' => $mechanic && $request->boolean('can_view_vehicle_history'),
+                'can_create_customer_records' => $mechanic && $request->boolean('can_create_customer_records'),
+                'can_review_appointments' => $mechanic && $request->boolean('can_review_appointments'),
             ]);
         });
 

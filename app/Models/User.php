@@ -35,6 +35,11 @@ class User extends Authenticatable
     public const STATUS_ACTIVE = 'active';
     public const STATUS_SUSPENDED = 'suspended';
 
+    public const STAFF_PERMISSIONS = [
+        'can_view_customers', 'can_create_job_invoices', 'can_record_payments',
+        'can_view_vehicle_history', 'can_create_customer_records', 'can_review_appointments',
+    ];
+
     use HasApiTokens, HasFactory, Notifiable, Auditable;
 
     protected array $auditable = [
@@ -51,6 +56,9 @@ class User extends Authenticatable
         'can_view_customers',
         'can_create_job_invoices',
         'can_record_payments',
+        'can_view_vehicle_history',
+        'can_create_customer_records',
+        'can_review_appointments',
     ];
 
     protected $fillable = [
@@ -68,6 +76,9 @@ class User extends Authenticatable
         'can_view_customers',
         'can_create_job_invoices',
         'can_record_payments',
+        'can_view_vehicle_history',
+        'can_create_customer_records',
+        'can_review_appointments',
         'failed_login_attempts',
         'locked_until',
     ];
@@ -88,6 +99,9 @@ class User extends Authenticatable
         'can_view_customers' => 'boolean',
         'can_create_job_invoices' => 'boolean',
         'can_record_payments' => 'boolean',
+        'can_view_vehicle_history' => 'boolean',
+        'can_create_customer_records' => 'boolean',
+        'can_review_appointments' => 'boolean',
         'locked_until' => 'datetime',
         'credential_version' => 'integer',
         'mfa_secret' => 'encrypted',
@@ -138,6 +152,12 @@ class User extends Authenticatable
     public function isSuspended(): bool
     {
         return $this->status === self::STATUS_SUSPENDED;
+    }
+
+    public function canViewCustomerLists(): bool
+    {
+        return $this->role === self::ROLE_ADMIN || ($this->role === self::ROLE_MECHANIC
+            && ($this->can_view_customers || $this->can_view_vehicle_history || $this->can_create_customer_records));
     }
 
     public function isLocked(): bool
