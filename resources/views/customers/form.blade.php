@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', $customer->exists ? 'Edit customer' : 'Add customer')
+@section('title', __($customer->exists ? 'Edit customer' : 'Add customer'))
 
 @section('content')
-    <a href="{{ route('customers.index') }}">Back to customers</a>
-    <h1 class="h3 mt-2 mb-3">{{ $customer->exists ? 'Edit customer' : 'Add customer' }}</h1>
+    <a href="{{ route('customers.index') }}">{{ __('Back to customers') }}</a>
+    <h1 class="h3 mt-2 mb-3">{{ __($customer->exists ? 'Edit customer' : 'Add customer') }}</h1>
 
     @php
         $fields = [
@@ -27,7 +27,7 @@
                 $value = old($field, $customer->{$field});
             @endphp
             <div class="form-group">
-                <label for="{{ $field }}">{{ $label }}</label>
+                <label for="{{ $field }}">{{ __($label) }}</label>
                 @if ($type === 'textarea')
                     <textarea id="{{ $field }}" name="{{ $field }}" maxlength="{{ $maxLength }}" rows="3"
                         class="form-control @error($field) is-invalid @enderror"
@@ -44,7 +44,7 @@
         @endforeach
 
         <div>
-            <button type="submit" class="btn btn-primary">{{ $customer->exists ? 'Save changes' : 'Add customer' }}</button>
+            <button type="submit" class="btn btn-primary">{{ __($customer->exists ? 'Save changes' : 'Add customer') }}</button>
         </div>
     </form>
 @endsection

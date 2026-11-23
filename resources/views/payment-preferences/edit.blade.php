@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Payment settings')
+@section('title', __('Payment settings'))
 
 @section('content')
-    <h1 class="h3 mb-3">Payment settings</h1>
-    <p>These preferences apply to your workshop admin account only. Saving them does not connect a gateway, enable checkout, or change invoices.</p>
-    <p><a href="{{ route('payment-qrs.index') }}">Manage workshop payment QR codes</a></p>
+    <h1 class="h3 mb-3">{{ __('Payment settings') }}</h1>
+    <p>{{ __('These preferences apply to your workshop admin account only. Saving them does not connect a gateway, enable checkout, or change invoices.') }}</p>
+    <p><a href="{{ route('payment-qrs.index') }}">{{ __('Manage workshop payment QR codes') }}</a></p>
 
     @if (session('success'))
         <div class="alert alert-success" role="status">{{ session('success') }}</div>
@@ -28,8 +28,8 @@
         @method('PUT')
 
         <fieldset class="mb-3">
-            <legend class="h5">Online gateways (up to two)</legend>
-            <p>Choose “Other provider” if yours is not listed. Enter provider names only, never API keys or account details.</p>
+            <legend class="h5">{{ __('Online gateways (up to two)') }}</legend>
+            <p>{{ __('Choose “Other provider” if yours is not listed. Enter provider names only, never API keys or account details.') }}</p>
             @for ($slot = 0; $slot < \App\Models\PaymentPreference::MAX_GATEWAYS; $slot++)
                 @php
                     $saved = $preferences?->gateways[$slot] ?? [];
@@ -38,21 +38,21 @@
                 @endphp
                 <div class="form-row">
                     <div class="form-group col-md-6">
-                        <label for="provider-{{ $slot }}">Gateway {{ $slot + 1 }}</label>
+                        <label for="provider-{{ $slot }}">{{ __('Gateway :number', ['number' => $slot + 1]) }}</label>
                         <select id="provider-{{ $slot }}" name="gateways[{{ $slot }}][provider]" class="form-control">
-                            <option value="">None</option>
+                            <option value="">{{ __('None') }}</option>
                             @foreach ($gatewayGroups as $group => $providers)
-                                <optgroup label="{{ $group }}">
+                                <optgroup label="{{ __($group) }}">
                                     @foreach ($providers as $key => $label)
                                         <option value="{{ $key }}" @selected($provider === $key)>{{ $label }}</option>
                                     @endforeach
                                 </optgroup>
                             @endforeach
-                            <option value="custom" @selected($provider === 'custom')>Other provider</option>
+                            <option value="custom" @selected($provider === 'custom')>{{ __('Other provider') }}</option>
                         </select>
                     </div>
                     <div class="form-group col-md-6">
-                        <label for="name-{{ $slot }}">Provider name (for Other provider only)</label>
+                        <label for="name-{{ $slot }}">{{ __('Provider name (for Other provider only)') }}</label>
                         <input id="name-{{ $slot }}" name="gateways[{{ $slot }}][name]" class="form-control"
                             maxlength="100" value="{{ is_string($name) ? $name : '' }}">
                     </div>
@@ -61,46 +61,46 @@
         </fieldset>
 
         <fieldset class="mb-3">
-            <legend class="h5">Offline payment methods</legend>
-            <p>These do not count toward your gateway limit.</p>
+            <legend class="h5">{{ __('Offline payment methods') }}</legend>
+            <p>{{ __('These do not count toward your gateway limit.') }}</p>
             @foreach ($offlineOptions as $key => $label)
                 <div class="form-check">
                     <input type="checkbox" class="form-check-input" id="offline-{{ $key }}" name="offline_methods[]" value="{{ $key }}"
                         @checked(is_array($offlineMethods) && in_array($key, $offlineMethods, true))>
-                    <label class="form-check-label" for="offline-{{ $key }}">{{ $label }}</label>
+                    <label class="form-check-label" for="offline-{{ $key }}">{{ __($label) }}</label>
                 </div>
             @endforeach
         </fieldset>
-        <div><button class="btn btn-primary" type="submit">Save payment preferences</button></div>
+        <div><button class="btn btn-primary" type="submit">{{ __('Save payment preferences') }}</button></div>
     </form>
 
     @if ($stripeSandboxEnabled && $preferences?->usesGateway('stripe'))
         <section class="card shadow-sm p-3 mt-4" aria-labelledby="stripe-sandbox">
-            <h2 class="h5" id="stripe-sandbox">Stripe sandbox</h2>
-            <p>Try a RM 10.00 demo payment using Stripe test card details only. No money is charged and no invoice is updated.</p>
+            <h2 class="h5" id="stripe-sandbox">{{ __('Stripe sandbox') }}</h2>
+            <p>{{ __('Try a RM 10.00 demo payment using Stripe test card details only. No money is charged and no invoice is updated.') }}</p>
             <form method="POST" action="{{ route('stripe-sandbox.start') }}">
                 @csrf
-                <button class="btn btn-outline-primary" type="submit">Open Stripe test checkout</button>
+                <button class="btn btn-outline-primary" type="submit">{{ __('Open Stripe test checkout') }}</button>
             </form>
         </section>
     @endif
     @if ($toyyibPaySandboxEnabled && $preferences?->usesGateway('toyyibpay'))
         <section class="card shadow-sm p-3 mt-4" aria-labelledby="toyyibpay-sandbox">
-            <h2 class="h5" id="toyyibpay-sandbox">toyyibPay sandbox</h2>
-            <p>Try a RM 10.00 demo payment using the FPX bank simulator only. No money is charged and no invoice is updated.</p>
+            <h2 class="h5" id="toyyibpay-sandbox">{{ __('toyyibPay sandbox') }}</h2>
+            <p>{{ __('Try a RM 10.00 demo payment using the FPX bank simulator only. No money is charged and no invoice is updated.') }}</p>
             <form method="POST" action="{{ route('toyyibpay-sandbox.start') }}">
                 @csrf
-                <button class="btn btn-outline-primary" type="submit">Open toyyibPay test checkout</button>
+                <button class="btn btn-outline-primary" type="submit">{{ __('Open toyyibPay test checkout') }}</button>
             </form>
         </section>
     @endif
     @if ($billplzSandboxEnabled && $preferences?->usesGateway('billplz'))
         <section class="card shadow-sm p-3 mt-4" aria-labelledby="billplz-sandbox">
-            <h2 class="h5" id="billplz-sandbox">Billplz sandbox</h2>
-            <p>Try a RM 10.00 demo payment using Billplz's simulator. No money is charged and no invoice is updated.</p>
+            <h2 class="h5" id="billplz-sandbox">{{ __('Billplz sandbox') }}</h2>
+            <p>{{ __("Try a RM 10.00 demo payment using Billplz's simulator. No money is charged and no invoice is updated.") }}</p>
             <form method="POST" action="{{ route('billplz-sandbox.start') }}">
                 @csrf
-                <button class="btn btn-outline-primary" type="submit">Open Billplz test checkout</button>
+                <button class="btn btn-outline-primary" type="submit">{{ __('Open Billplz test checkout') }}</button>
             </form>
         </section>
     @endif

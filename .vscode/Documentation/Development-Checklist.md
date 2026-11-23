@@ -9,7 +9,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Login CAPTCHA after repeated failures, optional authenticator verification for selected high-privilege actions, and web device-session management.
 - [x] Full authentication: Google/Microsoft SSO and linked identity management.
 - [x] Profile beta: personal name, phone, bio and avatar editing; verified account email changes; saved language, timezone and communication preferences; link to existing client reminder consent.
-- [ ] Complete profile and account preferences: workshop logo uploads, applied language/timezone preferences and remaining notification settings.
+- [x] Complete profile and account preferences: workshop logo uploads, applied language/timezone preferences and remaining notification settings.
 - [x] Staff account administration beta: workshop-scoped email invitations for mechanics or full workshop admins; activation/suspension, role management and optional read-only customer/vehicle lists.
 - [x] Additional staff permissions (including invoice and payment recording), invitations for active unassigned existing mechanics, and self-registration approval.
 - [x] Client account and self-service portal: workshop-admin-confirmed email linking, client-owned vehicle records (five self-service vehicles), approval requests for additional vehicles, and read-only service history.

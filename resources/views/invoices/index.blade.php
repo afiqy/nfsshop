@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Invoices')
+@section('title', __('Invoices'))
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3 mb-0">Invoices</h1>
-        <a href="{{ route('invoices.create') }}" class="btn btn-primary">New invoice</a>
+        <h1 class="h3 mb-0">{{ __('Invoices') }}</h1>
+        <a href="{{ route('invoices.create') }}" class="btn btn-primary">{{ __('New invoice') }}</a>
     </div>
 
     @if (session('success'))
@@ -19,29 +19,28 @@
         </ul>
     @endif
     <section class="mb-3" aria-labelledby="reminder-settings-heading">
-        <h2 class="h5" id="reminder-settings-heading">Payment reminders</h2>
-        <p>Email reminders are sent on the due date and 7 and 14 days overdue, only while a balance remains.
-            Pending payment proofs pause reminders. Failed attempts can be retried from the invoice.</p>
+        <h2 class="h5" id="reminder-settings-heading">{{ __('Payment reminders') }}</h2>
+        <p>{{ __('Email reminders are sent on the due date and 7 and 14 days overdue, only while a balance remains. Pending payment proofs pause reminders. Failed attempts can be retried from the invoice.') }}</p>
         <form action="{{ route('payment-reminders.settings') }}" method="POST">
             @csrf
             @method('PUT')
-            <label for="reminders-enabled">Automatic reminders</label>
+            <label for="reminders-enabled">{{ __('Automatic reminders') }}</label>
             <select id="reminders-enabled" name="enabled">
-                <option value="0" @selected(! $remindersEnabled)>Off</option>
-                <option value="1" @selected($remindersEnabled)>On</option>
+                <option value="0" @selected(! $remindersEnabled)>{{ __('Off') }}</option>
+                <option value="1" @selected($remindersEnabled)>{{ __('On') }}</option>
             </select>
-            <button type="submit" class="btn btn-sm btn-secondary">Save reminder setting</button>
+            <button type="submit" class="btn btn-sm btn-secondary">{{ __('Save reminder setting') }}</button>
         </form>
     </section>
     <p>
-        <a href="{{ route('payment-submissions.index') }}">Pending payment proofs</a>
+        <a href="{{ route('payment-submissions.index') }}">{{ __('Pending payment proofs') }}</a>
         <span class="badge badge-secondary">{{ $pendingPaymentProofs }}</span>
     </p>
-    <nav class="mb-3" aria-label="Filter invoices">
+    <nav class="mb-3" aria-label="{{ __('Filter invoices') }}">
         <a class="btn {{ $overdueOnly ? 'btn-outline-secondary' : 'btn-secondary' }}" href="{{ route('invoices.index') }}"
-            @if (! $overdueOnly) aria-current="page" @endif>All invoices</a>
+            @if (! $overdueOnly) aria-current="page" @endif>{{ __('All invoices') }}</a>
         <a class="btn {{ $overdueOnly ? 'btn-danger' : 'btn-outline-danger' }}" href="{{ route('invoices.index', ['status' => 'overdue']) }}"
-            @if ($overdueOnly) aria-current="page" @endif>Overdue only</a>
+            @if ($overdueOnly) aria-current="page" @endif>{{ __('Overdue only') }}</a>
     </nav>
     @include('exports.controls', [
         'id' => 'invoices-export',
@@ -49,27 +48,27 @@
         'pdfUrl' => route('exports.index', ['type' => 'invoices', 'format' => 'pdf']),
         'filters' => $overdueOnly ? ['status' => 'overdue'] : [],
     ])
-    <h2 class="h5">Payment records</h2>
+    <h2 class="h5">{{ __('Payment records') }}</h2>
     @include('exports.controls', [
         'id' => 'payments-export',
         'csvUrl' => route('exports.index', ['type' => 'payments', 'format' => 'csv']),
         'pdfUrl' => route('exports.index', ['type' => 'payments', 'format' => 'pdf']),
         'filters' => [],
     ])
-    <p><a href="{{ route('myinvois.seller.edit') }}">MyInvois workshop tax profile</a></p>
+    <p><a href="{{ route('myinvois.seller.edit') }}">{{ __('MyInvois workshop tax profile') }}</a></p>
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead>
                     <tr>
-                        <th scope="col">Invoice</th>
-                        <th scope="col">Date</th>
-                        <th scope="col">Due date</th>
-                        <th scope="col">Customer</th>
-                        <th scope="col">Vehicle</th>
-                        <th scope="col" class="text-right">Total</th>
-                        <th scope="col" class="text-right">Balance</th>
-                        <th scope="col">Payment status</th>
+                        <th scope="col">{{ __('Invoice') }}</th>
+                        <th scope="col">{{ __('Date') }}</th>
+                        <th scope="col">{{ __('Due date') }}</th>
+                        <th scope="col">{{ __('Customer') }}</th>
+                        <th scope="col">{{ __('Vehicle') }}</th>
+                        <th scope="col" class="text-right">{{ __('Total') }}</th>
+                        <th scope="col" class="text-right">{{ __('Balance') }}</th>
+                        <th scope="col">{{ __('Payment status') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -81,21 +80,21 @@
                         @endphp
                         <tr>
                             <td><a href="{{ route('invoices.show', $invoice) }}">{{ $invoice->number() }}</a></td>
-                            <td>{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y') }}</td>
-                            <td>{{ $invoice->due_date?->format('d M Y') ?? '—' }}</td>
+                            <td>{{ $invoice->created_at->timezone(\App\Models\Calendar::TIMEZONE)->locale(app()->getLocale())->translatedFormat('d M Y') }}</td>
+                            <td>{{ $invoice->due_date?->locale(app()->getLocale())->translatedFormat('d M Y') ?? '—' }}</td>
                             <td>{{ $invoice->customer_name }}</td>
                             <td>{{ $invoice->vehicle_plate ?? '—' }}</td>
                             <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->total_sen) }}</td>
                             <td class="text-right">{{ \App\Models\Invoice::formatAmount($invoice->balanceDue($paid, $refunded, $credited)) }}</td>
                             <td>
-                                {{ $invoice->paymentStatus($paid, $refunded, $credited) }}
+                                {{ __($invoice->paymentStatus($paid, $refunded, $credited)) }}
                                 @if ($invoice->isOverdue($paid, $today, $refunded, $credited))
-                                    <span class="badge badge-danger">Overdue</span>
+                                    <span class="badge badge-danger">{{ __('Overdue') }}</span>
                                 @endif
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="text-center">{{ $overdueOnly ? 'No overdue invoices.' : 'No invoices yet.' }}</td></tr>
+                        <tr><td colspan="8" class="text-center">{{ __($overdueOnly ? 'No overdue invoices.' : 'No invoices yet.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

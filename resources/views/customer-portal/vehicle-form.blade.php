@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', $isRequest ? 'Request another vehicle' : 'Add vehicle')
+@section('title', $isRequest ? __('Request another vehicle') : __('Add vehicle'))
 
 @section('content')
-    <a href="{{ route('client.portal') }}">Back to my account</a>
-    <h1 class="h3 mt-2 mb-3">{{ $isRequest ? 'Request another vehicle' : 'Add a vehicle' }}</h1>
+    <a href="{{ route('client.portal') }}">{{ __('Back to my account') }}</a>
+    <h1 class="h3 mt-2 mb-3">{{ $isRequest ? __('Request another vehicle') : __('Add a vehicle') }}</h1>
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
             @foreach ($errors->all() as $error)
@@ -13,21 +13,21 @@
         </div>
     @endif
     @if ($isRequest)
-        <p>The workshop must approve this request before the vehicle is added to your account.</p>
+        <p>{{ __('The workshop must approve this request before the vehicle is added to your account.') }}</p>
     @endif
 
     <form method="POST" action="{{ $isRequest ? route('client.vehicle-requests.store') : route('client.vehicles.store') }}" class="card shadow-sm p-3">
         @csrf
         @foreach ([
-            'plate_number' => ['Registration number', true],
-            'brand' => ['Brand', true],
-            'model' => ['Model', true],
-            'chassis_number' => ['Chassis number', true],
-            'engine_number' => ['Engine number', true],
-            'year' => ['Year (optional)', false],
-            'color' => ['Colour (optional)', false],
-            'mileage_km' => ['Mileage in km (optional)', false],
-            'fuel_type' => ['Fuel type (optional)', false],
+            'plate_number' => [__('Registration number'), true],
+            'brand' => [__('Brand'), true],
+            'model' => [__('Model'), true],
+            'chassis_number' => [__('Chassis number'), true],
+            'engine_number' => [__('Engine number'), true],
+            'year' => [__('Year (optional)'), false],
+            'color' => [__('Colour (optional)'), false],
+            'mileage_km' => [__('Mileage in km (optional)'), false],
+            'fuel_type' => [__('Fuel type (optional)'), false],
         ] as $field => [$label, $required])
             <div class="form-group">
                 <label for="{{ $field }}">{{ $label }}</label>
@@ -44,7 +44,7 @@
             </div>
         @endforeach
         <div>
-            <button type="submit" class="btn btn-primary">{{ $isRequest ? 'Send request' : 'Add vehicle' }}</button>
+            <button type="submit" class="btn btn-primary">{{ $isRequest ? __('Send request') : __('Add vehicle') }}</button>
         </div>
     </form>
 @endsection

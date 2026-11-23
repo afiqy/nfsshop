@@ -1,14 +1,14 @@
 @extends('layouts.app')
 
-@section('title', 'Switch to Workshop')
+@section('title', __('Switch to Workshop'))
 
 @section('content')
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <div>
-        <h1 class="h3 mb-0 text-gray-800">Switch to Workshop</h1>
-        <p class="mb-0 text-muted">Select a workshop owner to view the system exactly as they do.</p>
+        <h1 class="h3 mb-0 text-gray-800">{{ __('Switch to Workshop') }}</h1>
+        <p class="mb-0 text-muted">{{ __('Select a workshop owner to view the system exactly as they do.') }}</p>
     </div>
-    <a href="{{ route('super-admin.owners.index') }}" class="btn btn-outline-primary">Manage Owners</a>
+    <a href="{{ route('super-admin.owners.index') }}" class="btn btn-outline-primary">{{ __('Manage Owners') }}</a>
 </div>
 
 @if ($errors->any())
@@ -25,10 +25,10 @@
     <div class="card-header py-3">
         <form method="GET" action="{{ route('super-admin.impersonation.index') }}" class="form-inline">
             <div class="form-group mr-2">
-                <label for="search" class="sr-only">Search workshops</label>
-                <input type="text" name="search" id="search" value="{{ $search ?? '' }}" class="form-control" placeholder="Search by workshop, owner or email">
+                <label for="search" class="sr-only">{{ __('Search workshops') }}</label>
+                <input type="text" name="search" id="search" value="{{ $search ?? '' }}" class="form-control" placeholder="{{ __('Search by workshop, owner or email') }}">
             </div>
-            <button type="submit" class="btn btn-outline-primary">Search</button>
+            <button type="submit" class="btn btn-outline-primary">{{ __('Search') }}</button>
         </form>
     </div>
     <div class="card-body p-0">
@@ -36,12 +36,12 @@
             <table class="table table-hover mb-0">
                 <thead class="thead-light">
                     <tr>
-                        <th>Workshop</th>
-                        <th>Owner</th>
-                        <th>Email</th>
-                        <th>Tenant ID</th>
-                        <th>Status</th>
-                        <th class="text-right">Action</th>
+                        <th>{{ __('Workshop') }}</th>
+                        <th>{{ __('Owner') }}</th>
+                        <th>{{ __('Email') }}</th>
+                        <th>{{ __('Tenant ID') }}</th>
+                        <th>{{ __('Status') }}</th>
+                        <th class="text-right">{{ __('Action') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -53,22 +53,22 @@
                             <td>{{ $owner->tenant_id ?? '—' }}</td>
                             <td>
                                 @if ($owner->status === \App\Models\User::STATUS_ACTIVE)
-                                    <span class="badge badge-success">Active</span>
+                                    <span class="badge badge-success">{{ __('Active') }}</span>
                                 @else
-                                    <span class="badge badge-danger">Suspended</span>
+                                    <span class="badge badge-danger">{{ __('Suspended') }}</span>
                                 @endif
                             </td>
                             <td class="text-right">
-                                <form method="POST" action="{{ route('super-admin.impersonation.start') }}" onsubmit="return confirm('Switch into this workshop?');">
+                                <form method="POST" action="{{ route('super-admin.impersonation.start') }}" onsubmit="return confirm(@json(__('Switch into this workshop?')));">
                                     @csrf
                                     <input type="hidden" name="owner_id" value="{{ $owner->id }}">
-                                    <button type="submit" class="btn btn-sm btn-primary" {{ $owner->status === \App\Models\User::STATUS_SUSPENDED ? 'disabled' : '' }}>Browse as owner</button>
+                                    <button type="submit" class="btn btn-sm btn-primary" {{ $owner->status === \App\Models\User::STATUS_SUSPENDED ? 'disabled' : '' }}>{{ __('Browse as owner') }}</button>
                                 </form>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4">No owners matched your search.</td>
+                            <td colspan="6" class="text-center text-muted py-4">{{ __('No owners matched your search.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>

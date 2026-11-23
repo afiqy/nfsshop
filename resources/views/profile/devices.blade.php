@@ -10,7 +10,7 @@
             <div>{{ $device->device_name ?: __('Unknown browser') }} @if ($device->id === $currentId) <strong>{{ __('(this device)') }}</strong> @endif</div>
             <div>{{ __('IP: :ip — Last activity: :activity (:timezone)', [
                 'ip' => $device->ip_address,
-                'activity' => $device->last_activity?->timezone($userTimezone)->format('d M Y H:i') ?? __('Unknown'),
+                'activity' => $device->last_activity?->timezone($userTimezone)->locale(app()->getLocale())->translatedFormat('d M Y H:i') ?? __('Unknown'),
                 'timezone' => $userTimezone,
             ]) }}</div>
             <form method="POST" action="{{ route('devices.revoke', $device->id) }}" class="mt-2">

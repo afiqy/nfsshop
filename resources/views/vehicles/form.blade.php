@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', $vehicle->exists ? 'Edit vehicle' : 'Add vehicle')
+@section('title', __($vehicle->exists ? 'Edit vehicle' : 'Add vehicle'))
 
 @section('content')
-    <a href="{{ route('vehicles.index') }}">Back to vehicles</a>
-    <h1 class="h3 mt-2 mb-3">{{ $vehicle->exists ? 'Edit vehicle' : 'Add vehicle' }}</h1>
+    <a href="{{ route('vehicles.index') }}">{{ __('Back to vehicles') }}</a>
+    <h1 class="h3 mt-2 mb-3">{{ __($vehicle->exists ? 'Edit vehicle' : 'Add vehicle') }}</h1>
 
     @if ($customers->isEmpty())
-        <div class="alert alert-warning">Add a <a href="{{ route('customers.create') }}" class="alert-link">customer</a> before registering a vehicle.</div>
+        <div class="alert alert-warning">{{ __('Add a') }} <a href="{{ route('customers.create') }}" class="alert-link">{{ __('customer') }}</a> {{ __('before registering a vehicle.') }}</div>
     @else
         @php
             $fields = [
@@ -31,11 +31,11 @@
             @endif
 
             <div class="form-group">
-                <label for="customer_id">Customer</label>
-                <p class="small text-muted">Unregistered customers can use a workshop customer record. If ownership changes, each customer can only see service records made for them.</p>
+                <label for="customer_id">{{ __('Customer') }}</label>
+                <p class="small text-muted">{{ __('Unregistered customers can use a workshop customer record. If ownership changes, each customer can only see service records made for them.') }}</p>
                 <select id="customer_id" name="customer_id" class="form-control @error('customer_id') is-invalid @enderror"
                     @error('customer_id') aria-invalid="true" aria-describedby="customer_id-error" @enderror required>
-                    <option value="">Select a customer</option>
+                    <option value="">{{ __('Select a customer') }}</option>
                     @foreach ($customers as $customer)
                         <option value="{{ $customer->id }}" @selected(in_array($selectedCustomer, [$customer->id, (string) $customer->id], true))>{{ $customer->name }} ({{ $customer->email }})</option>
                     @endforeach
@@ -50,7 +50,7 @@
                     $value = old($field, $vehicle->{$field});
                 @endphp
                 <div class="form-group">
-                    <label for="{{ $field }}">{{ $label }}</label>
+                    <label for="{{ $field }}">{{ __($label) }}</label>
                     <input id="{{ $field }}" name="{{ $field }}" type="text" maxlength="{{ $maxLength }}"
                         value="{{ is_scalar($value) ? $value : '' }}" class="form-control @error($field) is-invalid @enderror"
                         @if ($field === 'year') inputmode="numeric" pattern="[0-9]{4}" @endif
@@ -63,7 +63,7 @@
             @endforeach
 
             <div>
-                <button type="submit" class="btn btn-primary">{{ $vehicle->exists ? 'Save changes' : 'Add vehicle' }}</button>
+                <button type="submit" class="btn btn-primary">{{ __($vehicle->exists ? 'Save changes' : 'Add vehicle') }}</button>
             </div>
         </form>
     @endif

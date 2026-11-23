@@ -18,19 +18,19 @@
                 <!-- Page Content -->
                 <div class="container-fluid">
                     @error('mfa')
-                        <div class="alert alert-danger" role="alert">{{ $message }} <a href="{{ route('authenticator.show') }}">Verify now</a></div>
+                        <div class="alert alert-danger" role="alert">{{ $message }} <a href="{{ route('authenticator.show') }}">{{ __('Verify now') }}</a></div>
                     @enderror
                     @if (auth()->user()?->mfa_secret)
-                        <div class="alert alert-info"><a href="{{ route('authenticator.show') }}">Verify your authenticator</a> before protected actions.</div>
+                        <div class="alert alert-info"><a href="{{ route('authenticator.show') }}">{{ __('Verify your authenticator') }}</a> {{ __('before protected actions.') }}</div>
                     @endif
                     @if (session()->has('impersonator_id'))
                         <div class="alert alert-warning d-flex align-items-center justify-content-between">
                             <div>
-                                <strong>Impersonation active:</strong> You are browsing as another user.
+                                <strong>{{ __('Impersonation active:') }}</strong> {{ __('You are browsing as another user.') }}
                             </div>
                             <form action="{{ route('impersonation.leave') }}" method="POST" class="mb-0">
                                 @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-dark">Return to Super Admin</button>
+                                <button type="submit" class="btn btn-sm btn-outline-dark">{{ __('Return to Super Admin') }}</button>
                             </form>
                         </div>
                     @endif

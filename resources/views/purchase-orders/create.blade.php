@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Create purchase order')
+@section('title', __('Create purchase order'))
 
 @section('content')
-    <a href="{{ route('purchase-orders.index') }}">Back to purchase orders</a>
-    <h1 class="h3 mt-2 mb-3">Create purchase order</h1>
+    <a href="{{ route('purchase-orders.index') }}">{{ __('Back to purchase orders') }}</a>
+    <h1 class="h3 mt-2 mb-3">{{ __('Create purchase order') }}</h1>
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
             <ul class="mb-0">
@@ -17,10 +17,10 @@
     @if ($suppliers->isEmpty() || $inventoryItems->isEmpty())
         <div class="alert alert-warning">
             @if ($suppliers->isEmpty())
-                Add an active <a href="{{ route('suppliers.create') }}" class="alert-link">supplier</a> first.
+                {{ __('Add an active') }} <a href="{{ route('suppliers.create') }}" class="alert-link">{{ __('supplier') }}</a> {{ __('first.') }}
             @endif
             @if ($inventoryItems->isEmpty())
-                Add an <a href="{{ route('inventory.create') }}" class="alert-link">inventory item</a> first.
+                {{ __('Add an') }} <a href="{{ route('inventory.create') }}" class="alert-link">{{ __('inventory item') }}</a> {{ __('first.') }}
             @endif
         </div>
     @else
@@ -31,9 +31,9 @@
         <form action="{{ route('purchase-orders.store') }}" method="POST" class="card shadow-sm p-3">
             @csrf
             <div class="form-group">
-                <label for="supplier_id">Supplier</label>
+                <label for="supplier_id">{{ __('Supplier') }}</label>
                 <select id="supplier_id" name="supplier_id" class="form-control" required>
-                    <option value="">Select an active supplier</option>
+                    <option value="">{{ __('Select an active supplier') }}</option>
                     @foreach ($suppliers as $supplier)
                         <option value="{{ $supplier->id }}" @selected((string) old('supplier_id') === (string) $supplier->id)>
                             {{ $supplier->name }}
@@ -42,10 +42,10 @@
                 </select>
             </div>
             <div class="form-group">
-                <label for="notes">Order notes (optional)</label>
+                <label for="notes">{{ __('Order notes (optional)') }}</label>
                 <textarea id="notes" name="notes" rows="3" maxlength="4000" class="form-control">{{ old('notes') }}</textarea>
             </div>
-            <h2 class="h5">Items to order</h2>
+            <h2 class="h5">{{ __('Items to order') }}</h2>
             <div id="purchase-order-items" data-max-items="50">
                 @foreach ($rows as $item)
                     @include('purchase-orders.item', ['index' => $loop->index, 'item' => is_array($item) ? $item : []])
@@ -55,8 +55,8 @@
                 @include('purchase-orders.item', ['index' => '__INDEX__', 'item' => []])
             </template>
             <div class="mt-2">
-                <button type="button" class="btn btn-outline-secondary" id="add-item" hidden>Add item</button>
-                <button type="submit" class="btn btn-primary">Create purchase order</button>
+                <button type="button" class="btn btn-outline-secondary" id="add-item" hidden>{{ __('Add item') }}</button>
+                <button type="submit" class="btn btn-primary">{{ __('Create purchase order') }}</button>
             </div>
         </form>
         <script>

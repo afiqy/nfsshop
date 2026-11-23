@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Vehicles')
+@section('title', __('Vehicles'))
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3 mb-0">Vehicles</h1>
+        <h1 class="h3 mb-0">{{ __('Vehicles') }}</h1>
         @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN || auth()->user()->can_create_customer_records)
-            <a href="{{ route('vehicles.create') }}" class="btn btn-primary">Add vehicle</a>
+            <a href="{{ route('vehicles.create') }}" class="btn btn-primary">{{ __('Add vehicle') }}</a>
         @endif
     </div>
 
@@ -19,11 +19,11 @@
             <table class="table mb-0">
                 <thead>
                     <tr>
-                        <th scope="col">Plate number</th>
-                        <th scope="col">Make and model</th>
-                        <th scope="col">Details</th>
-                        <th scope="col">Customer</th>
-                        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN || auth()->user()->can_view_vehicle_history)<th scope="col">Actions</th>@endif
+                        <th scope="col">{{ __('Plate number') }}</th>
+                        <th scope="col">{{ __('Make and model') }}</th>
+                        <th scope="col">{{ __('Details') }}</th>
+                        <th scope="col">{{ __('Customer') }}</th>
+                        @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN || auth()->user()->can_view_vehicle_history)<th scope="col">{{ __('Actions') }}</th>@endif
                     </tr>
                 </thead>
                 <tbody>
@@ -32,9 +32,9 @@
                             <td>{{ $vehicle->plate_number }}</td>
                             <td>{{ $vehicle->brand }} {{ $vehicle->model }}</td>
                             <td>
-                                {{ $vehicle->year ?? 'Year not provided' }}{{ $vehicle->color ? ' · '.$vehicle->color : '' }}
+                                {{ $vehicle->year ?? __('Year not provided') }}{{ $vehicle->color ? ' · '.$vehicle->color : '' }}
                                 @if (auth()->user()->role === \App\Models\User::ROLE_MECHANIC)
-                                    <span class="d-block">Chassis: {{ $vehicle->chassis_number }} &middot; Engine: {{ $vehicle->engine_number }}</span>
+                                    <span class="d-block">{{ __('Chassis:') }} {{ $vehicle->chassis_number }} &middot; {{ __('Engine:') }} {{ $vehicle->engine_number }}</span>
                                 @endif
                                 @if ($vehicle->mileage_km !== null)
                                     <span class="d-block">{{ number_format($vehicle->mileage_km) }} km</span>
@@ -45,12 +45,12 @@
                             </td>
                             <td>{{ $vehicle->customer->name }}</td>
                             @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN || auth()->user()->can_view_vehicle_history)<td>
-                                <a class="mr-2" href="{{ route('vehicles.history', $vehicle) }}" aria-label="Service history for {{ $vehicle->plate_number }}">History</a>
-                                @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)<a href="{{ route('vehicles.edit', $vehicle) }}" aria-label="Edit {{ $vehicle->plate_number }}">Edit</a>@endif
+                                <a class="mr-2" href="{{ route('vehicles.history', $vehicle) }}" aria-label="{{ __('Service history: :plate', ['plate' => $vehicle->plate_number]) }}">{{ __('History') }}</a>
+                                @if (auth()->user()->role === \App\Models\User::ROLE_ADMIN)<a href="{{ route('vehicles.edit', $vehicle) }}" aria-label="{{ __('Edit :name', ['name' => $vehicle->plate_number]) }}">{{ __('Edit') }}</a>@endif
                             </td>@endif
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="text-center">No vehicles yet.</td></tr>
+                        <tr><td colspan="5" class="text-center">{{ __('No vehicles yet.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
