@@ -17,6 +17,12 @@
 
                 <!-- Page Content -->
                 <div class="container-fluid">
+                    @error('mfa')
+                        <div class="alert alert-danger" role="alert">{{ $message }} <a href="{{ route('authenticator.show') }}">Verify now</a></div>
+                    @enderror
+                    @if (auth()->user()?->mfa_secret)
+                        <div class="alert alert-info"><a href="{{ route('authenticator.show') }}">Verify your authenticator</a> before protected actions.</div>
+                    @endif
                     @if (session()->has('impersonator_id'))
                         <div class="alert alert-warning d-flex align-items-center justify-content-between">
                             <div>

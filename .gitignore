@@ -20,3 +20,4 @@ yarn-error.log
 !/.vscode/Documentation/
 /.vscode/Documentation/*
 !/.vscode/Documentation/Development-Checklist.md
+!/.vscode/Documentation/Extra-Requirement-Checklist.md

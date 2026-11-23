@@ -103,12 +103,18 @@ class StaffAdministrationTest extends TestCase
         $this->patch(route('staff.update', $admin), $access)->assertForbidden();
         $this->patch(route('staff.update', $staff), $access)->assertRedirect();
         $this->actingAs($staff->fresh())->get(route('customers.index'))->assertOk();
+        $staffDevice = session('device_session_id');
+        $staffVersion = session('credential_version');
         $this->actingAs($admin)->patch(route('staff.update', $staff), ['role' => 'mechanic', 'status' => 'suspended'])->assertRedirect();
         $this->actingAs($staff->fresh())->get(route('dashboard'))->assertForbidden();
         $this->actingAs($staff->fresh())->get(route('staff.index'))->assertForbidden();
         $this->actingAs($otherAdmin)->patch(route('staff.update', $staff), $access)->assertNotFound();
         $this->actingAs($admin)->patch(route('staff.update', $staff), ['role' => 'admin', 'status' => 'active'])->assertRedirect();
-        $this->actingAs($staff->fresh())->get(route('staff.index'))->assertOk();
+        $this->actingAs($staff->fresh())->withSession([
+            'device_session_id' => $staffDevice, 'credential_version' => $staffVersion,
+        ])->get(route('staff.index'))->assertRedirect(route('login'));
+        $this->actingAs($staff->fresh())->withSession(['credential_version' => $staff->fresh()->credential_version])
+            ->get(route('staff.index'))->assertOk();
         $this->patch(route('staff.update', $admin), ['role' => 'mechanic', 'status' => 'suspended'])->assertForbidden();
     }
 

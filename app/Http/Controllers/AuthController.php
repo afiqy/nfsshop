@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\UserSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use App\Support\PasswordPolicy;
+use App\Services\LoginCaptcha;
+use App\Services\DeviceSessions;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -21,7 +23,7 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request)
+    public function login(Request $request, LoginCaptcha $captcha, DeviceSessions $devices)
     {
         $request->validate([
             'email' => ['required','email'],
@@ -58,6 +60,16 @@ class AuthController extends Controller
             ])->withInput($request->only('email'));
         }
 
+        if (RateLimiter::attempts($throttleKey) >= 3) {
+            try {
+                $response = $request->input('g-recaptcha-response');
+                $captcha->verify(is_string($response) ? $response : null);
+            } catch (ValidationException $exception) {
+                return back()->withErrors($exception->errors())->withInput($request->only('email'))
+                    ->with('captcha_required', true);
+            }
+        }
+
         if (! Auth::attempt(['email' => $email, 'password' => $request->password], $request->boolean('remember'))) {
             RateLimiter::hit($throttleKey, 60);
             if ($user) {
@@ -69,7 +81,7 @@ class AuthController extends Controller
 
             return back()->withErrors([
                 'email' => 'Invalid credentials.',
-            ])->withInput($request->only('email'));
+            ])->withInput($request->only('email'))->with('captcha_required', RateLimiter::attempts($throttleKey) >= 3);
         }
 
         RateLimiter::clear($throttleKey);
@@ -80,13 +92,7 @@ class AuthController extends Controller
         $request->session()->put('credential_version', $user->credential_version);
         $request->session()->put('last_activity', now());
 
-        UserSession::create([
-            'user_id' => $user->id,
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'device_name' => $request->header('User-Agent'),
-            'last_activity' => now(),
-        ]);
+        $devices->start($request, $user);
         error_log("User logged in: " . $user->email);
         $fallbackRoute = $user->isSuperAdmin()
             ? route('super-admin.dashboard')
@@ -102,10 +108,9 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         if ($request->user()) {
-            UserSession::where('user_id', $request->user()->id)
-                ->where('ip_address', $request->ip())
-                ->where('user_agent', $request->userAgent())
-                ->delete();
+            \App\Models\UserSession::query()->whereKey($request->session()->get('device_session_id'))
+                ->where('user_id', $request->session()->get('impersonator_id', $request->user()->id))
+                ->update(['revoked_at' => now()]);
         }
 
         Auth::logout();

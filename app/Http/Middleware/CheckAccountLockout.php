@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Services\DeviceSessions;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -55,6 +56,13 @@ class CheckAccountLockout
 
             if ($user->force_password_reset && ! $request->routeIs('profile.index', 'profile.password.update', 'impersonation.leave')) {
                 return redirect()->route('profile.index')->with('warning', 'Change your temporary password before continuing.');
+            }
+            if (! app(DeviceSessions::class)->check($request, $user)) {
+                auth()->logoutCurrentDevice();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return redirect()->route('login')->withErrors(['email' => 'This device session was revoked. Please sign in again.']);
             }
         }
 

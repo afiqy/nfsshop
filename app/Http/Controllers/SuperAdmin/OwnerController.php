@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SuperAdmin\OwnerStoreRequest;
 use App\Http\Requests\SuperAdmin\OwnerUpdateRequest;
 use App\Models\User;
+use App\Models\UserSession;
 use App\Services\ImpersonationService;
 use App\Services\PasswordCredentials;
 use Illuminate\Http\RedirectResponse;
@@ -176,11 +177,19 @@ class OwnerController extends Controller
     {
         $this->ensureOwner($owner);
 
-        $owner->update([
-            'status' => User::STATUS_SUSPENDED,
-            'suspended_at' => Carbon::now(),
-            'suspension_reason' => $request->input('reason'),
-        ]);
+        DB::transaction(function () use ($owner, $request) {
+            $owner = User::query()->lockForUpdate()->findOrFail($owner->id);
+            if (! $owner->isSuspended()) {
+                $owner->credential_version++;
+                $owner->setRememberToken(Str::random(60));
+                UserSession::query()->where('user_id', $owner->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
+            }
+            $owner->fill([
+                'status' => User::STATUS_SUSPENDED,
+                'suspended_at' => Carbon::now(),
+                'suspension_reason' => $request->input('reason'),
+            ])->save();
+        });
 
         return redirect()->back()->with('success', 'Owner account suspended.');
     }

@@ -19,6 +19,8 @@ class Handler extends ExceptionHandler
         'new_password',
         'new_password_confirmation',
         'token',
+        'mfa_code',
+        'g-recaptcha-response',
     ];
 
     /**

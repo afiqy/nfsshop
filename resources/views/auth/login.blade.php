@@ -45,6 +45,14 @@
                                         <label class="custom-control-label" for="customCheck">Remember Me</label>
                                     </div>
                                 </div>
+                                @if (session('captcha_required'))
+                                    @if (config('services.recaptcha.site_key'))
+                                        <div class="g-recaptcha mb-3" data-sitekey="{{ config('services.recaptcha.site_key') }}"></div>
+                                        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+                                    @else
+                                        <div class="alert alert-warning">CAPTCHA is not configured. Contact support.</div>
+                                    @endif
+                                @endif
                                 <button type="submit" class="btn btn-primary btn-user btn-block">
                                     Login
                                 </button>

@@ -6,6 +6,8 @@
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">User Profile</h1>
 </div>
+<p><a href="{{ route('authenticator.show') }}">Authenticator settings and verification</a></p>
+@unless (session()->has('impersonator_id')) <p><a href="{{ route('devices.index') }}">Manage device sessions</a></p> @endunless
 
 @if ($errors->any())
 <div class="alert alert-danger">

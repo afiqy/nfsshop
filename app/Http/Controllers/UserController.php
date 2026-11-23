@@ -96,6 +96,8 @@ class UserController extends Controller
         });
         Auth::setUser($user);
         $request->session()->put('credential_version', $user->credential_version);
+        \App\Models\UserSession::query()->whereKey($request->session()->get('device_session_id'))
+            ->where('user_id', $user->id)->update(['credential_version' => $user->credential_version]);
 
         return back()->with('success', 'Password updated.');
     }

@@ -71,6 +71,9 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'mfa_secret',
+        'mfa_recovery_codes',
+        'mfa_last_counter',
     ];
 
     protected $casts = [
@@ -81,6 +84,9 @@ class User extends Authenticatable
         'can_view_customers' => 'boolean',
         'locked_until' => 'datetime',
         'credential_version' => 'integer',
+        'mfa_secret' => 'encrypted',
+        'mfa_recovery_codes' => 'array',
+        'mfa_last_counter' => 'integer',
     ];
 
     //User Model Relationships

@@ -25,6 +25,11 @@ return [
         'token' => env('POSTMARK_TOKEN'),
     ],
 
+    'recaptcha' => [
+        'site_key' => env('RECAPTCHA_SITE_KEY'),
+        'secret_key' => env('RECAPTCHA_SECRET_KEY'),
+    ],
+
     'stripe' => [
         'sandbox_enabled' => env('STRIPE_SANDBOX_ENABLED', false),
         'test_secret' => env('STRIPE_TEST_SECRET'),

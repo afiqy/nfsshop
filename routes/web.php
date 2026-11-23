@@ -4,12 +4,14 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AppointmentRequestController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AuthenticatorController;
 use App\Http\Controllers\BillplzSandboxController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\ClientEngagementController;
 use App\Http\Controllers\CustomerAccountController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerPortalController;
+use App\Http\Controllers\DeviceSessionController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InvoiceAdjustmentController;
 use App\Http\Controllers\InvoiceController;
@@ -40,6 +42,7 @@ use App\Http\Controllers\WorkshopDashboardController;
 use App\Http\Controllers\WorkshopPaymentQrController;
 use App\Http\Controllers\WorkshopReportController;
 use App\Http\Middleware\EnsureClientEngagementAccess;
+use App\Http\Middleware\EnsureAuthenticatorVerified;
 use App\Http\Middleware\EnsureCustomerReadAccess;
 use App\Http\Middleware\EnsureInventoryAccess;
 use App\Http\Middleware\EnsureReportsAccess;
@@ -100,22 +103,29 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:super_admin
     ->group(function () {
         Route::get('/dashboard', [SuperAdminController::class, 'dashboard'])->name('dashboard');
 
-        Route::resource('owners', OwnerController::class)->except(['show']);
-        Route::post('owners/{owner}/suspend', [OwnerController::class, 'suspend'])->name('owners.suspend');
-        Route::post('owners/{owner}/activate', [OwnerController::class, 'activate'])->name('owners.activate');
-        Route::post('owners/{owner}/reset-password', [OwnerController::class, 'resetPassword'])->name('owners.reset-password');
-        Route::post('owners/{owner}/impersonate', [OwnerController::class, 'impersonate'])->name('owners.impersonate');
+        Route::resource('owners', OwnerController::class)->except(['show'])->middleware(EnsureAuthenticatorVerified::class);
+        Route::post('owners/{owner}/suspend', [OwnerController::class, 'suspend'])->middleware(EnsureAuthenticatorVerified::class)->name('owners.suspend');
+        Route::post('owners/{owner}/activate', [OwnerController::class, 'activate'])->middleware(EnsureAuthenticatorVerified::class)->name('owners.activate');
+        Route::post('owners/{owner}/reset-password', [OwnerController::class, 'resetPassword'])->middleware(EnsureAuthenticatorVerified::class)->name('owners.reset-password');
+        Route::post('owners/{owner}/impersonate', [OwnerController::class, 'impersonate'])->middleware(EnsureAuthenticatorVerified::class)->name('owners.impersonate');
 
         Route::get('impersonation', [ImpersonationController::class, 'index'])->name('impersonation.index');
-        Route::post('impersonation', [ImpersonationController::class, 'start'])->name('impersonation.start');
+        Route::post('impersonation', [ImpersonationController::class, 'start'])->middleware(EnsureAuthenticatorVerified::class)->name('impersonation.start');
 
-        Route::resource('workshops', WorkshopController::class)->only(['index', 'edit', 'update']);
+        Route::resource('workshops', WorkshopController::class)->only(['index', 'edit', 'update'])->middleware(EnsureAuthenticatorVerified::class);
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.logs.index');
         Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit.logs.export');
     });
 
 Route::middleware(['auth', 'check.lockout', 'session.timeout'])->group(function () {
+    Route::get('devices', [DeviceSessionController::class, 'index'])->name('devices.index');
+    Route::delete('devices/{device}', [DeviceSessionController::class, 'revoke'])->name('devices.revoke');
+    Route::get('authenticator', [AuthenticatorController::class, 'show'])->name('authenticator.show');
+    Route::post('authenticator/start', [AuthenticatorController::class, 'start'])->middleware('throttle:10,1')->name('authenticator.start');
+    Route::post('authenticator/confirm', [AuthenticatorController::class, 'confirm'])->middleware('throttle:10,1')->name('authenticator.confirm');
+    Route::post('authenticator/verify', [AuthenticatorController::class, 'verify'])->middleware('throttle:10,1')->name('authenticator.verify');
+    Route::delete('authenticator', [AuthenticatorController::class, 'disable'])->middleware('throttle:10,1')->name('authenticator.disable');
     Route::post('impersonation/leave', [OwnerController::class, 'leaveImpersonation'])->name('impersonation.leave');
     Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/', [UserController::class, 'index'])->name('index');
@@ -135,7 +145,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:account_sup
     ->group(function () {
         Route::middleware('subscription.active')->group(function () {
             Route::resource('workshops', WorkshopController::class)
-                ->only(['index', 'create', 'store', 'edit', 'update']);
+                ->only(['index', 'create', 'store', 'edit', 'update'])->middleware(EnsureAuthenticatorVerified::class);
         });
 
         Route::get('/subscription', [BillingController::class, 'dashboard'])
@@ -207,9 +217,9 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::patch('appointment-requests/{appointmentRequest}/confirm', [AppointmentRequestController::class, 'confirm'])->name('appointment-requests.confirm');
             Route::patch('appointment-requests/{appointmentRequest}/reject', [AppointmentRequestController::class, 'reject'])->name('appointment-requests.reject');
             Route::get('staff', [StaffController::class, 'index'])->name('staff.index');
-            Route::post('staff/invitations', [StaffController::class, 'invite'])->middleware('throttle:10,1')->name('staff.invite');
-            Route::delete('staff/invitations/{invitation}', [StaffController::class, 'revoke'])->name('staff.invitations.revoke');
-            Route::patch('staff/{staff}', [StaffController::class, 'update'])->name('staff.update');
+            Route::post('staff/invitations', [StaffController::class, 'invite'])->middleware(['throttle:10,1', EnsureAuthenticatorVerified::class])->name('staff.invite');
+            Route::delete('staff/invitations/{invitation}', [StaffController::class, 'revoke'])->middleware(EnsureAuthenticatorVerified::class)->name('staff.invitations.revoke');
+            Route::patch('staff/{staff}', [StaffController::class, 'update'])->middleware(EnsureAuthenticatorVerified::class)->name('staff.update');
             Route::resource('customers', CustomerController::class)->only(['create', 'store', 'edit', 'update']);
             Route::resource('vehicles', VehicleController::class)->only(['create', 'store', 'edit', 'update']);
             Route::get('vehicles/{vehicle}/history', [VehicleController::class, 'history'])->name('vehicles.history');
@@ -234,43 +244,43 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             Route::get('invoices/{invoice}/myinvois', [MyInvoisPreparationController::class, 'editBuyer'])->name('myinvois.buyer.edit');
             Route::put('invoices/{invoice}/myinvois', [MyInvoisPreparationController::class, 'updateBuyer'])->name('myinvois.buyer.update');
             Route::delete('invoices/{invoice}/myinvois', [MyInvoisPreparationController::class, 'clearBuyer'])->name('myinvois.buyer.clear');
-            Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
+            Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->middleware(EnsureAuthenticatorVerified::class)->name('invoices.payments.store');
             Route::get('invoices/{invoice}/payments/{payment}/receipt', [InvoiceController::class, 'receipt'])->name('invoices.payments.receipt');
             Route::post('invoices/{invoice}/payments/{payment}/refunds', [InvoiceAdjustmentController::class, 'storeRefund'])
-                ->name('invoices.payments.refunds.store');
+                ->middleware(EnsureAuthenticatorVerified::class)->name('invoices.payments.refunds.store');
             Route::get('invoices/{invoice}/refunds/{refund}', [InvoiceAdjustmentController::class, 'showRefund'])
                 ->name('invoices.refunds.show');
             Route::post('invoices/{invoice}/credit-notes', [InvoiceAdjustmentController::class, 'storeCreditNote'])
-                ->name('invoices.credit-notes.store');
+                ->middleware(EnsureAuthenticatorVerified::class)->name('invoices.credit-notes.store');
             Route::get('invoices/{invoice}/credit-notes/{creditNote}', [InvoiceAdjustmentController::class, 'showCreditNote'])
                 ->name('invoices.credit-notes.show');
             Route::post('invoices/{invoice}/payment-submissions', [InvoicePaymentSubmissionController::class, 'adminRecord'])
-                ->name('invoices.payment-submissions.store');
+                ->middleware(EnsureAuthenticatorVerified::class)->name('invoices.payment-submissions.store');
             Route::post('invoices/{invoice}/payment-submissions/{submission}/approve', [InvoicePaymentSubmissionController::class, 'approve'])
-                ->name('invoices.payment-submissions.approve');
+                ->middleware(EnsureAuthenticatorVerified::class)->name('invoices.payment-submissions.approve');
             Route::post('invoices/{invoice}/payment-submissions/{submission}/reject', [InvoicePaymentSubmissionController::class, 'reject'])
-                ->name('invoices.payment-submissions.reject');
+                ->middleware(EnsureAuthenticatorVerified::class)->name('invoices.payment-submissions.reject');
             Route::get('invoices/{invoice}/payment-submissions/{submission}/proof', [InvoicePaymentSubmissionController::class, 'adminProof'])
                 ->name('invoices.payment-submissions.proof');
             Route::get('payment-submissions', [InvoicePaymentSubmissionController::class, 'adminIndex'])
                 ->name('payment-submissions.index');
             Route::get('payment-preferences', [PaymentPreferenceController::class, 'edit'])->name('payment-preferences.edit');
-            Route::put('payment-preferences', [PaymentPreferenceController::class, 'update'])->name('payment-preferences.update');
+            Route::put('payment-preferences', [PaymentPreferenceController::class, 'update'])->middleware(EnsureAuthenticatorVerified::class)->name('payment-preferences.update');
             Route::get('payment-qrs', [WorkshopPaymentQrController::class, 'index'])->name('payment-qrs.index');
-            Route::post('payment-qrs', [WorkshopPaymentQrController::class, 'store'])->name('payment-qrs.store');
-            Route::patch('payment-qrs/{qr}', [WorkshopPaymentQrController::class, 'setActive'])->name('payment-qrs.active');
+            Route::post('payment-qrs', [WorkshopPaymentQrController::class, 'store'])->middleware(EnsureAuthenticatorVerified::class)->name('payment-qrs.store');
+            Route::patch('payment-qrs/{qr}', [WorkshopPaymentQrController::class, 'setActive'])->middleware(EnsureAuthenticatorVerified::class)->name('payment-qrs.active');
             Route::get('payment-qrs/{qr}/image', [WorkshopPaymentQrController::class, 'adminImage'])
                 ->name('payment-qrs.image');
             Route::post('payment-preferences/stripe-sandbox', [StripeSandboxController::class, 'start'])
-                ->middleware('throttle:6,1')->name('stripe-sandbox.start');
+                ->middleware(['throttle:6,1', EnsureAuthenticatorVerified::class])->name('stripe-sandbox.start');
             Route::get('payment-preferences/stripe-sandbox/result', [StripeSandboxController::class, 'result'])
                 ->middleware('throttle:12,1')->name('stripe-sandbox.result');
             Route::post('payment-preferences/toyyibpay-sandbox', [ToyyibPaySandboxController::class, 'start'])
-                ->middleware('throttle:6,1')->name('toyyibpay-sandbox.start');
+                ->middleware(['throttle:6,1', EnsureAuthenticatorVerified::class])->name('toyyibpay-sandbox.start');
             Route::get('payment-preferences/toyyibpay-sandbox/result', [ToyyibPaySandboxController::class, 'result'])
                 ->middleware('throttle:12,1')->name('toyyibpay-sandbox.result');
             Route::post('payment-preferences/billplz-sandbox', [BillplzSandboxController::class, 'start'])
-                ->middleware('throttle:6,1')->name('billplz-sandbox.start');
+                ->middleware(['throttle:6,1', EnsureAuthenticatorVerified::class])->name('billplz-sandbox.start');
             Route::get('payment-preferences/billplz-sandbox/result', [BillplzSandboxController::class, 'result'])
                 ->middleware('throttle:12,1')->name('billplz-sandbox.result');
             Route::resource('job-cards', JobCardController::class)->only(['index', 'create', 'store', 'show']);

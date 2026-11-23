@@ -6,6 +6,7 @@ use App\Mail\StaffInvitationEmail;
 use App\Models\StaffInvitation;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\UserSession;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -94,17 +95,23 @@ class StaffController extends Controller
         $isLegacyOwner = ! $tenant->account_owner_id && strtolower($user->email) === strtolower((string) data_get($tenant->data, 'owner_email'));
         abort_if($user->id === $request->user()->id || (int) $tenant->account_owner_id === $user->id || $isLegacyOwner, 403);
 
-        $user->fill([
-            'role' => $data['role'],
-            'status' => $data['status'],
-            'can_view_customers' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_view_customers'),
-            'suspended_at' => $data['status'] === User::STATUS_SUSPENDED ? ($user->suspended_at ?? now()) : null,
-            'suspension_reason' => $data['status'] === User::STATUS_SUSPENDED ? 'Suspended by workshop admin' : null,
-        ]);
-        if ($data['status'] === User::STATUS_SUSPENDED) {
-            $user->setRememberToken(Str::random(60));
-        }
-        $user->save();
+        DB::connection($central)->transaction(function () use ($user, $data, $request, $central) {
+            $user = User::on($central)->lockForUpdate()->findOrFail($user->id);
+            $newSuspension = $data['status'] === User::STATUS_SUSPENDED && ! $user->isSuspended();
+            $user->fill([
+                'role' => $data['role'],
+                'status' => $data['status'],
+                'can_view_customers' => $data['role'] === User::ROLE_MECHANIC && $request->boolean('can_view_customers'),
+                'suspended_at' => $data['status'] === User::STATUS_SUSPENDED ? ($user->suspended_at ?? now()) : null,
+                'suspension_reason' => $data['status'] === User::STATUS_SUSPENDED ? 'Suspended by workshop admin' : null,
+            ]);
+            if ($newSuspension) {
+                $user->setRememberToken(Str::random(60));
+                $user->credential_version++;
+                UserSession::query()->where('user_id', $user->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
+            }
+            $user->save();
+        });
 
         return back()->with('success', 'Staff access updated.');
     }
