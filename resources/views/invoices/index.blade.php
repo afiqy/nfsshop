@@ -43,6 +43,19 @@
         <a class="btn {{ $overdueOnly ? 'btn-danger' : 'btn-outline-danger' }}" href="{{ route('invoices.index', ['status' => 'overdue']) }}"
             @if ($overdueOnly) aria-current="page" @endif>Overdue only</a>
     </nav>
+    @include('exports.controls', [
+        'id' => 'invoices-export',
+        'csvUrl' => route('exports.index', ['type' => 'invoices', 'format' => 'csv'] + ($overdueOnly ? ['status' => 'overdue'] : [])),
+        'pdfUrl' => route('exports.index', ['type' => 'invoices', 'format' => 'pdf']),
+        'filters' => $overdueOnly ? ['status' => 'overdue'] : [],
+    ])
+    <h2 class="h5">Payment records</h2>
+    @include('exports.controls', [
+        'id' => 'payments-export',
+        'csvUrl' => route('exports.index', ['type' => 'payments', 'format' => 'csv']),
+        'pdfUrl' => route('exports.index', ['type' => 'payments', 'format' => 'pdf']),
+        'filters' => [],
+    ])
     <p><a href="{{ route('myinvois.seller.edit') }}">MyInvois workshop tax profile</a></p>
     <div class="card shadow-sm">
         <div class="table-responsive">

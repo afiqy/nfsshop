@@ -7,20 +7,23 @@ use App\Models\Invoice;
 use App\Models\JobCard;
 use App\Models\User;
 use App\Services\ServiceRevenueReport;
+use App\Services\WorkshopExport;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnexpectedValueException;
 
 class WorkshopReportController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, ?string $format = null): Response|StreamedResponse
     {
         $validated = $request->validate([
             'period' => ['nullable', 'regex:/\A20[0-9]{2}(?:-(?:0[1-9]|1[0-2]))?\z/'],
+            'batch' => $format === 'pdf' ? ['nullable', 'integer', 'min:1', 'max:1000000'] : ['prohibited'],
         ]);
         $period = $validated['period'] ?? CarbonImmutable::now(Calendar::TIMEZONE)->format('Y-m');
         $isYear = strlen($period) === 4;
@@ -30,7 +33,7 @@ class WorkshopReportController extends Controller
         $end = $endLocal->utc()->toDateTimeString();
         $db = DB::connection('tenant');
 
-        return $db->transaction(function () use ($db, $start, $end, $period, $request) {
+        return $db->transaction(function () use ($db, $start, $end, $period, $request, $format, $validated) {
             $invoices = $db->table('invoices')->where('status', Invoice::STATUS_ISSUED)
                 ->where('created_at', '>=', $start)->where('created_at', '<', $end);
             $credits = $db->table('invoice_credit_notes as c')->join('invoices as i', 'i.id', '=', 'c.invoice_id')
@@ -47,17 +50,17 @@ class WorkshopReportController extends Controller
 
             $cashMovements = (clone $payments)->selectRaw('i.customer_id, CAST(p.amount_sen AS SIGNED) AS amount_sen')
                 ->unionAll((clone $refunds)->selectRaw('i.customer_id, -CAST(r.amount_sen AS SIGNED) AS amount_sen'));
-            $customers = $db->query()->fromSub($cashMovements, 'movement')
+            $customerQuery = $db->query()->fromSub($cashMovements, 'movement')
                 ->leftJoin('customers as c', 'c.id', '=', 'movement.customer_id')
                 ->selectRaw('movement.customer_id, c.name, SUM(movement.amount_sen) AS net_sen')
-                ->groupBy('movement.customer_id', 'c.name')->orderByDesc('net_sen')->orderBy('movement.customer_id')
-                ->paginate(25, ['*'], 'customers_page')->withQueryString();
+                ->groupBy('movement.customer_id', 'c.name')->orderByDesc('net_sen')->orderBy('movement.customer_id');
+            $customers = $format ? $customerQuery->get() : $customerQuery->paginate(25, ['*'], 'customers_page')->withQueryString();
 
-            $staff = JobCard::query()->where('status', JobCard::COMPLETED)
+            $staffQuery = JobCard::query()->where('status', JobCard::COMPLETED)
                 ->where('completed_at', '>=', $start)->where('completed_at', '<', $end)
                 ->selectRaw('assigned_mechanic_id, COUNT(*) AS completed_count')
-                ->groupBy('assigned_mechanic_id')->orderByDesc('completed_count')->orderBy('assigned_mechanic_id')
-                ->paginate(25, ['*'], 'staff_page')->withQueryString();
+                ->groupBy('assigned_mechanic_id')->orderByDesc('completed_count')->orderBy('assigned_mechanic_id');
+            $staff = $format ? $staffQuery->get() : $staffQuery->paginate(25, ['*'], 'staff_page')->withQueryString();
             $staffNames = User::on(config('tenancy.database.central_connection'))
                 ->where('tenant_id', tenant('id'))->whereIn('id', $staff->pluck('assigned_mechanic_id')->filter()->all())
                 ->pluck('name', 'id');
@@ -103,7 +106,7 @@ class WorkshopReportController extends Controller
             }
             $sortedServices = collect($services)->sortByDesc('gross_sen')->values();
             $servicePage = LengthAwarePaginator::resolveCurrentPage('services_page');
-            $serviceRows = (new LengthAwarePaginator(
+            $serviceRows = $format ? $sortedServices : (new LengthAwarePaginator(
                 $sortedServices->forPage($servicePage, 25)->values(), $sortedServices->count(), 25, $servicePage,
                 ['path' => $request->url(), 'pageName' => 'services_page']
             ))->withQueryString();
@@ -120,7 +123,7 @@ class WorkshopReportController extends Controller
             $netTotals = null;
             if ($netServices !== null) {
                 $netPage = LengthAwarePaginator::resolveCurrentPage('net_services_page');
-                $netRows = (new LengthAwarePaginator(
+                $netRows = $format ? $netServices['services'] : (new LengthAwarePaginator(
                     $netServices['services']->forPage($netPage, 25)->values(), $netServices['services']->count(), 25, $netPage,
                     ['path' => $request->url(), 'pageName' => 'net_services_page']
                 ))->withQueryString();
@@ -130,7 +133,7 @@ class WorkshopReportController extends Controller
                 ];
             }
 
-            return response()->view('reports.index', [
+            $data = [
                 'period' => $period,
                 'invoiced' => $invoiced, 'credited' => $credited, 'received' => $received, 'refunded' => $refunded,
                 'invoiceCount' => (clone $invoices)->count(),
@@ -139,7 +142,56 @@ class WorkshopReportController extends Controller
                 'grossServiceError' => $grossServiceError,
                 'netServices' => $netRows, 'netUnclassified' => $netServices['unclassified'] ?? null,
                 'netTotals' => $netTotals, 'netServiceError' => $netServiceError,
-            ])->header('Cache-Control', 'private, no-store');
+            ];
+            if ($format) {
+                return app(WorkshopExport::class)->download($format, 'Workshop report '.$period,
+                    ['Section', 'Item', 'Quantity / invoiced (sen)', 'Amount / credits (sen)', 'Net (sen)'],
+                    $this->exportRows($data), (int) ($validated['batch'] ?? 1),
+                    'Malaysia-time period '.$period.'. Operational estimates, not accounting statements.');
+            }
+
+            return response()->view('reports.index', $data)->header('Cache-Control', 'private, no-store');
         });
+    }
+
+    private function exportRows(array $data): iterable
+    {
+        yield ['Period (Malaysia time)', $data['period'], '', '', 'Operational estimates, not accounting statements'];
+        yield ['Invoicing and cash', 'Issued invoice count', $data['invoiceCount'], '', ''];
+        yield ['Invoicing and cash', 'Issued invoices', '', $data['invoiced'], ''];
+        yield ['Invoicing and cash', 'Credit notes', '', $data['credited'], ''];
+        yield ['Invoicing and cash', 'Invoiced less credits', '', '', $data['invoiced'] - $data['credited']];
+        yield ['Invoicing and cash', 'Payments', '', $data['received'], ''];
+        yield ['Invoicing and cash', 'Refunds', '', $data['refunded'], ''];
+        yield ['Invoicing and cash', 'Payments less refunds', '', '', $data['received'] - $data['refunded']];
+        yield ['Gross service', 'Before invoice-wide discounts and credits; inclusive tax extracted per line', '', '', ''];
+        if ($data['grossServiceError']) {
+            yield ['Gross service', 'Unavailable: '.$data['grossServiceError'], '', '', ''];
+        } else {
+            foreach ($data['services'] as $service) {
+                yield ['Gross service', $service['name'].' (#'.$service['id'].')', $service['quantity'], $service['gross_sen'], ''];
+            }
+            yield ['Gross service', 'Unclassified', '', $data['unclassified'], ''];
+        }
+        yield ['Net service', 'Accrual basis; tax and cash refunds excluded', '', '', ''];
+        if ($data['netServiceError']) {
+            yield ['Net service', 'Unavailable: '.$data['netServiceError'], '', '', ''];
+        } else {
+            foreach ($data['netServices'] as $service) {
+                yield ['Net service', $service['name'].' (#'.$service['id'].')', $service['invoiced_sen'], $service['credited_sen'], $service['invoiced_sen'] - $service['credited_sen']];
+            }
+            foreach (['Unclassified' => $data['netUnclassified'], 'Total' => $data['netTotals']] as $label => $row) {
+                yield ['Net service', $label, $row['invoiced_sen'], $row['credited_sen'], $row['invoiced_sen'] - $row['credited_sen']];
+            }
+        }
+        foreach ($data['customers'] as $customer) {
+            yield ['Customer spend', $customer->name ?? 'Deleted or unlinked customer', '', '', (int) $customer->net_sen];
+        }
+        foreach ($data['staff'] as $member) {
+            $name = $member->assigned_mechanic_id
+                ? ($data['staffNames'][$member->assigned_mechanic_id] ?? 'Former or unavailable staff #'.$member->assigned_mechanic_id)
+                : 'Unassigned';
+            yield ['Completed jobs', $name, (int) $member->completed_count, '', ''];
+        }
     }
 }

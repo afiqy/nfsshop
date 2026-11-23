@@ -17,6 +17,14 @@
             href="{{ route($staffView ? 'my-jobs.index' : 'job-cards.index', ['filter' => 'overdue']) }}"
             @if ($overdueOnly) aria-current="page" @endif>Overdue only</a>
     </nav>
+    @unless ($staffView)
+        @include('exports.controls', [
+            'id' => 'jobs-export',
+            'csvUrl' => route('exports.index', ['type' => 'jobs', 'format' => 'csv'] + ($overdueOnly ? ['filter' => 'overdue'] : [])),
+            'pdfUrl' => route('exports.index', ['type' => 'jobs', 'format' => 'pdf']),
+            'filters' => $overdueOnly ? ['filter' => 'overdue'] : [],
+        ])
+    @endunless
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table mb-0">

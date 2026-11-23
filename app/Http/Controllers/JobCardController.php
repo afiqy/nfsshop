@@ -33,8 +33,7 @@ class JobCardController extends Controller
         $today = CarbonImmutable::today(Calendar::TIMEZONE)->toDateString();
         $jobsQuery = $this->visibleJobs($request)->with(['customer', 'vehicle']);
         if ($overdueOnly) {
-            $jobsQuery->whereIn('status', [JobCard::OPEN, JobCard::IN_PROGRESS])
-                ->whereNotNull('due_date')->where('due_date', '<', $today);
+            $jobsQuery->overdue($today);
         }
         $jobs = $jobsQuery->latest('id')->paginate(15)->withQueryString();
         $assigneeNames = $staffView ? collect() : $this->mechanics($request)

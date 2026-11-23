@@ -12,6 +12,12 @@
 </form>
 @if ($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
 <p>Period: {{ $period }} (Malaysia time). Amounts are operational figures, not accounting or MyInvois reports.</p>
+@include('exports.controls', [
+    'id' => 'report-export',
+    'csvUrl' => route('reports.export', ['format' => 'csv', 'period' => $period]),
+    'pdfUrl' => route('reports.export', ['format' => 'pdf']),
+    'filters' => ['period' => $period],
+])
 <section class="card p-3 mb-3">
     <h2 class="h5">Invoicing and cash movement</h2>
     <p>Invoices use their creation date and current issued status. Credit notes, payments and refunds use their own recorded dates, even when the invoice was issued in another period. Invoice totals include any invoice discount and tax.</p>

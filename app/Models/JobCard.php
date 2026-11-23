@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Stancl\Tenancy\Database\Concerns\TenantConnection;
@@ -69,6 +70,12 @@ class JobCard extends Model
         return in_array($this->status, [self::OPEN, self::IN_PROGRESS], true)
             && $this->due_date !== null
             && $this->due_date->toDateString() < $today;
+    }
+
+    public function scopeOverdue(Builder $query, string $today): Builder
+    {
+        return $query->whereIn('job_cards.status', [self::OPEN, self::IN_PROGRESS])
+            ->whereNotNull('job_cards.due_date')->where('job_cards.due_date', '<', $today);
     }
 
     public function nextStatus(): ?string

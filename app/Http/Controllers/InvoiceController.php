@@ -32,9 +32,7 @@ class InvoiceController extends Controller
         $today = CarbonImmutable::today(Calendar::TIMEZONE)->toDateString();
 
         return view('invoices.index', [
-            'invoices' => Invoice::withSum('payments as paid_sen', 'amount_sen')
-                ->withSum('refunds as refunded_sen', 'amount_sen')
-                ->withSum('creditNotes as credited_sen', 'amount_sen')
+            'invoices' => Invoice::withPaymentTotals()
                 ->when($overdueOnly, fn ($query) => $query->overdue($today)->orderBy('due_date'))
                 ->latest('id')->paginate(15)->appends($overdueOnly ? ['status' => 'overdue'] : []),
             'overdueOnly' => $overdueOnly,

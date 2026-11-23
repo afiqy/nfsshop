@@ -20,16 +20,16 @@ use App\Http\Controllers\InvoiceEmailDeliveryController;
 use App\Http\Controllers\InvoicePaymentSubmissionController;
 use App\Http\Controllers\JobCardController;
 use App\Http\Controllers\MyInvoisPreparationController;
+use App\Http\Controllers\PasswordRecoveryController;
 use App\Http\Controllers\PaymentPreferenceController;
 use App\Http\Controllers\PaymentReminderController;
-use App\Http\Controllers\PasswordRecoveryController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ServiceCatalogController;
 use App\Http\Controllers\StaffController;
-use App\Http\Controllers\StaffInvoiceController;
 use App\Http\Controllers\StaffInvitationController;
+use App\Http\Controllers\StaffInvoiceController;
 use App\Http\Controllers\StripeSandboxController;
 use App\Http\Controllers\SuperAdmin\BillingController;
 use App\Http\Controllers\SuperAdmin\ImpersonationController;
@@ -41,10 +41,11 @@ use App\Http\Controllers\ToyyibPaySandboxController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\WorkshopDashboardController;
+use App\Http\Controllers\WorkshopExportController;
 use App\Http\Controllers\WorkshopPaymentQrController;
 use App\Http\Controllers\WorkshopReportController;
-use App\Http\Middleware\EnsureClientEngagementAccess;
 use App\Http\Middleware\EnsureAuthenticatorVerified;
+use App\Http\Middleware\EnsureClientEngagementAccess;
 use App\Http\Middleware\EnsureCustomerReadAccess;
 use App\Http\Middleware\EnsureInventoryAccess;
 use App\Http\Middleware\EnsureReportsAccess;
@@ -235,6 +236,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout', 'tenant.context']
             });
             Route::get('reports', [WorkshopReportController::class, 'index'])
                 ->middleware(EnsureReportsAccess::class)->name('reports.index');
+            Route::get('reports/export/{format}', [WorkshopReportController::class, 'index'])
+                ->whereIn('format', ['csv', 'pdf'])->middleware(EnsureReportsAccess::class)->name('reports.export');
+            Route::get('exports/{type}/{format}', [WorkshopExportController::class, 'index'])
+                ->whereIn('type', ['invoices', 'payments', 'jobs'])->whereIn('format', ['csv', 'pdf'])->name('exports.index');
             Route::get('services', [ServiceCatalogController::class, 'index'])->name('services.index');
             Route::get('services/create', [ServiceCatalogController::class, 'serviceForm'])->name('services.create');
             Route::post('services', [ServiceCatalogController::class, 'saveService'])->name('services.store');

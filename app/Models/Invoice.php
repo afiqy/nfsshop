@@ -108,6 +108,13 @@ class Invoice extends Model
             )');
     }
 
+    public function scopeWithPaymentTotals(Builder $query): Builder
+    {
+        return $query->withSum('payments as paid_sen', 'amount_sen')
+            ->withSum('refunds as refunded_sen', 'amount_sen')
+            ->withSum('creditNotes as credited_sen', 'amount_sen');
+    }
+
     public function isOverdue(int $paid, string $today, int $refunded = 0, int $credited = 0): bool
     {
         return ! $this->isVoided()

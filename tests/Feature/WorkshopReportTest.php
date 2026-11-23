@@ -80,6 +80,11 @@ class WorkshopReportTest extends TestCase
         $this->get(route('reports.index', ['period' => '2026']))->assertOk()->assertViewHas('invoiced', 45900);
         $this->get(route('reports.index', ['period' => '2026-04']))->assertOk()
             ->assertViewHas('received', 0)->assertViewHas('refunded', 500)->assertSee('-RM 5.00');
+        $csv = $this->get(route('reports.export', ['format' => 'csv', 'period' => '2026-03']))->assertOk()->streamedContent();
+        $this->assertStringContainsString('Oil change (#1)', $csv);
+        $this->assertStringContainsString('Workshop mechanic', $csv);
+        $this->assertStringContainsString('Unclassified', $csv);
+        $this->assertStringContainsString('6500', $csv);
         $this->get(route('reports.index', ['period' => '2026-13']))->assertSessionHasErrors('period');
     }
 

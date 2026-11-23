@@ -89,7 +89,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 
 - [ ] In-app/email/SMS/WhatsApp notifications, delivery tracking, user preferences and escalation/quiet hours.
 - [ ] Global search and saved filters across customers, vehicles, jobs, invoices, payments and documents.
-- [ ] Permission-checked CSV/PDF export for operational records and reports.
+- [x] Permission-checked CSV/PDF export for operational records and reports.
 - [ ] Document/media library with safe upload validation, malware scanning, versioning, quotas and retention.
 - [ ] Localization, multi-currency/tax rules and per-workshop regional settings beyond Malaysia-time scheduling and MYR.
 - [ ] Mobile/PWA/offline workflows, push notifications, camera/barcode uploads and signature capture.
