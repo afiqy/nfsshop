@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\StaffInvitation;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\PasswordPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class StaffInvitationController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'string', 'confirmed', 'min:8'],
+            'password' => ['required', 'confirmed', ...PasswordPolicy::rules()],
         ]);
         $central = config('tenancy.database.central_connection');
 

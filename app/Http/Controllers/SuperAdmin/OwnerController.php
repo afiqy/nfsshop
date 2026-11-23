@@ -7,6 +7,7 @@ use App\Http\Requests\SuperAdmin\OwnerStoreRequest;
 use App\Http\Requests\SuperAdmin\OwnerUpdateRequest;
 use App\Models\User;
 use App\Services\ImpersonationService;
+use App\Services\PasswordCredentials;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -109,13 +110,14 @@ class OwnerController extends Controller
         ]);
     }
 
-    public function update(OwnerUpdateRequest $request, User $owner): RedirectResponse
+    public function update(OwnerUpdateRequest $request, User $owner, PasswordCredentials $credentials): RedirectResponse
     {
         $this->ensureOwner($owner);
 
         $data = $request->validated();
 
-        DB::transaction(function () use ($data, $owner) {
+        DB::transaction(function () use ($data, $owner, $credentials) {
+            $owner = User::query()->lockForUpdate()->findOrFail($owner->id);
             $tenantId = $data['tenant_id'] ?? $owner->tenant_id ?? $this->generateTenantId($data['workshop_name']);
 
             $tenant = Tenant::find($tenantId);
@@ -145,12 +147,13 @@ class OwnerController extends Controller
                 'workshop_name' => $data['workshop_name'],
             ];
 
-            if (! empty($data['password'])) {
-                $updates['password'] = Hash::make($data['password']);
-                $updates['force_password_reset'] = false;
+            if ($owner->email !== $data['email']) {
+                $credentials->deleteTokens($owner->email, $data['email']);
             }
-
             $owner->update($updates);
+            if (! empty($data['password'])) {
+                $credentials->updateLocked($owner, $data['password']);
+            }
         });
 
         return redirect()->route('super-admin.owners.index')->with('success', 'Workshop owner updated successfully.');
@@ -195,16 +198,17 @@ class OwnerController extends Controller
         return redirect()->back()->with('success', 'Owner account reactivated.');
     }
 
-    public function resetPassword(User $owner): RedirectResponse
+    public function resetPassword(User $owner, PasswordCredentials $credentials): RedirectResponse
     {
         $this->ensureOwner($owner);
 
         $temporaryPassword = Str::random(12);
 
-        $owner->update([
-            'password' => Hash::make($temporaryPassword),
-            'force_password_reset' => true,
-        ]);
+        DB::transaction(function () use ($owner, $credentials, $temporaryPassword) {
+            $owner = User::query()->lockForUpdate()->findOrFail($owner->id);
+            $credentials->updateLocked($owner, $temporaryPassword);
+            $owner->update(['force_password_reset' => true]);
+        });
 
         return redirect()->back()->with('success', "Temporary password generated: {$temporaryPassword}");
     }

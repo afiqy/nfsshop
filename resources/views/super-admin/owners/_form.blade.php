@@ -26,7 +26,7 @@
 <div class="row">
     <div class="col-md-6">
         <div class="form-group">
-            <label for="password">Password @if ($owner) <small class="text-muted">(leave blank to keep current)</small> @endif</label>
+            <label for="password">Password (at least 8 characters, up to 72 bytes) @if ($owner) <small class="text-muted">(leave blank to keep current)</small> @endif</label>
             <input type="password" class="form-control @error('password') is-invalid @enderror" id="password" name="password" @if (! $owner) required @endif>
             @error('password')
                 <div class="invalid-feedback">{{ $message }}</div>

@@ -33,8 +33,8 @@
             <input type="text" id="phone" name="phone" class="form-control" value="{{ old('phone', data_get($state, 'account.phone')) }}" required>
         </div>
         <div class="form-group">
-            <label for="password">Password (min. 8 characters)</label>
-            <input type="password" id="password" name="password" class="form-control" required>
+            <label for="password">Password (at least 8 characters, up to 72 bytes)</label>
+            <input type="password" id="password" name="password" class="form-control" autocomplete="new-password" minlength="8" required>
         </div>
         <div class="form-group">
             <label for="password_confirmation">Confirm password</label>

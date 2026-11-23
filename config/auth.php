@@ -94,6 +94,7 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => 'password_reset_tokens',
+            'connection' => env('DB_CONNECTION', 'central'),
             'expire' => 60,
             'throttle' => 60,
         ],

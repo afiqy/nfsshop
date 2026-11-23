@@ -3,9 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\UserProfile;
+use App\Models\User;
+use App\Services\PasswordCredentials;
+use App\Support\PasswordPolicy;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -73,22 +78,24 @@ class UserController extends Controller
         return redirect()->route('profile.index')->with('success', 'Profile updated.');
     }
 
-    public function updatePassword(Request $request)
+    public function updatePassword(Request $request, PasswordCredentials $credentials)
     {
-        $request->validate([
-            'current_password' => 'required',
-            'new_password' => 'required|confirmed|min:6',
-            'new_password_confirmation' => 'required|same:new_password',
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'confirmed', ...PasswordPolicy::rules()],
         ]);
 
-        $user = $request->user();
+        $user = DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($request, $data, $credentials) {
+            $user = User::on(config('tenancy.database.central_connection'))->lockForUpdate()->findOrFail($request->user()->id);
+            if (! Hash::check($data['current_password'], $user->password)) {
+                throw ValidationException::withMessages(['current_password' => 'Current password is incorrect.']);
+            }
+            $credentials->updateLocked($user, $data['new_password']);
 
-        if (! Hash::check($request->current_password, $user->password)) {
-            return back()->withErrors(['current_password' => 'Current password is incorrect.']);
-        }
-
-        $user->password = Hash::make($request->new_password);
-        $user->save();
+            return $user;
+        });
+        Auth::setUser($user);
+        $request->session()->put('credential_version', $user->credential_version);
 
         return back()->with('success', 'Password updated.');
     }

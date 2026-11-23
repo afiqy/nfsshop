@@ -5,7 +5,8 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 ## Workshop beta
 
 - [x] Authentication and access-control baseline: login/logout, role checks, account lockout, session timeout, tenant scoping, subscription-expiry gates.
-- [ ] Full authentication: password recovery and password policy, CAPTCHA, MFA, SSO, device management.
+- [x] Password recovery and password policy: email reset links, consistent password validation, and web-session invalidation after password changes.
+- [ ] Full authentication: CAPTCHA, MFA, SSO, device management.
 - [ ] Profile and account preferences: full contact/profile editing, avatar, language, timezone and notification settings.
 - [x] Staff account administration beta: workshop-scoped email invitations for mechanics or full workshop admins; activation/suspension, role management and optional read-only customer/vehicle lists.
 - [ ] Additional staff permissions (including invoice and payment recording), existing-account invitations, self-registration approval and permanent session revocation on suspension.
@@ -111,8 +112,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Workshop services and packages, customer appointment requests with admin confirmation, and invoice percentage discounts and inclusive/exclusive tax snapshots.
 - [x] Workshop reporting beta with Malaysia-time monthly/annual figures, customer cash spend, assigned-mechanic completed jobs and tagged gross service lines.
 - [x] Client engagement beta with portal promotions, manual points and consent-based manual vehicle reminders.
+- [x] Email password recovery and consistent password validation, with web-session invalidation on password changes.
 
 ## Next recommended module
 
-- [ ] Password recovery and password policy (part of full authentication).
+- [ ] Full authentication: CAPTCHA, MFA, SSO, device management.
 

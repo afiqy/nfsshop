@@ -7,6 +7,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkshopSubscription;
+use App\Support\PasswordPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -46,7 +47,7 @@ class RegistrationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['required', 'string', 'max:30'],
-            'password' => ['required', 'confirmed', 'min:8'],
+            'password' => ['required', 'confirmed', ...PasswordPolicy::rules()],
         ]);
 
         $state = $this->getWizardData($request);
@@ -308,6 +309,7 @@ class RegistrationController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put('credential_version', $user->credential_version ?? 0);
 
         session(['tenant_id' => $tenantId]);
         tenancy()->initialize($tenantId);

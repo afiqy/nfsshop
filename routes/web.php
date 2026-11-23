@@ -19,6 +19,7 @@ use App\Http\Controllers\JobCardController;
 use App\Http\Controllers\MyInvoisPreparationController;
 use App\Http\Controllers\PaymentPreferenceController;
 use App\Http\Controllers\PaymentReminderController;
+use App\Http\Controllers\PasswordRecoveryController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\RoleController;
@@ -86,9 +87,12 @@ Route::get('/register/complete', [RegistrationController::class, 'complete'])->n
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-Route::post('/password-request', function () {
-    return view('welcome');
-})->name('password.request');
+Route::middleware(['guest', 'throttle:10,1'])->group(function () {
+    Route::get('/forgot-password', [PasswordRecoveryController::class, 'requestForm'])->name('password.request');
+    Route::post('/forgot-password', [PasswordRecoveryController::class, 'send'])->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordRecoveryController::class, 'resetForm'])->name('password.reset');
+    Route::post('/reset-password', [PasswordRecoveryController::class, 'reset'])->name('password.update');
+});
 
 Route::middleware(['auth', 'check.lockout', 'session.timeout', 'role:super_admin'])
     ->prefix('super-admin')

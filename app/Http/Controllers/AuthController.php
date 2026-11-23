@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Validation\Rules\Password;
+use App\Support\PasswordPolicy;
 
 class AuthController extends Controller
 {
@@ -77,6 +77,7 @@ class AuthController extends Controller
         $user->resetLoginAttempts();
 
         $request->session()->regenerate();
+        $request->session()->put('credential_version', $user->credential_version);
         $request->session()->put('last_activity', now());
 
         UserSession::create([
@@ -122,11 +123,7 @@ class AuthController extends Controller
             'password' => [
                 'required',
                 'confirmed',
-                Password::min(12)
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-                    ->uncompromised(),
+                ...PasswordPolicy::rules(),
             ],
         ]);
 

@@ -15,9 +15,17 @@ use App\Models\AuditAlert;
 use App\Models\AuditLog;
 
 use App\Traits\Auditable;
+use App\Services\PasswordCredentials;
 
 class User extends Authenticatable
 {
+    protected $attributes = ['credential_version' => 0];
+
+    protected static function booted(): void
+    {
+        static::created(fn (User $user) => app(PasswordCredentials::class)->deleteTokens($user->email));
+    }
+
     public const ROLE_SUPER_ADMIN = 'super_admin';
     public const ROLE_ACCOUNT_SUPER_ADMIN = 'account_super_admin';
     public const ROLE_ADMIN = 'admin';
@@ -72,6 +80,7 @@ class User extends Authenticatable
         'force_password_reset' => 'boolean',
         'can_view_customers' => 'boolean',
         'locked_until' => 'datetime',
+        'credential_version' => 'integer',
     ];
 
     //User Model Relationships

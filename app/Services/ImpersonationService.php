@@ -19,9 +19,12 @@ class ImpersonationService
             tenancy()->end();
         }
 
+        $impersonator = User::on(config('tenancy.database.central_connection'))->findOrFail($impersonatorId);
         Auth::login($target);
         $session->regenerate();
+        $session->put('credential_version', $target->credential_version);
         $session->put('impersonator_id', $impersonatorId);
+        $session->put('impersonator_credential_version', $impersonator->credential_version);
         $session->put('tenant_id', $target->tenant_id);
 
         tenancy()->initialize($target->tenant_id);
@@ -30,6 +33,7 @@ class ImpersonationService
     public function stop(Session $session): ?User
     {
         $impersonatorId = $session->pull('impersonator_id');
+        $session->forget('impersonator_credential_version');
 
         if (! $impersonatorId) {
             return null;
@@ -48,6 +52,7 @@ class ImpersonationService
 
         Auth::login($impersonator);
         $session->regenerate(true);
+        $session->put('credential_version', $impersonator->credential_version);
         $session->forget('tenant_id');
 
         return $impersonator;

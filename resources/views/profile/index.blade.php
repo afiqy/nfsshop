@@ -22,6 +22,9 @@
     {{ session('success') }}
 </div>
 @endif
+@if ($user->force_password_reset)
+<div class="alert alert-warning">Change your temporary password before using the rest of the system.</div>
+@endif
 <div class="card shadow">
     <div class="card-body">
         <div class="d-flex justify-content-end">
@@ -102,7 +105,7 @@
         </h6>
     </a>
     
-    <div class="collapse @if($errors->has('current_password') || $errors->has('new_password') || $errors->has('new_password_confirmation')) show @endif" id="collapsePasswordCard">
+    <div class="collapse @if($user->force_password_reset || $errors->has('current_password') || $errors->has('new_password') || $errors->has('new_password_confirmation')) show @endif" id="collapsePasswordCard">
         <div class="card-body">
             <form action="{{ route('profile.password.update') }}" method="POST">
                 @csrf
@@ -115,8 +118,8 @@
                     @enderror
                 </div>
                 <div class="form-group">
-                    <label for="new_password">New Password</label>
-                    <input type="password" class="form-control @error('new_password') is-invalid @enderror" id="new_password" name="new_password" required>
+                    <label for="new_password">New Password (at least 8 characters, up to 72 bytes)</label>
+                    <input type="password" class="form-control @error('new_password') is-invalid @enderror" id="new_password" name="new_password" autocomplete="new-password" minlength="8" required>
                     @error('new_password')
                     <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
