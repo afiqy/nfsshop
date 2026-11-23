@@ -6,6 +6,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.1",
+        "brick/math": "^0.12",
         "firebase/php-jwt": "^6.11",
         "guzzlehttp/guzzle": "^7.9",
         "ladumor/laravel-pwa": "^0.0.4",

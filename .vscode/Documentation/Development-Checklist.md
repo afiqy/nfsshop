@@ -44,7 +44,7 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [ ] Live payment processing, settlement/reconciliation and production gateway webhooks.
 - [x] Workshop service and package price lists, optional invoice-wide percentage discounts, and invoice-specific inclusive/exclusive tax calculations (beta estimates; not MyInvois compliance).
 - [x] Workshop reporting beta: monthly/annual invoice and cash movements, customer spend, assigned-mechanic completed-job counts, and tagged gross service line totals.
-- [ ] Net revenue by service, including allocation of invoice-wide discounts, tax and credit notes and a strategy for historical untagged lines.
+- [x] Net revenue by service, including allocation of invoice-wide discounts, tax and credit notes and a strategy for historical untagged lines.
 - [x] Client engagement beta: dated portal promotions, manual loyalty points and redemption history, and consent-based manual vehicle service/renewal reminder emails.
 - [ ] Automatic visit/spend-based loyalty and configurable rewards; invoice-linked reward discounts.
 - [ ] Basic-tier loyalty add-on provisioning and entitlement from Qysoft Main.

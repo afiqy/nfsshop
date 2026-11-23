@@ -27,6 +27,9 @@
 <section class="card p-3 mb-3" id="service-report">
     <h2 class="h5">Gross service lines</h2>
     <p>Tagged services on invoices issued in the period, before invoice-wide discounts and credit notes. Included tax is extracted per line and rounded to the nearest sen; added tax is excluded. These figures are not net revenue and do not allocate payments or refunds. Untagged lines, including historical invoices and inventory, are unclassified.</p>
+    @if ($grossServiceError)
+        <div class="alert alert-danger">Gross service reporting is unavailable: {{ $grossServiceError }} Check the invoice before relying on this report.</div>
+    @else
     <div class="table-responsive"><table class="table"><thead><tr><th>Service</th><th>Quantity</th><th>Gross amount</th></tr></thead><tbody>
         @forelse ($services as $service)
             <tr><td>{{ $service['name'] }} (#{{ $service['id'] }})</td><td>{{ $service['quantity'] }}</td><td>{{ $money($service['gross_sen']) }}</td></tr>
@@ -34,6 +37,23 @@
     </tbody></table></div>
     {{ $services->fragment('service-report')->links() }}
     <p>Unclassified gross lines: {{ $money($unclassified) }}</p>
+    @endif
+</section>
+<section class="card p-3 mb-3" id="net-service-report">
+    <h2 class="h5">Net revenue by service</h2>
+    <p>Accrual basis: invoice net amounts are counted when issued and credit notes when issued, including credits for earlier invoices. Invoice-wide discounts, tax and credits are allocated proportionally across all lines with deterministic sen rounding. Tax and cash refunds are excluded. Untagged historical and inventory lines are unclassified; they are not guessed or backfilled. Voided invoices are excluded based on current status. This is an operational estimate, not an accounting report.</p>
+    @if ($netServiceError)
+        <div class="alert alert-danger">Net service revenue is unavailable: {{ $netServiceError }} Check the invoice and its credit notes before relying on this report.</div>
+    @else
+        <div class="table-responsive"><table class="table"><thead><tr><th>Service</th><th>Invoiced excluding tax</th><th>Credits excluding tax</th><th>Net revenue</th></tr></thead><tbody>
+            @forelse ($netServices as $service)
+                <tr><td>{{ $service['name'] }} (#{{ $service['id'] }})</td><td>{{ $money($service['invoiced_sen']) }}</td><td>{{ $money($service['credited_sen']) }}</td><td>{{ $money($service['invoiced_sen'] - $service['credited_sen']) }}</td></tr>
+            @empty <tr><td colspan="4">No tagged service revenue in this period.</td></tr> @endforelse
+            <tr><th>Unclassified</th><td>{{ $money($netUnclassified['invoiced_sen']) }}</td><td>{{ $money($netUnclassified['credited_sen']) }}</td><td>{{ $money($netUnclassified['invoiced_sen'] - $netUnclassified['credited_sen']) }}</td></tr>
+            <tr><th>Total (all pages)</th><td>{{ $money($netTotals['invoiced_sen']) }}</td><td>{{ $money($netTotals['credited_sen']) }}</td><td>{{ $money($netTotals['invoiced_sen'] - $netTotals['credited_sen']) }}</td></tr>
+        </tbody></table></div>
+        {{ $netServices->fragment('net-service-report')->links() }}
+    @endif
 </section>
 <section class="card p-3 mb-3" id="customer-report">
     <h2 class="h5">Customer spend</h2>

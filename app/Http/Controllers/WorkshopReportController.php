@@ -6,11 +6,14 @@ use App\Models\Calendar;
 use App\Models\Invoice;
 use App\Models\JobCard;
 use App\Models\User;
+use App\Services\ServiceRevenueReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use UnexpectedValueException;
 
 class WorkshopReportController extends Controller
 {
@@ -61,10 +64,22 @@ class WorkshopReportController extends Controller
 
             $services = [];
             $unclassified = 0;
+            $grossServiceError = null;
             foreach (Invoice::query()->where('status', Invoice::STATUS_ISSUED)
                 ->where('created_at', '>=', $start)->where('created_at', '<', $end)
                 ->select(['id', 'items', 'pricing'])->lazyById(500) as $invoice) {
+                if (! is_array($invoice->items) || (($invoice->pricing['tax_mode'] ?? null) === 'inclusive'
+                    && (! isset($invoice->pricing['tax_rate']) || ! is_int($invoice->pricing['tax_rate'])
+                        || $invoice->pricing['tax_rate'] < 0 || $invoice->pricing['tax_rate'] > 10000))) {
+                    $grossServiceError = "Invoice #{$invoice->id} has invalid line items or tax data.";
+                    break;
+                }
                 foreach ($invoice->items as $item) {
+                    if (! is_array($item) || ! isset($item['total_sen'], $item['quantity'])
+                        || ! is_int($item['total_sen']) || $item['total_sen'] < 0 || ! is_numeric($item['quantity'])) {
+                        $grossServiceError = "Invoice #{$invoice->id} has invalid line items.";
+                        break 2;
+                    }
                     $gross = (int) $item['total_sen'];
                     if (($invoice->pricing['tax_mode'] ?? null) === 'inclusive') {
                         $rate = (int) $invoice->pricing['tax_rate'];
@@ -83,6 +98,9 @@ class WorkshopReportController extends Controller
                     $services[$id]['quantity'] += (int) $item['quantity'];
                 }
             }
+            if ($grossServiceError !== null) {
+                Log::warning('Gross service report unavailable: '.$grossServiceError, ['tenant_id' => tenant('id')]);
+            }
             $sortedServices = collect($services)->sortByDesc('gross_sen')->values();
             $servicePage = LengthAwarePaginator::resolveCurrentPage('services_page');
             $serviceRows = (new LengthAwarePaginator(
@@ -90,12 +108,37 @@ class WorkshopReportController extends Controller
                 ['path' => $request->url(), 'pageName' => 'services_page']
             ))->withQueryString();
 
+            $netServices = null;
+            $netServiceError = null;
+            try {
+                $netServices = app(ServiceRevenueReport::class)->calculate($start, $end);
+            } catch (UnexpectedValueException $exception) {
+                Log::warning('Net service revenue report unavailable: '.$exception->getMessage(), ['tenant_id' => tenant('id')]);
+                $netServiceError = $exception->getMessage();
+            }
+            $netRows = null;
+            $netTotals = null;
+            if ($netServices !== null) {
+                $netPage = LengthAwarePaginator::resolveCurrentPage('net_services_page');
+                $netRows = (new LengthAwarePaginator(
+                    $netServices['services']->forPage($netPage, 25)->values(), $netServices['services']->count(), 25, $netPage,
+                    ['path' => $request->url(), 'pageName' => 'net_services_page']
+                ))->withQueryString();
+                $netTotals = [
+                    'invoiced_sen' => $netServices['services']->sum('invoiced_sen') + $netServices['unclassified']['invoiced_sen'],
+                    'credited_sen' => $netServices['services']->sum('credited_sen') + $netServices['unclassified']['credited_sen'],
+                ];
+            }
+
             return response()->view('reports.index', [
                 'period' => $period,
                 'invoiced' => $invoiced, 'credited' => $credited, 'received' => $received, 'refunded' => $refunded,
                 'invoiceCount' => (clone $invoices)->count(),
                 'customers' => $customers, 'staff' => $staff, 'staffNames' => $staffNames,
                 'services' => $serviceRows, 'unclassified' => $unclassified,
+                'grossServiceError' => $grossServiceError,
+                'netServices' => $netRows, 'netUnclassified' => $netServices['unclassified'] ?? null,
+                'netTotals' => $netTotals, 'netServiceError' => $netServiceError,
             ])->header('Cache-Control', 'private, no-store');
         });
     }
