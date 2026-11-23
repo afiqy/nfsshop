@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Profile')
+@section('title', __('Edit Profile'))
 
 @section('content')
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800">Edit Profile</h1>
+    <h1 class="h3 mb-0 text-gray-800">{{ __('Edit Profile') }}</h1>
 </div>
 
 @if ($errors->any())
@@ -28,7 +28,7 @@
                     <div class="avatar-container position-relative d-inline-block">
                         @if($profile->avatar)
                         <img src="{{ route('profile.avatar') }}"
-                            alt="Avatar"
+                            alt="{{ __('Avatar') }}"
                             class="rounded-circle img-thumbnail shadow-sm"
                             style="width: 150px; height: 150px; object-fit: cover;">
                         @else
@@ -38,16 +38,34 @@
                         </div>
                         @endif
                     </div>
+                    @if ($workshop)
+                        <div class="form-group mt-3 px-3">
+                            <label for="workshop_logo" class="small text-muted mb-1">{{ __('Workshop logo') }}</label>
+                            @if ($workshop->workshop_logo)
+                                <img src="{{ route('profile.workshop-logo') }}" alt="{{ __('Workshop logo') }}"
+                                    class="img-thumbnail d-block mx-auto mb-2" style="max-width: 180px; max-height: 100px;">
+                            @endif
+                            <input type="file" class="form-control-file form-control-sm @error('workshop_logo') is-invalid @enderror"
+                                id="workshop_logo" name="workshop_logo" accept="image/jpeg,image/png,image/webp">
+                            <small>{{ __('JPEG, PNG or WebP, up to 2 MB.') }}</small>
+                            @if ($workshop->workshop_logo)
+                                <label class="d-block"><input type="checkbox" name="remove_workshop_logo" value="1"> {{ __('Remove workshop logo') }}</label>
+                            @endif
+                            @error('workshop_logo')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    @endif
                     <h5 class="mt-3 font-weight-bold text-gray-800">
                         {{ optional($profile)->first_name }} {{ optional($profile)->last_name }}
                     </h5>
                     
                     <div class="form-group mt-2 px-3">
-                        <label for="avatar" class="small text-muted mb-1">Update Avatar</label>
+                        <label for="avatar" class="small text-muted mb-1">{{ __('Update Avatar') }}</label>
                         <input type="file" class="form-control-file form-control-sm @error('avatar') is-invalid @enderror" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp">
-                        <small>JPEG, PNG or WebP, up to 2 MB.</small>
+                        <small>{{ __('JPEG, PNG or WebP, up to 2 MB.') }}</small>
                         @if ($profile->avatar)
-                            <label class="d-block"><input type="checkbox" name="remove_avatar" value="1"> Remove current avatar</label>
+                            <label class="d-block"><input type="checkbox" name="remove_avatar" value="1"> {{ __('Remove current avatar') }}</label>
                         @endif
                         @error('avatar')
                             <div class="invalid-feedback d-block">{{ $message }}</div>
@@ -59,7 +77,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group mb-3">
-                                <label for="first_name">First Name</label>
+                                <label for="first_name">{{ __('First Name') }}</label>
                                 <input type="text" class="form-control @error('first_name') is-invalid @enderror" id="first_name" name="first_name" value="{{ old('first_name', optional($profile)->first_name) }}" required>
                                 @error('first_name')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -68,7 +86,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group mb-3">
-                                <label for="last_name">Last Name</label>
+                                <label for="last_name">{{ __('Last Name') }}</label>
                                 <input type="text" class="form-control @error('last_name') is-invalid @enderror" id="last_name" name="last_name" value="{{ old('last_name', optional($profile)->last_name) }}" maxlength="120">
                                 @error('last_name')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -80,9 +98,9 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group mb-3">
-                                <label for="email">Email</label>
+                                <label for="email">{{ __('Email') }}</label>
                                 <input type="email" class="form-control" id="email" value="{{ $user->email }}" disabled>
-                                <small>Change your account email on the profile page.</small>
+                                <small>{{ __('Change your account email on the profile page.') }}</small>
                                 @error('email')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -90,7 +108,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group mb-3">
-                                <label for="phone">Phone Number</label>
+                                <label for="phone">{{ __('Phone Number') }}</label>
                                 <input type="text" class="form-control @error('phone') is-invalid @enderror" id="phone" name="phone" value="{{ old('phone', optional($user)->phone) }}">
                                 @error('phone')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -102,14 +120,14 @@
             </div>
             <div class="row mt-3">
                 <div class="col-md-4 form-group">
-                    <label for="preferred_language">Preferred language</label>
+                    <label for="preferred_language">{{ __('Preferred language') }}</label>
                     <select class="form-control" id="preferred_language" name="preferred_language" required>
-                        <option value="en" @selected(old('preferred_language', $profile->preferred_language) === 'en')>English</option>
-                        <option value="ms" @selected(old('preferred_language', $profile->preferred_language) === 'ms')>Bahasa Melayu</option>
+                        <option value="en" @selected(old('preferred_language', $profile->preferred_language) === 'en')>{{ __('English') }}</option>
+                        <option value="ms" @selected(old('preferred_language', $profile->preferred_language) === 'ms')>{{ __('Bahasa Melayu') }}</option>
                     </select>
                 </div>
                 <div class="col-md-4 form-group">
-                    <label for="timezone">Preferred timezone</label>
+                    <label for="timezone">{{ __('Preferred timezone') }}</label>
                     <select class="form-control" id="timezone" name="timezone" required>
                         @foreach (timezone_identifiers_list() as $timezone)
                             <option value="{{ $timezone }}" @selected(old('timezone', $profile->timezone) === $timezone)>{{ $timezone }}</option>
@@ -117,23 +135,45 @@
                     </select>
                 </div>
                 <div class="col-md-4 form-group">
-                    <label for="preferred_contact_method">Preferred contact method</label>
+                    <label for="preferred_contact_method">{{ __('Preferred contact method') }}</label>
                     <select class="form-control" id="preferred_contact_method" name="preferred_contact_method">
-                        <option value="">Not set</option>
+                        <option value="">{{ __('Not set') }}</option>
                         @foreach (['email' => 'Email', 'sms' => 'SMS', 'whatsapp' => 'WhatsApp'] as $value => $label)
-                            <option value="{{ $value }}" @selected(old('preferred_contact_method', $profile->preferred_contact_method) === $value)>{{ $label }}</option>
+                            <option value="{{ $value }}" @selected(old('preferred_contact_method', $profile->preferred_contact_method) === $value)>{{ __($label) }}</option>
                         @endforeach
                     </select>
                 </div>
             </div>
-            <p class="small text-muted">Preferences are saved for future use; the interface remains in English, workshop dates use Malaysia time, and SMS/WhatsApp delivery is not available.</p>
+            <p class="small text-muted">{{ __('Language and timezone preferences apply to your account. Workshop scheduling remains in Malaysia time. SMS/WhatsApp delivery is not available.') }}</p>
+            @if ($user->role === \App\Models\User::ROLE_CLIENT)
+                <fieldset class="border rounded p-3 mb-3">
+                    <legend class="h6 w-auto px-2">{{ __('Email notifications') }}</legend>
+                    <p class="small text-muted">{{ __('Choose which client emails you receive. These settings do not affect workshop copies or vehicle reminder consent.') }}</p>
+                    @foreach ([
+                        \App\Models\UserProfile::EMAIL_APPOINTMENTS => __('Appointment updates and reminders'),
+                        \App\Models\UserProfile::EMAIL_INVOICES => __('Invoice emails'),
+                        \App\Models\UserProfile::EMAIL_PAYMENT_REMINDERS => __('Payment reminder emails'),
+                    ] as $preference => $label)
+                        <div class="form-check">
+                            <input type="hidden" name="notification_preferences[{{ $preference }}]" value="0">
+                            <input class="form-check-input" type="checkbox" id="notification-{{ $preference }}"
+                                name="notification_preferences[{{ $preference }}]" value="1"
+                                @checked(old('notification_preferences.'.$preference, data_get($profile->notification_preferences, $preference, true)))>
+                            <label class="form-check-label" for="notification-{{ $preference }}">{{ $label }}</label>
+                        </div>
+                        @error('notification_preferences.'.$preference)
+                            <div class="text-danger small">{{ $message }}</div>
+                        @enderror
+                    @endforeach
+                </fieldset>
+            @endif
             <div class="form-group">
-                <label for="bio">Bio</label>
+                <label for="bio">{{ __('Bio') }}</label>
                 <textarea class="form-control" id="bio" name="bio" maxlength="2000">{{ old('bio', $profile->bio) }}</textarea>
             </div>
             <div class="d-flex justify-content-end mb-3">
-                <a href="{{ route('profile.index') }}" class="btn btn-secondary mr-2">Cancel</a>
-                <button type="submit" class="btn btn-success">Save Changes</button>
+                <a href="{{ route('profile.index') }}" class="btn btn-secondary mr-2">{{ __('Cancel') }}</a>
+                <button type="submit" class="btn btn-success">{{ __('Save Changes') }}</button>
             </div>
         </div>
     </div>

@@ -15,6 +15,7 @@ use App\Models\ServicePackage;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\UserProfile;
 use App\Models\Vehicle;
 use App\Models\WorkshopService;
 use App\Services\AppointmentNotificationService;
@@ -235,6 +236,35 @@ class ServiceCatalogTest extends TestCase
         Mail::assertSent(AppointmentNotificationEmail::class, fn ($mail) => $mail->hasTo($client->email));
         Mail::assertSent(AppointmentNotificationEmail::class, fn ($mail) => $mail->hasTo($admin->email));
         $this->assertStringContainsString('Later changes may apply', Mail::sent(AppointmentNotificationEmail::class)->first()->render());
+    }
+
+    public function test_client_appointment_email_opt_out_does_not_suppress_workshop_emails(): void
+    {
+        Mail::fake();
+        [$admin, $workshop] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        UserProfile::create([
+            'user_id' => $client->id,
+            'notification_preferences' => [UserProfile::EMAIL_APPOINTMENTS => false],
+        ]);
+        $vehicle = $workshop->run(fn () => $this->vehicleFor($client));
+        $start = now(Calendar::TIMEZONE)->addDays(3)->startOfHour();
+
+        $this->actingAs($admin)->post(route('calendar.store'), [
+            'vehicle_id' => $vehicle->id,
+            'service_type' => 'Inspection',
+            'start' => $start->format('Y-m-d\TH:i'),
+            'end' => $start->copy()->addHour()->format('Y-m-d\TH:i'),
+        ])->assertSessionHasNoErrors();
+
+        $workshop->run(function () {
+            $this->assertSame(0, app(AppointmentNotificationService::class)->deliverPending());
+            $this->assertSame('cancelled', AppointmentNotification::where('recipient_type', 'customer')->sole()->status);
+            $this->assertSame('sent', AppointmentNotification::where('recipient_type', 'workshop')->sole()->status);
+        });
+        Mail::assertSent(AppointmentNotificationEmail::class, 1);
+        Mail::assertSent(AppointmentNotificationEmail::class, fn ($mail) => $mail->hasTo($admin->email));
+        Mail::assertNotSent(AppointmentNotificationEmail::class, fn ($mail) => $mail->hasTo($client->email));
     }
 
     public function test_failed_appointment_emails_are_visible_and_require_manual_retry(): void

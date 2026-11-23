@@ -24,7 +24,7 @@
         <div class="sidebar-brand-icon rotate-n-15">
             <i class="fas fa-tools"></i>
         </div>
-        <div class="sidebar-brand-text mx-3">Workshop Invoicing</div>
+        <div class="sidebar-brand-text mx-3">{{ __('Workshop Invoicing') }}</div>
     </a>
 
     <!-- Divider -->
@@ -33,7 +33,7 @@
     <li class="nav-item">
         <a class="nav-link" href="{{ route($homeRoute) }}">
             <i class="fas fa-fw fa-tachometer-alt"></i>
-            <span>Dashboard</span>
+            <span>{{ __('Dashboard') }}</span>
         </a>
     </li>
 
@@ -42,44 +42,44 @@
         <hr class="sidebar-divider">
 
         <div class="sidebar-heading">
-            Platform Management
+            {{ __('Platform Management') }}
     </div>
 
         <li class="nav-item">
             <a class="nav-link" href="{{ route('super-admin.owners.index') }}">
                 <i class="fas fa-users-cog"></i>
-                <span>Workshop Owners</span>
+                <span>{{ __('Workshop Owners') }}</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" href="{{ route('super-admin.impersonation.index') }}">
                 <i class="fas fa-user-secret"></i>
-                <span>Switch to Workshop</span>
+                <span>{{ __('Switch to Workshop') }}</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" href="{{ route('super-admin.workshops.index') }}">
                 <i class="fas fa-warehouse"></i>
-                <span>Workshops</span>
+                <span>{{ __('Workshops') }}</span>
             </a>
         </li>
     @elseif ($user && $user->isAccountSuperAdmin())
         <hr class="sidebar-divider">
         <div class="sidebar-heading">
-            Account Management
+            {{ __('Account Management') }}
         </div>
         @if ($subscriptionUsable)
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('account.workshops.index') }}">
                     <i class="fas fa-warehouse"></i>
-                    <span>My Workshops</span>
+                    <span>{{ __('My Workshops') }}</span>
                 </a>
             </li>
         @endif
         <li class="nav-item">
             <a class="nav-link" href="{{ route('account.subscription') }}">
                 <i class="fas fa-credit-card"></i>
-                <span>My Subscription</span>
+                <span>{{ __('My Subscription') }}</span>
             </a>
         </li>
     @elseif ($subscriptionUsable)
@@ -87,21 +87,21 @@
         <hr class="sidebar-divider">
 
         <div class="sidebar-heading">
-            Modules
+            {{ __('Modules') }}
         </div>
 
         @if ($user?->role === \App\Models\User::ROLE_ADMIN)
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('services.index') }}">
                     <i class="fas fa-list"></i>
-                    <span>Services &amp; pricing</span>
+                    <span>{{ __('Services & pricing') }}</span>
                 </a>
             </li>
             @if ($accountSubscription?->canViewReports())
                 <li class="nav-item">
                     <a class="nav-link" href="{{ route('reports.index') }}">
                         <i class="fas fa-chart-bar"></i>
-                        <span>Reports</span>
+                        <span>{{ __('Reports') }}</span>
                     </a>
                 </li>
             @endif
@@ -109,63 +109,63 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{{ route('engagement.index') }}">
                         <i class="fas fa-gift"></i>
-                        <span>Client engagement</span>
+                        <span>{{ __('Client engagement') }}</span>
                     </a>
                 </li>
             @endif
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('invoices.index') }}">
                     <i class="fas fa-file-invoice"></i>
-                    <span>Invoices</span>
+                    <span>{{ __('Invoices') }}</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('payment-preferences.edit') }}">
                     <i class="fas fa-credit-card"></i>
-                    <span>Payment settings</span>
+                    <span>{{ __('Payment settings') }}</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('customers.index') }}">
                     <i class="fas fa-users"></i>
-                    <span>Customers</span>
+                    <span>{{ __('Customers') }}</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('client-accounts.index') }}">
                     <i class="fas fa-user-check"></i>
-                    <span>Client accounts</span>
+                    <span>{{ __('Client accounts') }}</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('staff.index') }}">
                     <i class="fas fa-user-cog"></i>
-                    <span>Staff access</span>
+                    <span>{{ __('Staff access') }}</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('vehicles.index') }}">
                     <i class="fas fa-car"></i>
-                    <span>Vehicles</span>
+                    <span>{{ __('Vehicles') }}</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('calendar.index') }}">
                     <i class="fas fa-calendar-alt"></i>
-                    <span>Calendar</span>
+                    <span>{{ __('Calendar') }}</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('job-cards.index') }}">
                     <i class="fas fa-clipboard-list"></i>
-                    <span>Job cards</span>
+                    <span>{{ __('Job cards') }}</span>
                 </a>
             </li>
             @if ($accountSubscription?->canManageInventory())
                 <li class="nav-item">
                     <a class="nav-link" href="{{ route('inventory.index') }}">
                         <i class="fas fa-warehouse"></i>
-                        <span>Inventory</span>
+                        <span>{{ __('Inventory') }}</span>
                     </a>
                 </li>
             @endif
@@ -173,24 +173,24 @@
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('my-jobs.index') }}">
                     <i class="fas fa-clipboard-list"></i>
-                    <span>My jobs</span>
+                    <span>{{ __('My jobs') }}</span>
                 </a>
             </li>
             @if ($user->can_create_job_invoices || $user->can_record_payments)
-                <li class="nav-item"><a class="nav-link" href="{{ route('staff-invoices.index') }}"><i class="fas fa-file-invoice"></i> <span>Invoices</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('staff-invoices.index') }}"><i class="fas fa-file-invoice"></i> <span>{{ __('Invoices') }}</span></a></li>
             @endif
             @if ($user->canViewCustomerLists())
-                <li class="nav-item"><a class="nav-link" href="{{ route('customers.index') }}"><i class="fas fa-users"></i> <span>Customers</span></a></li>
-                <li class="nav-item"><a class="nav-link" href="{{ route('vehicles.index') }}"><i class="fas fa-car"></i> <span>Vehicles</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('customers.index') }}"><i class="fas fa-users"></i> <span>{{ __('Customers') }}</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('vehicles.index') }}"><i class="fas fa-car"></i> <span>{{ __('Vehicles') }}</span></a></li>
             @endif
             @if ($user->can_review_appointments)
-                <li class="nav-item"><a class="nav-link" href="{{ route('appointment-requests.index') }}"><i class="fas fa-calendar-check"></i> <span>Appointment requests</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('appointment-requests.index') }}"><i class="fas fa-calendar-check"></i>                 <span>{{ __('Appointment requests') }}</span></a></li>
             @endif
         @elseif ($user?->role === \App\Models\User::ROLE_CLIENT)
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('client.portal') }}">
                     <i class="fas fa-car"></i>
-                    <span>My vehicles &amp; history</span>
+                    <span>{{ __('My vehicles & history') }}</span>
                 </a>
             </li>
         @endif
@@ -199,27 +199,27 @@
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('users.index') }}">
                     <i class="fas fa-user-cog"></i>
-                    <span>Users</span>
+                    <span>{{ __('Users') }}</span>
                 </a>
             </li>
 
             <hr class="sidebar-divider">
 
             <div class="sidebar-heading">
-                Admin Settings
+                {{ __('Admin Settings') }}
             </div>
 
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('admin.settings') }}">
                     <i class="fas fa-cogs"></i>
-                    <span>Admin Settings</span>
+                    <span>{{ __('Admin Settings') }}</span>
                 </a>
             </li>
 
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('admin.roles.index') }}">
                     <i class="fas fa-user-shield"></i>
-                    <span>Role Management</span>
+                    <span>{{ __('Role Management') }}</span>
                 </a>
             </li>
         @endif
@@ -228,17 +228,17 @@
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('workshop.subscription') }}">
                     <i class="fas fa-credit-card"></i>
-                    <span>My Subscription</span>
+                    <span>{{ __('My Subscription') }}</span>
                 </a>
             </li>
         @endif
     @elseif ($user && $user->role === \App\Models\User::ROLE_ADMIN)
         <hr class="sidebar-divider">
-        <div class="sidebar-heading">Subscription</div>
+        <div class="sidebar-heading">{{ __('Subscription') }}</div>
         <li class="nav-item">
             <a class="nav-link" href="{{ route('workshop.subscription') }}">
                 <i class="fas fa-credit-card"></i>
-                <span>My Subscription</span>
+                <span>{{ __('My Subscription') }}</span>
             </a>
         </li>
     @endif
@@ -250,7 +250,7 @@
         <a class="nav-link" href="{{ route('logout') }}"
            onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
             <i class="fas fa-sign-out-alt"></i>
-            <span>Logout</span>
+            <span>{{ __('Logout') }}</span>
         </a>
         <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
             @csrf

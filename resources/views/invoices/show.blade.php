@@ -195,6 +195,8 @@
                                         Accepted by mail transport
                                     @elseif ($attempt->status === \App\Models\InvoicePaymentReminderAttempt::FAILED)
                                         Failed: {{ $attempt->failure_message }}
+                                    @elseif ($attempt->status === \App\Models\InvoicePaymentReminderAttempt::CANCELLED)
+                                        Skipped: {{ $attempt->failure_message }}
                                     @else
                                         Sending / outcome unknown
                                     @endif

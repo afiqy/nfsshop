@@ -1,6 +1,6 @@
 <!-- resources/views/layouts/header.blade.php -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app()->getLocale() }}">
 
 <head>
     <meta charset="utf-8">

@@ -10,6 +10,7 @@ use App\Models\InvoicePaymentReminderAttempt;
 use App\Models\InvoicePaymentSubmission;
 use App\Models\PaymentReminderSetting;
 use App\Models\User;
+use App\Models\UserProfile;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +21,8 @@ use Throwable;
 class InvoicePaymentReminderService
 {
     private const OFFSETS = [0, 7, 14];
+
+    public function __construct(private UserNotificationPreferences $preferences) {}
 
     public function processToday(): void
     {
@@ -48,9 +51,10 @@ class InvoicePaymentReminderService
             $record = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
             $stage = $record->paymentReminders()->lockForUpdate()->findOrFail($reminder->id);
             $latest = $stage->attempts()->latest('id')->first();
-            if (! $setting->enabled || ! $this->eligible($record, $stage->due_date->toDateString())) {
+            if (! $setting->enabled || ! $this->eligible($record, $stage->due_date->toDateString())
+                || ! $this->customerAllowsPaymentReminders($record)) {
                 throw ValidationException::withMessages([
-                    'reminder' => 'Enable reminders and ensure the invoice is issued, unpaid, has the same due date and has no pending payment proofs.',
+                    'reminder' => 'Enable reminders, keep the customer opted in, and ensure the invoice is issued, unpaid, has the same due date and has no pending payment proofs.',
                 ]);
             }
             if (! $latest || $latest->status !== InvoicePaymentReminderAttempt::FAILED) {
@@ -72,6 +76,7 @@ class InvoicePaymentReminderService
             $setting = PaymentReminderSetting::query()->lockForUpdate()->findOrFail(1);
             $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoiceId);
             if (! $setting->enabled || ! $this->eligible($invoice, $dueDate)
+                || ! $this->customerAllowsPaymentReminders($invoice)
                 || $invoice->paymentReminders()->where('due_date', $dueDate)->where('days_overdue', $offset)->exists()) {
                 return null;
             }
@@ -107,6 +112,15 @@ class InvoicePaymentReminderService
                 $attempt->update([
                     'status' => InvoicePaymentReminderAttempt::FAILED,
                     'failure_message' => 'Reminder paused because the invoice or workshop is no longer eligible.',
+                ]);
+
+                return $attempt;
+            }
+
+            if (! $this->customerAllowsPaymentReminders($invoice)) {
+                $attempt->update([
+                    'status' => InvoicePaymentReminderAttempt::CANCELLED,
+                    'failure_message' => 'The customer opted out of payment reminder emails.',
                 ]);
 
                 return $attempt;
@@ -149,5 +163,13 @@ class InvoicePaymentReminderService
 
             return $attempt;
         });
+    }
+
+    private function customerAllowsPaymentReminders(Invoice $invoice): bool
+    {
+        return $this->preferences->allowsEmail(
+            $invoice->customer?->portal_user_id,
+            UserProfile::EMAIL_PAYMENT_REMINDERS
+        );
     }
 }

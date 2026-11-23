@@ -25,6 +25,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\Supplier;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\UserProfile;
 use App\Models\Vehicle;
 use App\Models\WorkshopPaymentQr;
 use Carbon\CarbonImmutable;
@@ -1810,16 +1811,58 @@ class InvoiceTest extends TestCase
         $this->get($show)->assertOk()->assertSeeText('Failed:')->assertSeeText('Accepted by mail transport');
     }
 
+    public function test_client_invoice_email_opt_out_is_enforced_and_can_be_reversed(): void
+    {
+        Mail::fake();
+        [$admin, $workshop] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        $customer = $workshop->run(fn () => Customer::create([
+            'name' => 'Opt-out Customer',
+            'email' => 'opt-out@example.test',
+            'portal_user_id' => $client->id,
+        ]));
+        $this->actingAs($admin)->post(route('invoices.store'), [
+            'customer_id' => $customer->id,
+            'items' => [['description' => 'Service', 'quantity' => 1, 'unit_price' => '25.00']],
+        ])->assertRedirect();
+        $invoice = Invoice::query()->sole();
+        $profile = UserProfile::create([
+            'user_id' => $client->id,
+            'notification_preferences' => [UserProfile::EMAIL_INVOICES => false],
+        ]);
+        $send = route('invoices.email-deliveries.store', $invoice);
+
+        $this->from(route('invoices.show', $invoice))->post($send)
+            ->assertRedirect(route('invoices.show', $invoice))->assertSessionHasErrors('email');
+        Mail::assertNothingSent();
+        $this->assertSame(0, $workshop->run(fn () => InvoiceEmailDelivery::count()));
+
+        $preferences = $profile->notification_preferences;
+        $preferences[UserProfile::EMAIL_INVOICES] = true;
+        $profile->update(['notification_preferences' => $preferences]);
+        $this->post($send)->assertRedirect(route('invoices.show', $invoice))->assertSessionHas('success');
+        Mail::assertSent(InvoiceEmail::class, fn (InvoiceEmail $mail) => $mail->hasTo('opt-out@example.test'));
+    }
+
     public function test_payment_reminders_are_opt_in_scheduled_once_and_pause_for_pending_proofs(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-22 09:00:00', 'Asia/Kuala_Lumpur'));
         Mail::fake();
         [$admin, $workshop] = $this->createWorkshop();
         [$otherAdmin, $otherWorkshop] = $this->createWorkshop();
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
+        $profile = UserProfile::create([
+            'user_id' => $client->id,
+            'notification_preferences' => [UserProfile::EMAIL_PAYMENT_REMINDERS => false],
+        ]);
         AccountSubscription::query()->whereIn('user_id', [$admin->id, $otherAdmin->id])
             ->update(['current_period_ends_at' => now()->addDays(30)]);
-        $invoice = $workshop->run(function () {
-            $customer = Customer::create(['name' => 'Reminder Customer', 'email' => 'reminder@example.test']);
+        $invoice = $workshop->run(function () use ($client) {
+            $customer = Customer::create([
+                'name' => 'Reminder Customer',
+                'email' => 'reminder@example.test',
+                'portal_user_id' => $client->id,
+            ]);
 
             $paid = Invoice::create([
                 'customer_id' => $customer->id, 'customer_name' => $customer->name, 'workshop_name' => 'Beta Workshop',
@@ -1867,6 +1910,10 @@ class InvoiceTest extends TestCase
         Mail::assertNothingSent();
         $workshop->run(fn () => $submission->update(['status' => InvoicePaymentSubmission::STATUS_REJECTED]));
 
+        $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
+        Mail::assertNothingSent();
+        $this->assertSame(0, $workshop->run(fn () => InvoicePaymentReminder::count()));
+        $profile->update(['notification_preferences' => [UserProfile::EMAIL_PAYMENT_REMINDERS => true]]);
         $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
         $this->artisan('invoices:send-payment-reminders')->assertSuccessful();
         Mail::assertSent(InvoicePaymentReminderEmail::class, 1);

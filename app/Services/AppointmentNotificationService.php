@@ -7,6 +7,7 @@ use App\Models\AppointmentNotification;
 use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\User;
+use App\Models\UserProfile;
 use App\Models\Vehicle;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,8 @@ use Throwable;
 
 class AppointmentNotificationService
 {
+    public function __construct(private UserNotificationPreferences $preferences) {}
+
     public function queueCalendar(string $event, Calendar $calendar): void
     {
         $calendar->loadMissing(['customer', 'vehicle']);
@@ -108,6 +111,15 @@ class AppointmentNotificationService
                 $this->fail($notification, 'The customer or vehicle is no longer available for this notification.');
 
                 return false;
+            }
+            if ($notification->recipient_type === 'customer'
+                && ! $this->preferences->allowsEmail($customer->portal_user_id, UserProfile::EMAIL_APPOINTMENTS)) {
+                $notification->update([
+                    'status' => 'cancelled',
+                    'failure_message' => 'The customer opted out of appointment emails.',
+                ]);
+
+                return true;
             }
             if ($notification->event === 'reminder') {
                 if (! $booking || $booking->status !== Calendar::STATUS_SCHEDULED || $booking->start !== $notification->reminder_start

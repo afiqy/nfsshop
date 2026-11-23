@@ -6,6 +6,7 @@ use App\Mail\InvoiceEmail;
 use App\Models\Invoice;
 use App\Models\InvoiceEmailDelivery;
 use App\Models\User;
+use App\Models\UserProfile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -15,10 +16,13 @@ class InvoiceEmailDeliveryService
 {
     private const FAILURE_MESSAGE = 'The configured mail transport could not send this email. Check application logs before retrying.';
 
+    public function __construct(private UserNotificationPreferences $preferences) {}
+
     public function send(Invoice $invoice, User $actor): InvoiceEmailDelivery
     {
         $record = $this->loadInvoice($invoice);
         $this->assertSendable($record);
+        $this->assertEmailAllowed($record);
         $recipient = $record->customer?->email;
         if (! is_string($recipient) || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
             throw ValidationException::withMessages([
@@ -33,6 +37,7 @@ class InvoiceEmailDeliveryService
     {
         $record = $this->loadInvoice($invoice);
         $this->assertSendable($record);
+        $this->assertEmailAllowed($record);
         $failedDelivery = $record->emailDeliveries()->findOrFail($delivery->id);
         if ($failedDelivery->status !== InvoiceEmailDelivery::STATUS_FAILED) {
             throw ValidationException::withMessages([
@@ -58,6 +63,15 @@ class InvoiceEmailDeliveryService
         if ($invoice->status !== Invoice::STATUS_ISSUED) {
             throw ValidationException::withMessages([
                 'email' => 'Only issued invoices can be emailed.',
+            ]);
+        }
+    }
+
+    private function assertEmailAllowed(Invoice $invoice): void
+    {
+        if (! $this->preferences->allowsEmail($invoice->customer?->portal_user_id, UserProfile::EMAIL_INVOICES)) {
+            throw ValidationException::withMessages([
+                'email' => 'The customer has opted out of invoice emails.',
             ]);
         }
     }

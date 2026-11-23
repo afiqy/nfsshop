@@ -15,6 +15,8 @@ class InvoicePaymentReminderAttempt extends Model
 
     public const FAILED = 'failed';
 
+    public const CANCELLED = 'cancelled';
+
     protected $fillable = ['recipient_email', 'requested_by_user_id', 'status', 'failure_message', 'sent_at'];
 
     protected $casts = ['sent_at' => 'datetime'];

@@ -148,6 +148,7 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout'])->group(function 
         Route::get('/edit', [UserController::class, 'editProfile'])->name('edit');
         Route::put('/edit', [UserController::class, 'updateProfile'])->name('update');
         Route::get('/avatar', [UserController::class, 'avatar'])->name('avatar');
+        Route::get('/workshop-logo', [UserController::class, 'workshopLogo'])->name('workshop-logo');
         Route::post('/email', [EmailChangeController::class, 'requestChange'])->middleware('throttle:5,1')->name('email.request');
         Route::get('/email/confirm/{token}', [EmailChangeController::class, 'show'])->name('email.confirm');
         Route::post('/email/confirm', [EmailChangeController::class, 'confirm'])->middleware('throttle:10,1')->name('email.confirm.submit');
