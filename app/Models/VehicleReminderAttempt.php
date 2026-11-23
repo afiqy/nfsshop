@@ -9,7 +9,7 @@ class VehicleReminderAttempt extends Model
 {
     use TenantConnection;
 
-    protected $fillable = ['vehicle_reminder_id', 'requested_by_user_id', 'resolved_by_user_id', 'recipient_email', 'status', 'failure_message', 'sent_at'];
+    protected $fillable = ['vehicle_reminder_id', 'requested_by_user_id', 'resolved_by_user_id', 'scheduled_for', 'recipient_email', 'status', 'failure_message', 'sent_at'];
 
-    protected $casts = ['sent_at' => 'datetime'];
+    protected $casts = ['scheduled_for' => 'date', 'sent_at' => 'datetime'];
 }

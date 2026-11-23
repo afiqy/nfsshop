@@ -2,23 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\VehicleReminderEmail;
 use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\Promotion;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleReminder;
-use App\Models\VehicleReminderAttempt;
+use App\Services\VehicleReminderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 class ClientEngagementController extends Controller
 {
@@ -112,47 +108,10 @@ class ClientEngagementController extends Controller
         return back()->with('success', 'Reminder closed.');
     }
 
-    public function send(Request $request, string $reminder): RedirectResponse
+    public function send(Request $request, string $reminder, VehicleReminderService $reminders): RedirectResponse
     {
-        $attempt = DB::connection('tenant')->transaction(function () use ($request, $reminder) {
-            $record = VehicleReminder::query()->lockForUpdate()->findOrFail($reminder);
-            $customer = Customer::query()->lockForUpdate()->findOrFail($record->customer_id);
-            $vehicle = Vehicle::query()->lockForUpdate()->findOrFail($record->vehicle_id);
-            $this->assertSendable($record, $customer, $vehicle);
-            if ($record->attempts()->where('status', 'sending')->exists()) {
-                throw ValidationException::withMessages(['reminder' => 'A send is already in progress or its outcome is unknown. Check the provider before resolving it.']);
-            }
-
-            return $record->attempts()->create([
-                'requested_by_user_id' => $request->user()->id, 'recipient_email' => $customer->email, 'status' => 'sending',
-            ]);
-        }, 3);
-
-        DB::connection('tenant')->transaction(function () use ($reminder, $attempt) {
-            $record = VehicleReminder::query()->lockForUpdate()->findOrFail($reminder);
-            $customer = Customer::query()->lockForUpdate()->findOrFail($record->customer_id);
-            $vehicle = Vehicle::query()->lockForUpdate()->findOrFail($record->vehicle_id);
-            $attempt = VehicleReminderAttempt::query()->lockForUpdate()->findOrFail($attempt->id);
-            if ($attempt->status !== 'sending') {
-                return;
-            }
-            if ($record->completed_at || ! $customer->engagement_reminders_opt_in
-                || $vehicle->customer_id !== $customer->id || $customer->email !== $attempt->recipient_email) {
-                $attempt->update(['status' => 'failed', 'failure_message' => 'Reminder, consent, ownership or recipient changed before sending.']);
-
-                return;
-            }
-            try {
-                Mail::to($attempt->recipient_email)->send(new VehicleReminderEmail($record, $customer, $vehicle, (string) tenant('workshop_name')));
-            } catch (Throwable $exception) {
-                $attempt->update(['status' => 'failed', 'failure_message' => 'Mail transport failed. Check application logs before retrying.']);
-                Log::error('Vehicle reminder email failed.', ['tenant_id' => tenant('id'), 'attempt_id' => $attempt->id, 'exception_class' => $exception::class]);
-
-                return;
-            }
-            $attempt->update(['status' => 'sent', 'sent_at' => now()]);
-        }, 1);
-        $attempt->refresh();
+        $record = VehicleReminder::query()->findOrFail($reminder);
+        $attempt = $reminders->sendManually($record, $request->user());
 
         return $attempt->status === 'sent'
             ? back()->with('success', 'Reminder accepted by the mail transport.')
@@ -201,13 +160,5 @@ class ClientEngagementController extends Controller
         abort_unless($request->user()->status === User::STATUS_ACTIVE, 403);
 
         return Customer::query()->where('portal_user_id', $request->user()->id)->firstOrFail();
-    }
-
-    private function assertSendable(VehicleReminder $record, Customer $customer, Vehicle $vehicle): void
-    {
-        if ($record->completed_at || ! $customer->engagement_reminders_opt_in
-            || $vehicle->customer_id !== $customer->id || ! filter_var($customer->email, FILTER_VALIDATE_EMAIL)) {
-            throw ValidationException::withMessages(['reminder' => 'The reminder must be open, the customer opted in with a valid email, and the vehicle still owned by that customer.']);
-        }
     }
 }

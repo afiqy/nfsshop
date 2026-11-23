@@ -48,7 +48,8 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Client engagement beta: dated portal promotions, manual loyalty points and redemption history, and consent-based manual vehicle service/renewal reminder emails.
 - [ ] Automatic visit/spend-based loyalty and configurable rewards; invoice-linked reward discounts.
 - [ ] Basic-tier loyalty add-on provisioning and entitlement from Qysoft Main.
-- [ ] Automated service/renewal reminder schedules and additional notification channels.
+- [x] Automated consent-based service/renewal reminder emails seven days before and on each due date.
+- [ ] Additional notification channels (SMS/WhatsApp); provider integration pending.
 
 ## LHDN MyInvois
 

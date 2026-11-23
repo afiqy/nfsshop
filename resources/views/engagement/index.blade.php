@@ -44,7 +44,7 @@
     {{ $promotions->links() }}
 
     <h2 class="h5">Vehicle reminders</h2>
-    <p>Dates and emails are managed manually. Close an incorrect reminder and add a replacement. No reminders are sent automatically; each send creates a new email.</p>
+    <p>Open reminders with customer email consent are emailed at 09:00 Malaysia time seven days before the due date and again on the due date. Manual sends remain available. Close an incorrect reminder and add a replacement.</p>
     <form method="POST" action="{{ route('engagement.reminders.store') }}" class="card p-3 mb-3">
         @csrf
         <label>Vehicle <select class="form-control" name="vehicle_id" required><option value="">Select a vehicle</option>
@@ -68,7 +68,7 @@
                 </div>
             @endif
             @foreach ($reminder->attempts->sortByDesc('id') as $attempt)
-                <div class="small mt-2">Attempt {{ $attempt->id }}: {{ $attempt->status }} to {{ $attempt->recipient_email }} on {{ $attempt->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} (user {{ $attempt->requested_by_user_id }}){{ $attempt->resolved_by_user_id ? ' — resolved by user '.$attempt->resolved_by_user_id : '' }}{{ $attempt->failure_message ? ' — '.$attempt->failure_message : '' }}
+                <div class="small mt-2">Attempt {{ $attempt->id }}: {{ $attempt->status }} to {{ $attempt->recipient_email }} on {{ $attempt->created_at->timezone(\App\Models\Calendar::TIMEZONE)->format('d M Y H:i') }} ({{ $attempt->requested_by_user_id ? 'user '.$attempt->requested_by_user_id : 'Automatic' }}){{ $attempt->scheduled_for ? ' — scheduled '.$attempt->scheduled_for->format('d M Y') : '' }}{{ $attempt->resolved_by_user_id ? ' — resolved by user '.$attempt->resolved_by_user_id : '' }}{{ $attempt->failure_message ? ' — '.$attempt->failure_message : '' }}
                     @if ($attempt->status === 'sending')
                         <form method="POST" action="{{ route('engagement.reminders.resolve', [$reminder->id, $attempt->id]) }}" onsubmit="return confirm('Have you checked the mail provider? The outcome may be unknown and sending again may create a duplicate.')">@csrf @method('PATCH')
                             <button class="btn btn-sm btn-outline-danger">Mark outcome unknown after checking mail provider</button>

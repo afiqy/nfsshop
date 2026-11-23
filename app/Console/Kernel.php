@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Models\Calendar;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -15,6 +16,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('audit:prune')->daily();
         $schedule->command('invoices:send-payment-reminders')->hourly()->withoutOverlapping();
         $schedule->command('appointments:send-notifications')->everyMinute()->withoutOverlapping();
+        $schedule->command('vehicles:send-reminders')->dailyAt('09:00')->timezone(Calendar::TIMEZONE)->withoutOverlapping();
     }
 
     /**

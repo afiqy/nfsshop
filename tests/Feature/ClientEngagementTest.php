@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\VehicleReminderEmail;
 use App\Models\AccountSubscription;
+use App\Models\Calendar;
 use App\Models\Customer;
 use App\Models\Promotion;
 use App\Models\SubscriptionPlan;
@@ -11,11 +12,14 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleReminder;
+use App\Models\VehicleReminderAttempt;
+use App\Services\VehicleReminderService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -108,6 +112,179 @@ class ClientEngagementTest extends TestCase
         $this->post(route('engagement.reminders.send', $reminder->id))->assertSessionHasErrors('reminder');
         $this->actingAs($admin)->put(route('customers.update', $customer->id), ['name' => 'A', 'email' => 'new@example.test'])->assertSessionHasNoErrors();
         $this->assertFalse($workshop->run(fn () => $customer->fresh()->engagement_reminders_opt_in));
+    }
+
+    public function test_scheduled_reminders_send_seven_days_before_and_on_due_date_only_once(): void
+    {
+        Mail::fake();
+        [, $workshop] = $this->workshop();
+        $today = CarbonImmutable::parse('2026-12-01', Calendar::TIMEZONE);
+        $reminders = $workshop->run(function () use ($today) {
+            $create = function (string $suffix, string $dueOn, bool $optIn = true, ?string $email = null, bool $closed = false, bool $changeOwner = false) use ($today) {
+                $customer = Customer::create([
+                    'name' => $suffix,
+                    'email' => $email ?? $suffix.'@example.test',
+                    'engagement_reminders_opt_in' => $optIn,
+                ]);
+                $owner = $changeOwner ? Customer::create(['name' => 'New owner '.$suffix, 'email' => 'new-'.$suffix.'@example.test']) : $customer;
+                $vehicle = Vehicle::create([
+                    'customer_id' => $customer->id,
+                    'plate_number' => 'PLATE'.$suffix,
+                    'chassis_number' => 'CHASSIS'.$suffix,
+                    'engine_number' => 'ENGINE'.$suffix,
+                    'brand' => 'Test',
+                    'model' => 'Car',
+                ]);
+                $reminder = VehicleReminder::create([
+                    'customer_id' => $customer->id,
+                    'vehicle_id' => $vehicle->id,
+                    'type' => 'service',
+                    'due_on' => $dueOn,
+                    'completed_at' => $closed ? $today : null,
+                ]);
+                if ($changeOwner) {
+                    $vehicle->update(['customer_id' => $owner->id]);
+                }
+
+                return $reminder;
+            };
+
+            return [
+                $create('today', $today->toDateString()),
+                $create('week', $today->addDays(7)->toDateString()),
+                $create('early', $today->addDays(8)->toDateString()),
+                $create('past', $today->subDay()->toDateString()),
+                $create('no-consent', $today->toDateString(), false),
+                $create('invalid-email', $today->toDateString(), true, 'not-an-email'),
+                $create('closed', $today->toDateString(), true, 'closed@example.test', true),
+                $create('changed-owner', $today->toDateString(), true, 'changed@example.test', false, true),
+            ];
+        });
+
+        $this->assertSame(0, $workshop->run(fn () => app(VehicleReminderService::class)->processDate($today)));
+        Mail::assertSent(VehicleReminderEmail::class, 2);
+        $this->assertSame(2, $workshop->run(fn () => VehicleReminderAttempt::query()->count()));
+        $this->assertSame(0, $workshop->run(fn () => app(VehicleReminderService::class)->processDate($today)));
+        Mail::assertSent(VehicleReminderEmail::class, 2);
+        $this->assertSame(2, $workshop->run(fn () => VehicleReminderAttempt::query()->count()));
+        $this->assertSame(['today@example.test', 'week@example.test'], $workshop->run(
+            fn () => VehicleReminderAttempt::query()->orderBy('id')->pluck('recipient_email')->all()
+        ));
+        $this->assertCount(8, $reminders);
+    }
+
+    public function test_reminder_command_skips_workshops_without_usable_subscriptions(): void
+    {
+        Mail::fake();
+        $date = CarbonImmutable::parse('2026-12-01 09:00', Calendar::TIMEZONE);
+        $this->travelTo($date);
+        [, $activeWorkshop] = $this->workshop();
+        [$expiredAdmin, $expiredWorkshop] = $this->workshop();
+        foreach ([$activeWorkshop, $expiredWorkshop] as $index => $workshop) {
+            $workshop->run(function () use ($index, $date) {
+                $customer = Customer::create([
+                    'name' => 'Customer '.$index,
+                    'email' => 'customer-'.$index.'@example.test',
+                    'engagement_reminders_opt_in' => true,
+                ]);
+                $vehicle = Vehicle::create([
+                    'customer_id' => $customer->id,
+                    'plate_number' => 'SUB'.$index,
+                    'chassis_number' => 'SUBCHASSIS'.$index,
+                    'engine_number' => 'SUBENGINE'.$index,
+                    'brand' => 'Test',
+                    'model' => 'Car',
+                ]);
+                VehicleReminder::create([
+                    'customer_id' => $customer->id,
+                    'vehicle_id' => $vehicle->id,
+                    'type' => 'registration',
+                    'due_on' => $date->toDateString(),
+                ]);
+            });
+        }
+        AccountSubscription::query()->where('user_id', $expiredAdmin->id)->update([
+            'current_period_ends_at' => $date->subDay(),
+        ]);
+
+        $this->artisan('vehicles:send-reminders')->assertSuccessful();
+
+        Mail::assertSent(VehicleReminderEmail::class, 1);
+        $this->assertSame(1, $activeWorkshop->run(fn () => VehicleReminderAttempt::query()->count()));
+        $this->assertSame(0, $expiredWorkshop->run(fn () => VehicleReminderAttempt::query()->count()));
+    }
+
+    public function test_scheduled_mail_failure_is_recorded_and_not_retried_automatically(): void
+    {
+        [, $workshop] = $this->workshop();
+        $today = CarbonImmutable::parse('2026-12-01', Calendar::TIMEZONE);
+        $reminder = $workshop->run(function () use ($today) {
+            $customer = Customer::create([
+                'name' => 'Opted-in customer',
+                'email' => 'client@example.test',
+                'engagement_reminders_opt_in' => true,
+            ]);
+            $vehicle = Vehicle::create([
+                'customer_id' => $customer->id,
+                'plate_number' => 'ERROR1',
+                'chassis_number' => 'ERRORCHASSIS',
+                'engine_number' => 'ERRORENGINE',
+                'brand' => 'Test',
+                'model' => 'Car',
+            ]);
+
+            return VehicleReminder::create([
+                'customer_id' => $customer->id,
+                'vehicle_id' => $vehicle->id,
+                'type' => 'service',
+                'due_on' => $today->toDateString(),
+            ]);
+        });
+        Mail::shouldReceive('to')->once()->andThrow(new \RuntimeException('private transport error'));
+
+        $this->assertSame(1, $workshop->run(fn () => app(VehicleReminderService::class)->processDate($today)));
+        $attempt = $workshop->run(fn () => $reminder->attempts()->sole());
+        $this->assertSame('failed', $attempt->status);
+        $this->assertNull($attempt->requested_by_user_id);
+        $this->assertSame($today->toDateString(), $attempt->scheduled_for->toDateString());
+        $this->assertSame(0, $workshop->run(fn () => app(VehicleReminderService::class)->processDate($today)));
+    }
+
+    public function test_scheduled_reminder_skips_when_a_prior_attempt_has_unknown_outcome(): void
+    {
+        Mail::fake();
+        [, $workshop] = $this->workshop();
+        $today = CarbonImmutable::parse('2026-12-01', Calendar::TIMEZONE);
+        $workshop->run(function () use ($today) {
+            $customer = Customer::create([
+                'name' => 'Opted-in customer',
+                'email' => 'client@example.test',
+                'engagement_reminders_opt_in' => true,
+            ]);
+            $vehicle = Vehicle::create([
+                'customer_id' => $customer->id,
+                'plate_number' => 'UNKNOWN1',
+                'chassis_number' => 'UNKNOWNCHASSIS',
+                'engine_number' => 'UNKNOWNENGINE',
+                'brand' => 'Test',
+                'model' => 'Car',
+            ]);
+            $reminder = VehicleReminder::create([
+                'customer_id' => $customer->id,
+                'vehicle_id' => $vehicle->id,
+                'type' => 'service',
+                'due_on' => $today->toDateString(),
+            ]);
+            $reminder->attempts()->create([
+                'recipient_email' => $customer->email,
+                'status' => 'unknown',
+                'failure_message' => 'Provider outcome could not be confirmed.',
+            ]);
+        });
+
+        $this->assertSame(0, $workshop->run(fn () => app(VehicleReminderService::class)->processDate($today)));
+        Mail::assertNothingSent();
+        $this->assertSame(1, $workshop->run(fn () => VehicleReminderAttempt::query()->count()));
     }
 
     public function test_workshop_and_staff_isolation(): void
