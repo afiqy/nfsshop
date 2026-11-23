@@ -12,6 +12,8 @@ class UserProfile extends Model
 
     protected $fillable = [
         'user_id',
+        'first_name',
+        'last_name',
         'avatar',
         'preferred_language',
         'timezone',
@@ -23,6 +25,11 @@ class UserProfile extends Model
     protected $casts = [
         'notification_preferences' => 'array',
     ];
+
+    public function getConnectionName()
+    {
+        return config('tenancy.database.central_connection');
+    }
 
     public function user(): BelongsTo
     {

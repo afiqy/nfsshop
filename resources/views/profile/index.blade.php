@@ -37,8 +37,8 @@
             <!-- avatar -->
             <div class="col-md-3 text-center border-right mb-4 mb-md-0">
                 <div class="avatar-container position-relative d-inline-block">
-                    @if(optional($profile)->avatar_url)
-                    <img src="{{ asset($profile->avatar_url) }}"
+                    @if($profile->avatar)
+                    <img src="{{ route('profile.avatar') }}"
                         alt="Avatar"
                         class="rounded-circle img-thumbnail shadow-sm"
                         style="width: 150px; height: 150px; object-fit: cover;">
@@ -100,6 +100,30 @@
 </div>
 <hr class="my-4">
 
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <h2 class="h5">Account preferences</h2>
+        <p>Language: {{ $profile->preferred_language === 'ms' ? 'Bahasa Melayu' : 'English' }}; timezone: {{ $profile->timezone }}; preferred contact: {{ $profile->preferred_contact_method ?: 'Not set' }}.</p>
+        <p>These preferences are saved for future use. The current interface remains in English and workshop dates use Malaysia time. Contact channel selection does not enable SMS or WhatsApp delivery.</p>
+        @if ($user->role === \App\Models\User::ROLE_CLIENT)
+            <p>For available vehicle reminder email consent, use <a href="{{ route('client.portal') }}">your customer portal</a>. Invoice emails and payment reminders are managed by the workshop.</p>
+        @endif
+    </div>
+</div>
+@unless (session()->has('impersonator_id'))
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <h2 class="h5">Change account email</h2>
+        <p>A confirmation link will be sent to the new address. Your workshop customer record and its reminder email are separate.</p>
+        <form action="{{ route('profile.email.request') }}" method="POST">
+            @csrf
+            <div class="form-group"><label for="new_email">New email</label><input id="new_email" type="email" name="new_email" class="form-control" value="{{ old('new_email') }}" maxlength="255" required></div>
+            <div class="form-group"><label for="email_password">Current password</label><input id="email_password" type="password" name="current_password" class="form-control" autocomplete="current-password" required></div>
+            <button type="submit" class="btn btn-primary">Send confirmation link</button>
+        </form>
+    </div>
+</div>
+@endunless
 <div class="card shadow mb-4">
     <a href="#collapsePasswordCard" class="d-block card-header py-3 collapsed" data-bs-toggle="collapse" data-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapsePasswordCard" data-bs-target="#collapsePasswordCard">
         <h6 class="m-0 font-weight-bold text-primary">

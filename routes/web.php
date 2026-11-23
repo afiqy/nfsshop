@@ -12,6 +12,7 @@ use App\Http\Controllers\CustomerAccountController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\DeviceSessionController;
+use App\Http\Controllers\EmailChangeController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InvoiceAdjustmentController;
 use App\Http\Controllers\InvoiceController;
@@ -131,6 +132,10 @@ Route::middleware(['auth', 'check.lockout', 'session.timeout'])->group(function 
         Route::get('/', [UserController::class, 'index'])->name('index');
         Route::get('/edit', [UserController::class, 'editProfile'])->name('edit');
         Route::put('/edit', [UserController::class, 'updateProfile'])->name('update');
+        Route::get('/avatar', [UserController::class, 'avatar'])->name('avatar');
+        Route::post('/email', [EmailChangeController::class, 'requestChange'])->middleware('throttle:5,1')->name('email.request');
+        Route::get('/email/confirm/{token}', [EmailChangeController::class, 'show'])->name('email.confirm');
+        Route::post('/email/confirm', [EmailChangeController::class, 'confirm'])->middleware('throttle:10,1')->name('email.confirm.submit');
         Route::patch('/password', [UserController::class, 'updatePassword'])->name('password.update');
     });
 });

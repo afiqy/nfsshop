@@ -14,6 +14,8 @@ use App\Models\VehicleReminder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -72,6 +74,7 @@ class ClientEngagementTest extends TestCase
     public function test_reminders_require_consent_and_current_ownership_and_record_delivery(): void
     {
         Mail::fake();
+        Storage::fake('profile_avatars');
         [$admin, $workshop] = $this->workshop();
         $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'tenant_id' => $workshop->id]);
         [$customer, $vehicle, $other] = $workshop->run(function () use ($client) {
@@ -87,6 +90,12 @@ class ClientEngagementTest extends TestCase
         Mail::assertNothingSent();
         $this->actingAs($client)->put(route('client.reminder-preference'), ['opt_in' => 1])->assertSessionHasNoErrors();
         $this->get(route('client.engagement'))->assertOk()->assertSee('Oil')->assertSee('TEST1');
+        $image = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aN8AAAAASUVORK5CYII=');
+        $this->put(route('profile.update'), ['first_name' => 'Client', 'last_name' => 'Test',
+            'preferred_language' => 'en', 'timezone' => 'UTC',
+            'avatar' => UploadedFile::fake()->createWithContent('avatar.png', $image)])->assertSessionHasNoErrors();
+        $this->get(route('profile.avatar'))->assertOk();
+        $this->get(route('client.portal'))->assertOk()->assertSee('Vehicle service and renewal reminder emails');
         $this->actingAs($admin)->post(route('engagement.reminders.send', $reminder->id))->assertSessionHasNoErrors();
         Mail::assertSent(VehicleReminderEmail::class, fn ($mail) => $mail->hasTo('a@example.test')
             && str_contains($mail->render(), 'TEST1')

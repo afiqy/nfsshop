@@ -10,22 +10,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class UserController extends Controller
 {
     public function index()
     {
         $user = Auth::user();
-        $name = explode(' ', $user->name, 2);
-        $profile = UserProfile::firstOrCreate(
-            ['user_id' => $user->id],
-            ['user_id' => $user->id, 'first_name' => $name[0], 'last_name' => $name[1] ?? null, 'preferred_language' => 'en', 'timezone' => 'UTC']
-        );
-        $profile->first_name = $profile->first_name ?: $name[0];
-        $profile->last_name = $profile->last_name ?: ($name[1] ?? null);
-        $profile->save();
-        //TODO: need to add more details
+        $profile = $this->profileFor($user);
 
         return view('profile.index', compact('user', 'profile'));
     }
@@ -33,49 +30,105 @@ class UserController extends Controller
     public function editProfile()
     {
         $user = auth()->user();
-        $name = explode(' ', $user->name, 2);
-        $profile = UserProfile::where('user_id', $user->id)->first();
-        $profile->first_name = $name[0];
-        $profile->last_name = $name[1] ?? null;
-        //TODO: need to add more details
+        $profile = $this->profileFor($user);
 
         return view('profile.edit', compact('user', 'profile'));
     }
 
     public function updateProfile(Request $request)
     {
-        $request->validate([
-            'preferred_language' => 'nullable|string|max:10',
-            'timezone' => 'nullable|string|max:50',
-            'preferred_contact_method' => 'nullable|in:email,sms,whatsapp',
-            'notification_preferences' => 'nullable|array',
-            'avatar' => 'nullable|image|max:2048',
-            'bio' => 'nullable|string|max:2000',
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'max:120'],
+            'last_name' => ['nullable', 'string', 'max:120'],
+            'phone' => ['nullable', 'string', 'max:255'],
+            'preferred_language' => ['required', Rule::in(['en', 'ms'])],
+            'timezone' => ['required', 'timezone'],
+            'preferred_contact_method' => ['nullable', Rule::in(['email', 'sms', 'whatsapp'])],
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_avatar' => ['nullable', 'boolean'],
+            'bio' => ['nullable', 'string', 'max:2000'],
         ]);
-
-        try {
-            $profile = UserProfile::where('user_id', $request->user()->id)->first();
-
-            if ($request->hasFile('avatar')) {
-                $profile->avatar = $request->file('avatar')->store('avatars', 'public');
+        $newAvatar = null;
+        if ($request->hasFile('avatar')) {
+            $newAvatar = $request->file('avatar')->store('profile-avatars', 'profile_avatars');
+            if ($newAvatar === false) {
+                Log::error('Profile avatar upload failed.', ['user_id' => $request->user()->id]);
+                throw ValidationException::withMessages(['avatar' => 'Avatar upload failed. Please try again.']);
             }
-            //TODO: need to fix this, update name didn't work properly.
-            $profile->fill([
-                'first_name' => $request->input('first_name', $profile->first_name),
-                'last_name' => $request->input('last_name', $profile->last_name),
-                'preferred_language' => $request->input('preferred_language', $profile->preferred_language),
-                'timezone' => $request->input('timezone', $profile->timezone),
-                'preferred_contact_method' => $request->input('preferred_contact_method', $profile->preferred_contact_method),
-                'bio' => $request->input('bio', $profile->bio),
-            ]);
+        }
+        try {
+            $oldAvatar = DB::connection(config('tenancy.database.central_connection'))->transaction(function () use ($request, $data, $newAvatar) {
+                $user = User::on(config('tenancy.database.central_connection'))->lockForUpdate()->findOrFail($request->user()->id);
+                $profile = $this->profileFor($user);
+                $oldAvatar = $profile->avatar;
+                $user->update([
+                    'name' => trim($data['first_name'].' '.($data['last_name'] ?? '')),
+                    'phone' => $data['phone'] ?? null,
+                ]);
+                $profile->fill([
+                    'first_name' => $data['first_name'],
+                    'last_name' => $data['last_name'] ?? '',
+                    'preferred_language' => $data['preferred_language'],
+                    'timezone' => $data['timezone'],
+                    'preferred_contact_method' => $data['preferred_contact_method'] ?? null,
+                    'bio' => $data['bio'] ?? null,
+                    'avatar' => $newAvatar ?? ($request->boolean('remove_avatar') ? null : $oldAvatar),
+                ])->save();
 
-            $profile->notification_preferences = $request->input('notification_preferences', $profile->notification_preferences);
-            $profile->save();
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'An error occurred while updating your profile. Please try again.']);     
+                return $oldAvatar;
+            });
+        } catch (Throwable $exception) {
+            if ($newAvatar) {
+                $this->deleteAvatar($newAvatar);
+            }
+            throw $exception;
+        }
+        if (($newAvatar || $request->boolean('remove_avatar')) && $oldAvatar) {
+            $this->deleteAvatar($oldAvatar);
         }
 
         return redirect()->route('profile.index')->with('success', 'Profile updated.');
+    }
+
+    public function avatar(Request $request): BinaryFileResponse
+    {
+        $path = $this->profileFor($request->user())->avatar;
+        abort_unless($path && preg_match('/\A(profile-avatars|avatars)\/[a-zA-Z0-9]{40}\.(jpg|jpeg|png|webp)\z/i', $path), 404);
+        $disk = Storage::disk('profile_avatars');
+        $path = str_starts_with($path, 'avatars/') ? 'public/'.$path : $path;
+        abort_unless($disk->exists($path), 404);
+
+        return response()->file($disk->path($path), [
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function profileFor(User $user): UserProfile
+    {
+        $name = explode(' ', $user->name, 2);
+
+        $profile = UserProfile::firstOrCreate(
+            ['user_id' => $user->id],
+            ['first_name' => $name[0], 'last_name' => $name[1] ?? '', 'preferred_language' => 'en', 'timezone' => 'UTC']
+        );
+        if (! $profile->first_name) {
+            $profile->first_name = $name[0];
+            $profile->last_name = $name[1] ?? '';
+        }
+
+        return $profile;
+    }
+
+    private function deleteAvatar(string $path): void
+    {
+        if (! preg_match('/\A(profile-avatars|avatars)\/[a-zA-Z0-9]{40}\.(jpg|jpeg|png|webp)\z/i', $path)) {
+            return;
+        }
+        $disk = Storage::disk('profile_avatars');
+        $path = str_starts_with($path, 'avatars/') ? 'public/'.$path : $path;
+        if (! $disk->delete($path)) {
+            Log::warning('Old profile avatar could not be removed.', ['path' => $path]);
+        }
     }
 
     public function updatePassword(Request $request, PasswordCredentials $credentials)

@@ -8,7 +8,8 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Password recovery and password policy: email reset links, consistent password validation, and web-session invalidation after password changes.
 - [x] Login CAPTCHA after repeated failures, optional authenticator verification for selected high-privilege actions, and web device-session management.
 - [ ] Full authentication: Google/Microsoft SSO and linked identity management.
-- [ ] Profile and account preferences: full contact/profile editing, avatar, language, timezone and notification settings.
+- [x] Profile beta: personal name, phone, bio and avatar editing; verified account email changes; saved language, timezone and communication preferences; link to existing client reminder consent.
+- [ ] Complete profile and account preferences: workshop logo uploads, applied language/timezone preferences and remaining notification settings.
 - [x] Staff account administration beta: workshop-scoped email invitations for mechanics or full workshop admins; activation/suspension, role management and optional read-only customer/vehicle lists.
 - [ ] Additional staff permissions (including invoice and payment recording), existing-account invitations and self-registration approval.
 - [x] Client account and self-service portal: workshop-admin-confirmed email linking, client-owned vehicle records (five self-service vehicles), approval requests for additional vehicles, and read-only service history.
@@ -115,8 +116,9 @@ This checklist is based on the documents in [`System Requirement/`](../../System
 - [x] Client engagement beta with portal promotions, manual points and consent-based manual vehicle reminders.
 - [x] Email password recovery and consistent password validation, with web-session invalidation on password changes.
 - [x] Google reCAPTCHA after repeated login failures, optional authenticator verification for selected privileged actions, and device-session revocation.
+- [x] Profile editing with private avatar uploads, verified account email changes and saved personal preferences; existing customer reminder consent remains in the portal.
 
 ## Next recommended module
 
-- [ ] Profile and account preferences: full contact/profile editing, avatar, language, timezone and notification settings.
+- [ ] Additional staff permissions (including invoice and payment recording), existing-account invitations and self-registration approval.
 
